@@ -356,6 +356,7 @@ public:
     HRESULT label(std::wstring_view value, D2D1_RECT_F rect, D2D1_COLOR_F ink,
         float size = 12, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL, bool require_fit = false)
     {
+        if (value.empty()) { return S_OK; }
         ComPtr<IDWriteTextLayout> layout;
         HRESULT hr = write->CreateTextLayout(value.data(), static_cast<UINT32>(value.size()), labels.Get(),
             rect.right - rect.left, rect.bottom - rect.top, layout.GetAddressOf());

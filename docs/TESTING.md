@@ -138,6 +138,9 @@ frames cover suggestions on, session-hide and quiet suppression and never
 echo practice/app text. Status labels must fit without ellipsis.
 Every vocabulary word is measured in lower/title/upper case with DirectWrite
 to reject clipping or ambiguous ellipsis.
+Absent production hints are tested as default-constructed string views, not only
+empty literals: quiet suppression and voice states must not pass a null text
+pointer to DirectWrite or fail with `E_INVALIDARG`.
 
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and

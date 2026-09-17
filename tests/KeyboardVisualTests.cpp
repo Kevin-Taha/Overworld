@@ -513,6 +513,28 @@ void hidden_presentation()
     check(painted, "UpdateLayeredWindow must accept the actual premultiplied frame");
     check(focus_unchanged, "layered presentation must not change foreground or focus");
 }
+
+void absent_prediction_hint()
+{
+    FakeTheme theme;
+    KeyboardVisual visual(&theme);
+    Fixture fixture;
+    KeyboardVisualState state{true, false, {}, {}};
+    state.word_suggestions = true;
+    check(state.prediction_hint.data() == nullptr, "production absent hint is a default string_view, not an empty literal");
+    for (const auto phase : {VoicePhase::Idle, VoicePhase::Loading, VoicePhase::Listening, VoicePhase::Error}) {
+        state.voice = {phase, 0, {}};
+        render(visual, keyboard_visual_width, keyboard_prediction_height, fixture.model, state);
+        const auto absent = visual.frame();
+        const std::vector<std::uint32_t> pixels(absent.pixels.begin(), absent.pixels.end());
+        state.prediction_hint = L"";
+        render(visual, keyboard_visual_width, keyboard_prediction_height, fixture.model, state);
+        check(std::equal(pixels.begin(), pixels.end(), visual.frame().pixels.begin()),
+            "absent and empty hints must produce identical valid frames");
+        state.prediction_hint = {};
+    }
+    std::cout << "PASS absent production prediction hints, including voice and quiet suppression\n";
+}
 }
 
 int wmain(int argc, wchar_t** argv)
@@ -524,6 +546,7 @@ int wmain(int argc, wchar_t** argv)
             directory = argv[1];
             std::filesystem::create_directories(directory);
         }
+        absent_prediction_hint();
         voice_frames(directory);
         prediction_frames(directory);
         FakeTheme source;
