@@ -1,6 +1,7 @@
 #include "KeyboardDelivery.h"
 #include "Desktop.h"
 #include "PredictionPractice.h"
+#include "KeyboardPreviewInput.h"
 
 #include <cmath>
 #include <deque>
@@ -179,6 +180,86 @@ int main()
         body(); ++count; std::cout << "PASS " << name << '\n';
     };
     try {
+        test("reserved controller window messages preserve practice before and after XInput actions", [] {
+            constexpr std::array<UINT, 4> messages{WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP};
+            constexpr std::array<std::pair<unsigned, unsigned>, 2> ranges{{
+                {VK_NAVIGATION_VIEW, VK_NAVIGATION_CANCEL}, {VK_GAMEPAD_A, VK_GAMEPAD_RIGHT_THUMBSTICK_LEFT}}};
+            for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+                for (const auto [first, last] : ranges) {
+                    for (unsigned key = first; key <= last; ++key) {
+                        for (auto message : messages) {
+                            Fixture f; f.fake.preview = true; f.keyboard.set_input_mode(mode); f.prediction_word();
+                            unsigned closed = 0, suspended = 0;
+                            const auto dispatch = [&] {
+                                return dispatch_keyboard_preview_input(message, key, true, [] { return true; },
+                                    [&] { ++closed; }, [&] {
+                                        ++suspended;
+                                        f.keyboard.dismiss();
+                                        f.fake.field.clear();
+                                    });
+                            };
+                            const auto original = f.keyboard.prediction_view();
+                            check(!dispatch() && f.keyboard.prediction_view() == original && f.fake.field == L" he",
+                                "reserved message before XInput preserves current prefix and generation");
+                            f.tap(0x0008);
+                            const auto selected = f.keyboard.prediction_view();
+                            check(selected.selected == 1 && !dispatch() && f.keyboard.prediction_view() == selected,
+                                "reserved message after selection preserves the selected suggestion");
+                            f.tap(0x0001);
+                            check(f.fake.field == L" help" && !dispatch() && f.fake.field == L" help",
+                                "reserved message after acceptance cannot erase completed output");
+                            f.tap(0x0001);
+                            check(f.fake.field == L" help" && !closed && !suspended,
+                                "message dispatch never cancels practice or replays controller acceptance");
+                        }
+                    }
+                }
+            }
+        });
+        test("ordinary window key messages still clear practice and focused Escape still closes", [] {
+            constexpr std::array<UINT, 4> messages{WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP};
+            for (unsigned key = 1; key < 256; ++key) {
+                if (!live::physical_async_key(key)) { continue; }
+                for (auto message : messages) {
+                    PredictionPractice practice; seed_prediction_demo(practice, KeyboardInputMode::FaceButtons);
+                    unsigned closed = 0, suspended = 0;
+                    const bool handled = dispatch_keyboard_preview_input(message, key, true, [] { return true; },
+                        [&] { ++closed; }, [&] { ++suspended; practice.clear(); });
+                    if (message == WM_KEYDOWN && key == VK_ESCAPE) {
+                        check(handled && closed == 1 && !suspended, "focused Escape down exits without falling through");
+                    } else {
+                        check(!handled && !closed && suspended == 1 && practice.sample().empty()
+                            && !practice.keyboard().visible() && !practice.keyboard().prediction_view().count,
+                            "ordinary down/up/system key message resets visible practice and prediction");
+                    }
+                }
+            }
+            for (bool active : {false, true}) {
+                for (bool practice : {false, true}) {
+                    for (auto message : messages) {
+                        unsigned closed = 0, suspended = 0;
+                        const bool handled = dispatch_keyboard_preview_input(message, VK_ESCAPE, practice,
+                            [&] { return active; }, [&] { ++closed; }, [&] { ++suspended; });
+                        const bool exits = message == WM_KEYDOWN && active;
+                        check(handled == exits && closed == static_cast<unsigned>(exits)
+                            && suspended == static_cast<unsigned>(practice && !exits),
+                            "Escape focus and non-practice demo/normal-preview behavior is preserved");
+                    }
+                }
+            }
+            for (auto message : {WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN, WM_MOUSEWHEEL}) {
+                PredictionPractice practice; seed_prediction_demo(practice, KeyboardInputMode::FaceButtons);
+                bool closed = false;
+                check(!dispatch_keyboard_preview_input(message, 0, true, [] { return true; },
+                    [&] { closed = true; }, [&] { practice.clear(); }) && !closed && practice.sample().empty(),
+                    "ordinary mouse button and wheel messages retain practice reset");
+            }
+            unsigned suspended = 0;
+            check(!dispatch_keyboard_preview_input(WM_KEYDOWN, 'A', false, [] { return true; },
+                [] {}, [&] { ++suspended; }) && !suspended, "normal keyboard preview and synthetic demo do not gain practice reset");
+            check(!dispatch_keyboard_preview_input(WM_PAINT, 'A', true, [] { return true; },
+                [] {}, [&] { ++suspended; }) && !suspended, "non-input messages do not reset practice");
+        });
         test("authored suggestions are bounded case-preserving and require a known word boundary", [] {
             for (const auto prefix : {U"he", U"He", U"HE"}) {
                 WordPrediction prediction;

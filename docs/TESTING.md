@@ -33,6 +33,12 @@ and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
 target/context/physical/device changes, queue limits, both controller modes,
 mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
 Native boundary prediction stays default-off and never receives prefix hints.
+Pure window-message dispatch regressions cover key down/up and system-key
+down/up across both reserved `VK_GAMEPAD` and `VK_NAVIGATION` ranges before and
+after XInput selection/acceptance. They retain ordinary keyboard/mouse takeover
+and focused Escape exit, without creating windows, installing hooks or injecting
+input. Preview key classification reuses the existing `physical_async_key`
+reserved-range policy, not guessed injection flags.
 
 ## Render-only checks
 

@@ -1,6 +1,7 @@
 #include "KeyboardPreview.h"
 
 #include "Keyboard.h"
+#include "KeyboardPreviewInput.h"
 #include "KeyboardVisual.h"
 #include "PredictionPractice.h"
 #include "XInputReader.h"
@@ -155,6 +156,10 @@ private:
     }
 
     LRESULT dispatch(HWND window, UINT message, WPARAM wparam, LPARAM lparam) {
+        if (dispatch_keyboard_preview_input(message, wparam, prediction_ && !demo_,
+                [&] { return accepts_input(); }, [&] { DestroyWindow(window); }, [&] { suspend(); })) {
+            return 0;
+        }
         switch (message) {
         case WM_TIMER:
             if (wparam == refresh_timer && error_.empty()) {
@@ -193,20 +198,6 @@ private:
             }
             InvalidateRect(window, nullptr, FALSE);
             return 0;
-        case WM_KEYDOWN:
-            if (wparam == VK_ESCAPE && accepts_input()) {
-                DestroyWindow(window);
-                return 0;
-            }
-            if (prediction_ && !demo_) { suspend(); }
-            break;
-        case WM_SYSKEYDOWN:
-        case WM_LBUTTONDOWN:
-        case WM_RBUTTONDOWN:
-        case WM_MBUTTONDOWN:
-        case WM_MOUSEWHEEL:
-            if (prediction_ && !demo_) { suspend(); }
-            break;
         case WM_MOUSEMOVE:
             if (prediction_ && !demo_ && mouse_position_ && *mouse_position_ != lparam) { suspend(); }
             mouse_position_ = lparam;
