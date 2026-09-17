@@ -111,7 +111,8 @@ DWORD WINAPI Reader::worker(void* context)
             }
             if (complete && state->allowed(target, epoch, expires)) {
                 std::lock_guard lock(state->mutex);
-                if (!state->stop.load() && state->generation.load() == epoch) {
+                if (!state->stop.load() && state->generation.load() == epoch
+                    && reader_lease_current(expires, state->backend->now())) {
                     state->latest = next;
                     state->publications.fetch_add(1);
                 }

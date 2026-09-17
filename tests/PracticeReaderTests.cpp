@@ -23,7 +23,11 @@ public:
         if (!entered || !release || !returned || !rejected) { throw std::runtime_error("fake events unavailable"); }
     }
     ~Fake() override { CloseHandle(entered); CloseHandle(release); CloseHandle(returned); CloseHandle(rejected); }
-    Tick now() override { return time.load(); }
+    Tick now() override
+    {
+        if (expire_publication.load() && last_slot.load() && post_last_clocks.fetch_add(1) == 2) { time.store(1051); }
+        return time.load();
+    }
     bool focused(HWND) override
     {
         const bool value = foreground.load();
@@ -40,6 +44,7 @@ public:
             SetEvent(returned);
         }
         if (index == 3 && revoke_last.load()) { foreground.store(false); }
+        if (index == 3) { last_slot.store(true); }
         Controller result;
         result.connection = Connection::Connected;
         result.connection_epoch = index + 1;
@@ -50,6 +55,8 @@ public:
     HANDLE entered = nullptr, release = nullptr, returned = nullptr, rejected = nullptr;
     std::atomic<Tick> time{1000};
     std::atomic<bool> foreground{true}, block{true}, expired{false}, repeat{false}, revoke_last{false};
+    std::atomic<bool> expire_publication{false}, last_slot{false};
+    std::atomic<unsigned> post_last_clocks{0};
     std::array<std::atomic<unsigned>, slot_count> calls{};
 };
 HWND owned_identity() { return reinterpret_cast<HWND>(static_cast<std::uintptr_t>(1)); }
@@ -126,6 +133,20 @@ void publication_gate()
     check(reader.stop(), "publication fake stops");
     check(backend->calls[3].load() == 1 && reader.publications() == 0, "focus rechecked after final slot before publication");
 }
+void publication_expiry()
+{
+    auto backend = std::make_shared<Fake>();
+    backend->block.store(false);
+    backend->expire_publication.store(true);
+    Reader reader(backend);
+    check(reader.start(), "publication expiry fake starts");
+    reader.authorize(owned_identity());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (backend->post_last_clocks.load() < 3 && std::chrono::steady_clock::now() < deadline) { Sleep(1); }
+    check(reader.stop(), "publication expiry fake stops");
+    check(backend->post_last_clocks.load() >= 3 && reader.publications() == 0,
+        "lease expiring between final focus check and publication lock prevents publication");
+}
 void stopped_timeout()
 {
     auto backend = std::make_shared<Fake>();
@@ -162,7 +183,7 @@ void retained_lifetime()
 }
 int main()
 {
-    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); stopped_timeout(); retained_lifetime(); }
+    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); publication_expiry(); stopped_timeout(); retained_lifetime(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS fake per-slot revocation, focus loss, deadlines, bounded stop, and retained-state lifetime; no XInput backend linked.\n";
 }
