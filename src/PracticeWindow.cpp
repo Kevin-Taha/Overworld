@@ -172,6 +172,14 @@ public:
         const bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
         if (!keys.observe(model, static_cast<unsigned>(value), down)) { return true; }
         fence();
+        if (!down && value == VK_SPACE && scene_space) {
+            scene_space = false;
+            if (GetDlgCtrlID(target) == Scene && !model.help() && !model.keyboard_open()) { model.primary_local(false); }
+            else { model.cancel_local(); }
+            local_command();
+            update();
+            return true;
+        }
         if (down && (data & (LPARAM{1} << 30)) == 0) {
             if (value == VK_F1) { command(Help); return true; }
             if (value == VK_ESCAPE) {
@@ -203,7 +211,7 @@ public:
                 default: break;
                 }
             }
-            if (value == VK_SPACE) { model.primary_local(down); }
+            if (value == VK_SPACE && down) { scene_space = true; model.primary_local(true); }
             model.move_local(point);
         }
         local_command();
@@ -221,6 +229,11 @@ public:
     static LRESULT scene_dispatch(HWND child, UINT message, WPARAM wparam, LPARAM lparam, Impl& self)
     {
         if (message == WM_NCDESTROY) { RemoveWindowSubclass(child, scene_proc, 1); }
+        if (message == WM_KILLFOCUS && (self.model.local_hold() || self.model.dragging())) {
+            self.fence();
+            self.model.cancel_local();
+            self.update();
+        }
         if (!self.source || self.model.help() || !self.focused()) { return DefSubclassProc(child, message, wparam, lparam); }
         switch (message) {
         case WM_MOUSEMOVE: case WM_LBUTTONDOWN: case WM_LBUTTONUP: case WM_RBUTTONDOWN: case WM_RBUTTONUP: {
@@ -284,7 +297,7 @@ public:
         case WM_ACTIVATE:
             if (LOWORD(wparam) == WA_INACTIVE) {
                 if (source) { source->authorize(nullptr); }
-                keys.reset(); mouse_held = false; model.focus(false, now());
+                keys.reset(); mouse_held = scene_space = false; model.focus(false, now());
             }
             return 0;
         case WM_ENTERSIZEMOVE: case WM_ENTERMENULOOP:
@@ -363,6 +376,20 @@ public:
         }
         return DefWindowProcW(window, message, wparam, lparam);
     }
+    bool pretranslate(const MSG& message)
+    {
+        const bool owned = message.hwnd == window || IsChild(window, message.hwnd);
+        if (owned && (message.message == WM_KEYDOWN || message.message == WM_KEYUP
+            || message.message == WM_SYSKEYDOWN || message.message == WM_SYSKEYUP)) {
+            return key(message.message, message.wParam, message.lParam, message.hwnd);
+        }
+        if (owned && message.message >= WM_MOUSEFIRST && message.message <= WM_MOUSELAST) {
+            physical();
+            mouse_held = (GET_KEYSTATE_WPARAM(message.wParam)
+                & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2)) != 0;
+        }
+        return false;
+    }
     int run(int)
     {
         if (!source) { fail(L"A render-only practice window cannot start an interactive session."); return 1; }
@@ -381,15 +408,7 @@ public:
         MSG message{};
         int status = 0;
         while ((status = static_cast<int>(GetMessageW(&message, nullptr, 0, 0))) > 0) {
-            const bool owned = message.hwnd == window || IsChild(window, message.hwnd);
-            if (owned && (message.message == WM_KEYDOWN || message.message == WM_KEYUP
-                || message.message == WM_SYSKEYDOWN || message.message == WM_SYSKEYUP)) {
-                if (key(message.message, message.wParam, message.lParam, message.hwnd)) { continue; }
-            } else if (owned && message.message >= WM_MOUSEFIRST && message.message <= WM_MOUSELAST) {
-                physical();
-                mouse_held = (GET_KEYSTATE_WPARAM(message.wParam)
-                    & (MK_LBUTTON | MK_RBUTTON | MK_MBUTTON | MK_XBUTTON1 | MK_XBUTTON2)) != 0;
-            }
+            if (pretranslate(message)) { continue; }
             if (!IsDialogMessageW(window, &message)) { TranslateMessage(&message); DispatchMessageW(&message); }
         }
         if (status < 0) { fail(L"The practice message loop failed."); }
@@ -398,7 +417,7 @@ public:
     HINSTANCE instance = nullptr;
     HWND window = nullptr;
     ControllerSource* source = nullptr;
-    bool registered = false, mouse_held = false, tracking = false, running = false;
+    bool registered = false, mouse_held = false, tracking = false, running = false, scene_space = false;
     unsigned group = 0;
     LocalKeys keys;
     Model model;
@@ -411,6 +430,7 @@ Window::~Window() = default;
 bool Window::create(HINSTANCE instance, ControllerSource* source) { return impl_->create(instance, source); }
 int Window::run(int show) { return impl_->run(show); }
 bool Window::update(std::optional<AppPalette> palette) { return impl_->update(palette); }
+bool Window::pretranslate(const MSG& message) { return impl_->pretranslate(message); }
 HWND Window::handle() const { return impl_->window; }
 Model& Window::model() { return impl_->model; }
 Visual& Window::visual() { return impl_->visual; }

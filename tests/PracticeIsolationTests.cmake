@@ -12,7 +12,7 @@ if(NOT branch MATCHES "gamepad::practice::run\\(instance, show, reader\\)"
    OR branch MATCHES "(Host host|Desktop|NativeVoice|NativeCursor|NavigationFilter|ControllerPoller)")
     message(FATAL_ERROR "Practice entry must only construct an observation-only reader and its owned scene")
 endif()
-foreach(file Practice.h Practice.cpp PracticeWindow.h PracticeWindow.cpp PracticeVisual.h PracticeVisual.cpp)
+foreach(file Practice.h Practice.cpp PracticeWindow.h PracticeWindow.cpp PracticeVisual.h PracticeVisual.cpp PracticeReader.h PracticeReader.cpp)
     file(READ "${SOURCE_DIR}/src/${file}" content)
     if(content MATCHES "#include \"(Desktop|Live|NativeVoice|NativeCursorVisibility|NativeNavigationFilter|KeyboardDelivery|TextDelivery|Settings|XInputReader)\\.h\""
        OR content MATCHES "(SendInput|SetWindowsHookEx[A-Z]*|ShowCursor|SetCursorPos|ClipCursor|SetForegroundWindow|SetFocus|SetClipboardData|OpenClipboard|RegisterRawInputDevices|XInputGetState|CreateFileW|WriteFile|RegSetValueExW)\\(")

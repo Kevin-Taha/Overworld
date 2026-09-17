@@ -19,6 +19,7 @@ public:
     bool create(HINSTANCE instance, ControllerSource* source = nullptr);
     int run(int show);
     bool update(std::optional<AppPalette> palette = {});
+    bool pretranslate(const MSG& message);
     [[nodiscard]] HWND handle() const;
     [[nodiscard]] Model& model();
     [[nodiscard]] Visual& visual();

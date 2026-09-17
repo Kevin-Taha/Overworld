@@ -44,6 +44,7 @@ public:
     std::optional<KeyboardEdit> take_edit();
     void suspend(); // Retain text, but require fresh neutral before accepting more controller input.
     void set_input_mode(KeyboardInputMode mode); // Safe mid-session switch; never leaves a stray keypress.
+    bool set_preview_page(KeyboardPage page); // Page state only; refuses live/pinned keyboards and does not arm input.
     [[nodiscard]] const std::wstring& text() const;
     [[nodiscard]] std::optional<unsigned> selected_petal() const;
     // Petal to highlight for the current gesture stage, distinct from selected_petal() (the

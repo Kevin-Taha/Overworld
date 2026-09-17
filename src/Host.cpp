@@ -18,6 +18,7 @@
 #include "SelfCaption.h"
 #include "LaunchMode.h"
 #include "PracticeWindow.h"
+#include "PracticeReader.h"
 
 #include <Windows.h>
 #include <Shellapi.h>
@@ -26,8 +27,6 @@
 #include <windowsx.h>
 
 #include <algorithm>
-#include <atomic>
-#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <new>
@@ -1801,50 +1800,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             : error.c_str(), L"Gamepad Desktop - pointer recovery", MB_OK | (restored && released ? MB_ICONINFORMATION : MB_ICONERROR));
         result = restored && released ? 0 : 1;
     } else if (practice) {
-        class PracticeReader final : public gamepad::practice::ControllerSource {
+        class PracticeBackend final : public gamepad::practice::ReaderBackend {
         public:
-            PracticeReader() : thread_([this](std::stop_token stop) {
-                XInputReader reader;
-                std::mutex wait_mutex;
-                std::unique_lock wait_lock(wait_mutex);
-                while (!stop.stop_requested()) {
-                    const auto window = window_.load();
-                    const auto deadline = deadline_.load();
-                    const auto at = monotonic_now();
-                    if (window && gamepad::practice::reader_lease_current(deadline, at)
-                        && GetForegroundWindow() == window && !IsIconic(window)) {
-                        const auto sample = reader.read();
-                        std::lock_guard lock(mutex_);
-                        latest_ = sample;
-                    }
-                    wake_.wait_for(wait_lock, stop, std::chrono::milliseconds(16), [] { return false; });
-                }
-            }) {}
-            ~PracticeReader() override {
-                authorize(nullptr);
-                thread_.request_stop();
-                wake_.notify_all();
-            }
-            void authorize(HWND window) override {
-                if (window) { deadline_.store(monotonic_now() + gamepad::practice::reader_lease_ms); }
-                window_.store(window);
-            }
-            Snapshot read() override {
-                std::lock_guard lock(mutex_);
-                return latest_;
-            }
             Tick now() override { return monotonic_now(); }
+            bool focused(HWND window) override { return GetForegroundWindow() == window && !IsIconic(window); }
+            Controller slot(unsigned index) override { return reader_.read_slot(index); }
         private:
-            std::atomic<HWND> window_{nullptr};
-            std::atomic<Tick> deadline_{0};
-            std::mutex mutex_;
-            Snapshot latest_;
-            std::condition_variable_any wake_;
-            std::jthread thread_;
+            XInputReader reader_;
         };
         try {
-            PracticeReader reader;
-            result = gamepad::practice::run(instance, show, reader);
+            gamepad::practice::Reader reader(std::make_shared<PracticeBackend>());
+            if (reader.start()) {
+                result = gamepad::practice::run(instance, show, reader);
+                if (!reader.stop()) { result = 1; }
+            } else { result = 1; }
+            if (!reader.error().empty()) {
+                MessageBoxW(nullptr, reader.error().c_str(), L"Practice - controller reader failed", MB_OK | MB_ICONERROR);
+            }
         } catch (const std::system_error&) {
             MessageBoxW(nullptr, L"Could not start the practice-only controller reader. No desktop mapping was started.",
                 L"Practice - no desktop input", MB_OK | MB_ICONERROR);

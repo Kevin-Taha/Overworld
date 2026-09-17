@@ -257,6 +257,41 @@ void unread_samples()
     f.sample.sequence = unread.sequence; f.tick(); f.tick();
     check(f.model.pointer() == after, "equal-timestamp pre-takeover neutral is conservatively discarded");
 }
+void local_mode_and_pages()
+{
+    Fixture f;
+    f.model.select(Lesson::Drag);
+    f.model.move_local({140, 190}); f.model.primary_local(true);
+    f.model.show_help(true);
+    check(!f.model.local_hold() && !f.model.dragging(), "help cancels scene-owned holds");
+    f.model.show_help(false); f.tick(); f.pad().left_x = 32767; f.tick();
+    const auto before = f.model.pointer();
+    f.tick();
+    check(f.model.pointer().x > before.x, "controller can resume after local hold cancellation");
+    f.model.primary_local(true); f.model.open_keyboard();
+    check(!f.model.local_hold(), "opening keyboard cannot strand a scene hold");
+    f.model.one_handed(true);
+    Tick at = 5000;
+    for (const auto page : {KeyboardPage::ShiftLetters, KeyboardPage::Symbols, KeyboardPage::ShiftSymbols, KeyboardPage::Letters}) {
+        f.model.keyboard_local(7, 2, at);
+        check(f.model.keyboard().page() == page, "one-handed page cycle remains visible after local action");
+        f.model.physical_takeover();
+        check(f.model.keyboard().page() == page, "local page survives the next fallback button's physical takeover");
+        Snapshot idle;
+        idle.sequence = at;
+        idle.sampled_at = at + 500;
+        idle.slots[0].connection = Connection::Connected;
+        idle.slots[0].connection_epoch = 1;
+        f.model.step(idle, idle.sampled_at);
+        check(f.model.keyboard().page() == page, "passive neutral after an idle gap retains the selected local page");
+        f.model.keyboard_local(0, 0, at + 1000);
+        check(f.model.keyboard().page() == page, "local character retains page after an input gap");
+        at += 2000;
+    }
+    check(f.model.keyboard().text() == L"A1!a", "local fallback produces characters from all four real pages");
+    Daisywheel live;
+    check(live.pin(0, 1) && !live.set_preview_page(KeyboardPage::Symbols), "preview page setter cannot alter live pinned typing");
+}
 void launch()
 {
     check(reader_lease_current(1050, 1000) && reader_lease_current(1050, 1049), "reader lease permits fresh focused sampling");
@@ -276,7 +311,7 @@ void launch()
 }
 int main()
 {
-    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); }
+    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Practice: launch isolation, five skills, real models, reconnect, takeover, reset passed.\n";
 }

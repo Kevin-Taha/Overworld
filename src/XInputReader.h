@@ -15,6 +15,7 @@ namespace gamepad {
 class XInputReader {
 public:
     Snapshot read();
+    Controller read_slot(unsigned index);
 
 private:
     std::uint64_t sequence_ = 0;

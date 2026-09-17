@@ -175,6 +175,36 @@ void owned_window(const std::filesystem::path& capture = {})
     check(matches == frame.pixels.size(),
         "actual owned HWND/child painting must exactly reproduce renderer RGB pixels, not only return success");
 }
+void owned_hold_messages()
+{
+    Window window;
+    check(window.create(GetModuleHandleW(nullptr)), "owned hold-message window creates");
+    window.model().focus(true);
+    window.model().select(Lesson::Drag);
+    window.model().move_local({140, 190});
+    check(window.update(), "drag frame ready");
+    const auto scene = GetDlgItem(window.handle(), Scene);
+    const auto next = GetDlgItem(window.handle(), Next);
+    MSG message{};
+    message.hwnd = scene; message.message = WM_KEYDOWN; message.wParam = VK_SPACE;
+    check(window.pretranslate(message) && window.model().local_hold() && window.model().dragging(), "Space begins scene drag");
+    message.wParam = VK_TAB;
+    window.pretranslate(message);
+    SendMessageW(scene, WM_KILLFOCUS, reinterpret_cast<WPARAM>(next), 0);
+    check(!window.model().local_hold() && !window.model().dragging(), "child focus loss cancels owned drag without a drop");
+    message.hwnd = next; message.message = WM_KEYUP;
+    window.pretranslate(message);
+    message.wParam = VK_SPACE;
+    check(window.pretranslate(message) && !window.model().local_hold(), "matching Space release consumed before non-scene guard");
+    window.model().retry(); window.model().move_local({140, 190});
+    message.hwnd = scene; message.message = WM_KEYDOWN; message.wParam = VK_SPACE;
+    window.pretranslate(message);
+    message.wParam = VK_F1; window.pretranslate(message);
+    check(window.model().help() && !window.model().local_hold(), "help while Space held cancels gesture");
+    message.message = WM_KEYUP; window.pretranslate(message);
+    message.wParam = VK_SPACE;
+    check(window.pretranslate(message) && !window.model().local_hold(), "matching release survives help-mode guard");
+}
 void frames(const std::filesystem::path& path)
 {
     std::filesystem::create_directories(path);
@@ -236,6 +266,7 @@ int wmain(int argc, wchar_t** argv)
     });
     try {
         std::filesystem::create_directories(argv[2]);
+        owned_hold_messages();
         owned_window(std::filesystem::path(argv[2]) / L"owned-window.bmp");
         const DWORD before = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
         frames(argv[2]);

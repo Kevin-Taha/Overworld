@@ -66,6 +66,7 @@ public:
     [[nodiscard]] bool primary_clicked() const { return primary_clicked_; }
     [[nodiscard]] bool context_open() const { return context_open_; }
     [[nodiscard]] bool dragging() const { return dragging_; }
+    [[nodiscard]] bool local_hold() const { return local_hold_; }
     [[nodiscard]] int scroll_offset() const { return scroll_; }
     [[nodiscard]] bool keyboard_open() const { return keyboard_open_; }
     [[nodiscard]] bool help() const { return help_; }
@@ -108,6 +109,8 @@ private:
     live::PointerSettings pointer_settings_;
     std::optional<LocalClick> click_;
     Daisywheel keyboard_;
+    KeyboardPage local_page_ = KeyboardPage::Letters;
+    bool local_keyboard_ = false;
     std::wstring_view feedback_ = L"Move the ring onto each numbered target.";
 };
 

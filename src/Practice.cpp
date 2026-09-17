@@ -70,9 +70,12 @@ void Model::suspend(InputState reason)
     slot_.reset();
     neutral_.fill(false);
     previous_buttons_ = 0;
-    primary_down_ = dragging_ = menu_pending_ = false;
+    primary_down_ = dragging_ = menu_pending_ = local_hold_ = false;
     click_.reset();
     keyboard_.suspend();
+    if (local_keyboard_ && !keyboard_.set_preview_page(local_page_)) {
+        feedback_ = L"The local keyboard page could not be restored.";
+    }
     ++revision_;
 }
 void Model::discard_samples_through(Tick now)
@@ -97,6 +100,8 @@ void Model::reset_scene()
     scroll_ = 0;
     primary_clicked_ = context_open_ = keyboard_open_ = local_hold_ = false;
     help_ = false;
+    local_keyboard_ = false;
+    local_page_ = KeyboardPage::Letters;
     keyboard_.reset();
     feedback_ = lesson_text(lesson_).instruction;
     suspend(focused_ ? InputState::Neutral : InputState::Background);
@@ -215,6 +220,8 @@ void Model::dismiss_options()
 }
 void Model::one_handed(bool enabled)
 {
+    local_keyboard_ = false;
+    local_page_ = KeyboardPage::Letters;
     keyboard_.set_input_mode(enabled ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
     suspend(focused_ ? InputState::Neutral : InputState::Background);
 }
@@ -258,7 +265,15 @@ void Model::keyboard_local(unsigned group, unsigned face, Tick now)
     constexpr std::array<live::Point, 8> directions{{{0,32767},{23000,23000},{32767,0},{23000,-23000},
         {0,-32767},{-23000,-23000},{-32767,0},{-23000,23000}}};
     Controller pad;
+    if (!local_keyboard_) { local_page_ = keyboard_.page(); }
+    local_keyboard_ = true;
     keyboard_.suspend();
+    keyboard_step(pad, now);
+    if (!keyboard_.set_preview_page(local_page_)) {
+        feedback_ = L"The local keyboard page could not be selected.";
+        ++revision_;
+        return;
+    }
     keyboard_step(pad, now);
     pad.left_x = static_cast<std::int16_t>(directions[group].x);
     pad.left_y = static_cast<std::int16_t>(directions[group].y);
@@ -276,6 +291,7 @@ void Model::keyboard_local(unsigned group, unsigned face, Tick now)
     }
     pad = {};
     keyboard_step(pad, now);
+    local_page_ = keyboard_.page();
     suspend(focused_ ? InputState::Physical : InputState::Background);
 }
 void Model::step(const Snapshot& snapshot, Tick now)
@@ -335,7 +351,12 @@ void Model::step(const Snapshot& snapshot, Tick now)
         } else if (input_ != InputState::Physical && input_ != InputState::Multiple && input_ != InputState::Stale) {
             input_ = InputState::Neutral;
         }
-        if (keyboard_open_ && !help_ && active == 0) { keyboard_step(Controller{}, now); }
+        if (keyboard_open_ && !help_ && active == 0) {
+            keyboard_step(Controller{}, now);
+            if (local_keyboard_ && !keyboard_.set_preview_page(local_page_)) {
+                feedback_ = L"The local keyboard page could not be restored.";
+            }
+        }
         ++revision_;
         return;
     }
@@ -345,6 +366,7 @@ void Model::step(const Snapshot& snapshot, Tick now)
     const auto released = static_cast<std::uint16_t>(previous_buttons_ & ~pad.buttons);
     previous_buttons_ = pad.buttons;
     if (keyboard_open_ && !help_) {
+        local_keyboard_ = false;
         keyboard_step(pad, now);
         return;
     }

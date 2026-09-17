@@ -24,6 +24,14 @@ multiple controllers, help, retry, reset, and fail-closed launch arguments.
 Reserved controller/navigation window-key messages are interleaved with dragging
 and character selection; ordinary arrows, Enter, Shift, letters, and adjacent
 non-reserved key values must still take over.
+Local fallback checks cover all four one-handed pages across button presses and
+idle gaps. The render helper delivers owned Space/Tab/focus-loss/help messages to
+the same message pretranslator to verify hold cancellation and matching release.
+`gamepad_practice_reader_tests` uses only fake slot/clock/focus backends: delayed
+slot zero followed by revocation, focus loss, or lease expiry must not query
+slots 1-3 or publish a partial batch. It also tests the final publication gate,
+terminal stop, 250 ms shutdown failure, and retained state after destruction.
+It has no XInput backend linked and is bounded by a ten-second CTest timeout.
 `gamepad_practice_isolation_tests` checks the shared-guard/pre-Host launch branch
 and forbidden native boundaries in practice sources. Neither starts the app.
 

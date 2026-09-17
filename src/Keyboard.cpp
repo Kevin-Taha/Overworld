@@ -206,6 +206,13 @@ void Daisywheel::suspend()
         : L"Center controller to resume; composition retained");
 }
 
+bool Daisywheel::set_preview_page(KeyboardPage page)
+{
+    if (live_edits_ || static_cast<unsigned>(page) > static_cast<unsigned>(KeyboardPage::ShiftSymbols)) { return false; }
+    one_handed_page_ = page_ = page;
+    return true;
+}
+
 void Daisywheel::update_petal(const Controller& controller)
 {
     const double magnitude = radius(controller.left_x, controller.left_y);

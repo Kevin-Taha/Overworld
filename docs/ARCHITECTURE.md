@@ -22,7 +22,7 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Optional filter | `NavigationFilter.*`, `NativeNavigationFilter.*` | Pure key ledger plus bounded native hook adapter |
 | Own caption | `SelfCaption.h` | Deferred self-window min/max/close after a processed matching release |
 | Simulator | `Core.*` | Shared snapshot types and retained dry-run model; not a second output boundary |
-| Practice | `Practice.*`, `PracticeWindow.*`, `PracticeVisual.*` | Pure lesson state, owned native scene, shared Pointer/Daisywheel models; no desktop output |
+| Practice | `Practice.*`, `PracticeWindow.*`, `PracticeVisual.*`, `PracticeReader.*` | Pure lesson state, owned native scene, scoped observation worker; no desktop output |
 
 ## Deliberate practice
 
@@ -46,6 +46,12 @@ The existing pure key classification is shared through `InputClassification.h`.
 Focus return, physical input, and native practice commands fence off snapshots
 sampled at or before that transition. An unread mailbox neutral cannot authorize
 a held gesture after a handoff merely because it is less than 100 ms old.
+The reader rechecks stop, scope generation, actual focus, and the original batch
+lease before every slot and before publication. Renewal cannot revive an expired
+batch. Shutdown waits at most 250 ms; failure is reported and the practice process
+exits instead of restarting. XInput has no API cancellation: on timeout, the
+in-flight call retains worker-owned state until it returns or the process exits.
+Terminal stop prevents every subsequent slot, batch, and publication.
 Reserved `VK_GAMEPAD` and `VK_NAVIGATION` messages from controller gestures never
 enter the physical held-key ledger or cancel a lesson. This is own-window message
 handling only, not a global hook or a change to the optional navigation filter.
@@ -58,6 +64,10 @@ focus loss, connection epochs, and multiple-controller ambiguity cancel partial
 gestures without completing a drop or replaying a click. Same-button down/up
 hit-testing calls only local practice commands; it is not another native output
 boundary. Help suspends lesson effects while allowing its own buttons and View.
+Scene-owned Space releases are handled before child/mode guards; losing scene
+focus or changing mode cancels local holds rather than completing a drop.
+The local one-handed fallback retains its selected page across button presses
+and idle gaps through a preview-only page setter that refuses pinned/live typing.
 
 The complete practice frame is a retained opaque premultiplied WIC/D2D surface
 with measured DirectWrite ink. The keyboard is composited from its unchanged
