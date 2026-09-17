@@ -19,7 +19,7 @@ target_include_directories(gamepad_core PUBLIC src)
 target_compile_features(gamepad_core PUBLIC cxx_std_20)
 target_compile_definitions(gamepad_core PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 
-add_library(gamepad_keyboard src/Keyboard.cpp src/TextDelivery.cpp src/KeyboardDelivery.cpp src/Audio.cpp)
+add_library(gamepad_keyboard src/Keyboard.cpp src/TextDelivery.cpp src/KeyboardDelivery.cpp src/WordPrediction.cpp src/Audio.cpp)
 target_include_directories(gamepad_keyboard PUBLIC src)
 target_compile_features(gamepad_keyboard PUBLIC cxx_std_20)
 add_library(gamepad_voice src/VoiceRecognizer.cpp src/NativeVoice.cpp src/AudioCapture.cpp src/VoiceModel.cpp)

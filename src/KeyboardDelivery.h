@@ -3,6 +3,7 @@
 #include "Keyboard.h"
 #include "TextDelivery.h"
 #include "Voice.h"
+#include "WordPrediction.h"
 
 namespace gamepad {
 enum class DesktopKeyboardPhase { Closed, Composing, Paused };
@@ -43,6 +44,7 @@ public:
     [[nodiscard]] DesktopKeyboardPhase phase() const { return phase_; }
     [[nodiscard]] const Daisywheel& model() const { return keyboard_; }
     [[nodiscard]] const TextDelivery& delivery() const { return delivery_; }
+    [[nodiscard]] PredictionView prediction_view() const;
     [[nodiscard]] std::wstring status() const;
     [[nodiscard]] const std::wstring& last_dismissal() const { return last_dismissal_; }
 
@@ -53,6 +55,7 @@ private:
     void open(const Snapshot& snapshot, Tick now, unsigned slot, bool native);
     bool voice_step(const Snapshot& snapshot, Tick now);
     void cancel_voice();
+    bool prediction_step(const Snapshot& snapshot);
     TextBoundary& boundary_;
     TextDelivery delivery_;
     Daisywheel keyboard_;
@@ -81,5 +84,8 @@ private:
     Tick voice_deadline_ = 0;
     std::u32string dictation_;
     std::size_t dictation_offset_ = 0;
+    WordPrediction prediction_;
+    bool prediction_neutral_ = false;
+    bool prediction_appending_ = false;
 };
 } // namespace gamepad

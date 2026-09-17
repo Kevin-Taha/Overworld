@@ -65,7 +65,7 @@ bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires)
     const auto input = edit_events(edit);
     if (!input || sampled_at > expires) { fault(L"Invalid keyboard edit"); return false; }
     if (size_ == queue_.size()) { fault(L"Typing queue full; pending edits cancelled"); return false; }
-    queue_[(head_ + size_) % queue_.size()] = {*input, 0, sampled_at, expires};
+    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires};
     ++size_;
     return true;
 }
@@ -85,9 +85,10 @@ void TextDelivery::fault(std::wstring_view reason)
     stop(reason);
 }
 
-void TextDelivery::pump(unsigned budget)
+CompletedTextEdits TextDelivery::pump(unsigned budget)
 {
-    if (in_flight_ || phase_ != TextPhase::Ready) { return; }
+    CompletedTextEdits completed;
+    if (in_flight_ || phase_ != TextPhase::Ready) { return completed; }
     in_flight_ = true;
     for (unsigned i = 0; i < std::min(budget, 8u) && size_ && phase_ == TextPhase::Ready; ++i) {
         const auto pending = queue_[head_];
@@ -136,12 +137,15 @@ void TextDelivery::pump(unsigned budget)
         if (pending.next + 1 == pending.input.count) { ++completed_edits_; }
         if (phase_ != TextPhase::Ready) { break; }
         if (++queue_[head_].next == pending.input.count) {
+            completed.edits[completed.count++] = pending.edit;
             queue_[head_] = {};
             head_ = (head_ + 1) % queue_.size();
             --size_;
         }
     }
     in_flight_ = false;
+    if (phase_ != TextPhase::Ready) { return {}; }
+    return completed;
 }
 
 void TextDelivery::cleanup(bool explicit_retry)

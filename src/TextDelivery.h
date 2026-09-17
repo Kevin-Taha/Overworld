@@ -56,6 +56,8 @@ public:
     virtual Tick text_now() const = 0;
     // Exactly one Unicode or virtual-key down/up. Only 0 and 1 are valid counts.
     virtual unsigned send_text(TextEvent event) = 0;
+    // Only the in-memory practice sink opts in. Native/unknown/password targets never do.
+    virtual bool prediction_preview() const { return false; }
     [[nodiscard]] bool native_keyboard_session() const { return native_keyboard_session_; }
 private:
     friend class KeyboardDelivery;
@@ -68,12 +70,17 @@ private:
 enum class TextPhase { Idle, Ready, Stopped };
 constexpr std::size_t keyboard_edit_queue_limit = 32;
 
+struct CompletedTextEdits {
+    std::array<KeyboardEdit, 4> edits{};
+    unsigned count = 0;
+};
+
 class TextDelivery {
 public:
     explicit TextDelivery(TextBoundary& boundary) : boundary_(boundary) {}
     bool start(const TextTarget& target);
     bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires);
-    void pump(unsigned budget = 8);
+    CompletedTextEdits pump(unsigned budget = 8);
     void stop(std::wstring_view reason);
     void cleanup(bool explicit_retry = false);
     [[nodiscard]] TextPhase phase() const { return phase_; }
@@ -101,6 +108,7 @@ private:
     std::wstring reason_;
     struct PendingEdit {
         EditEvents input;
+        KeyboardEdit edit;
         unsigned next = 0;
         Tick sampled_at = 0;
         Tick expires = 0;
