@@ -6,10 +6,15 @@ namespace gamepad {
 // Shared by the shipping mapper and explicitly built, controller-observing dev tools.
 class MapperInstanceGuard {
 public:
-    MapperInstanceGuard()
+    explicit MapperInstanceGuard(const wchar_t* name = L"Local\\GamepadDesktop.M1.SingleMapper")
     {
-        handle_ = CreateMutexW(nullptr, TRUE, L"Local\\GamepadDesktop.M1.SingleMapper");
+        handle_ = CreateMutexW(nullptr, TRUE, name);
         existing_ = handle_ && GetLastError() == ERROR_ALREADY_EXISTS;
+        if (existing_) {
+            // A rejected launch must not retain the name while displaying its warning.
+            CloseHandle(handle_);
+            handle_ = nullptr;
+        }
     }
     ~MapperInstanceGuard()
     {

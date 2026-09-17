@@ -17,6 +17,12 @@ the native hook. Settings tests write only to their owned test-scratch directory
 ARM64 tests can be built by cross-compilation, but must be executed on an
 appropriate ARM64 environment.
 
+`gamepad_instance_guard_tests` uses uniquely named, test-owned mutexes/events,
+never the mapper's global name. It verifies that a rejected launch retains no
+handle while its diagnostic object lives, successful destruction releases rather
+than abandons ownership, and creation failure is distinct from an existing
+instance. No Host, native windows, controller reader, or input boundary is used.
+
 `gamepad_launch_tests` verifies separate shipping/development argument parsers,
 including invalid `--practice` and malformed flags never activating the mapper.
 `gamepad_practice_isolation_tests` checks the shared instance guard, separate
