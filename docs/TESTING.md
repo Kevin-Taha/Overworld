@@ -44,6 +44,21 @@ contrast, transparent space, idle equivalence, and resource reuse. App tests che
 native control geometry, tab order, DPI layout, and capability feedback.
 Rendered artifacts are local review evidence, not repository content.
 
+The complete app UI suite measures Settings text/control bounds on every tab at
+96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and
+voice capability/opt-in combinations. It checks forward/reverse tab access and
+keeps the client at most 620 DIP high, with the full frame fitting a 720-DIP
+display minus a 48-DIP taskbar. Synthetic work areas cover offset/negative monitor
+origins and off-edge placement. A test-local DPI-unaware thread creates a separate
+96-DPI reference dialog and checks creation-DPI independence and roundtrip
+scaling, without changing monitor or OS preferences.
+
+Synthetic layout DPI does not change the hidden HWND's actual monitor DPI.
+The suite checks target-DPI nonclient calculations separately, then sizes its
+hidden render surface using the HWND's actual frame metrics. This prevents a
+test-only mismatch between synthetic client dimensions and real caption borders.
+These checks do not replace real multi-monitor DPI transitions or device testing.
+
 Do not use `PrintWindow` success alone as visibility evidence for layered windows.
 Inspect exact renderer frames at native and scaled DPI over light/dark backdrops.
 Actual assistive-technology and multi-monitor behavior still needs device testing.
