@@ -231,6 +231,32 @@ void controller_window_keys()
     }
     check(f.model.complete() && f.model.keyboard().text() == L"a", "real takeover keeps earned progress and local sample");
 }
+void unread_samples()
+{
+    Fixture f;
+    auto unread = f.sample;
+    ++unread.sequence;
+    unread.sampled_at = f.now + 1;
+    f.model.focus(false, f.now + 2);
+    f.model.focus(true, f.now + 3);
+    f.model.step(unread, f.now + 4);
+    const auto point = f.model.pointer();
+    f.pad().left_x = 32767;
+    f.sample.sequence = unread.sequence;
+    f.tick(); f.tick();
+    check(f.model.pointer() == point, "unread neutral from before focus return cannot rearm a held controller");
+    f.pad().left_x = 0; f.tick();
+    f.pad().left_x = 32767; f.tick(); f.tick();
+    check(f.model.pointer().x > point.x, "only neutral sampled after focus return permits movement");
+    f.model.physical_takeover();
+    f.model.discard_samples_through(f.now + 2);
+    unread = f.sample; unread.slots[0].left_x = 0; ++unread.sequence;
+    unread.sampled_at = f.now + 2;
+    f.model.step(unread, f.now + 3);
+    const auto after = f.model.pointer();
+    f.sample.sequence = unread.sequence; f.tick(); f.tick();
+    check(f.model.pointer() == after, "equal-timestamp pre-takeover neutral is conservatively discarded");
+}
 void launch()
 {
     check(reader_lease_current(1050, 1000) && reader_lease_current(1050, 1049), "reader lease permits fresh focused sampling");
@@ -250,7 +276,7 @@ void launch()
 }
 int main()
 {
-    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); }
+    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Practice: launch isolation, five skills, real models, reconnect, takeover, reset passed.\n";
 }

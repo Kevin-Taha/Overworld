@@ -75,9 +75,14 @@ void Model::suspend(InputState reason)
     keyboard_.suspend();
     ++revision_;
 }
-void Model::focus(bool focused)
+void Model::discard_samples_through(Tick now)
+{
+    discarded_through_ = std::max(discarded_through_.value_or(0), now);
+}
+void Model::focus(bool focused, Tick now)
 {
     if (focused_ == focused) { return; }
+    discard_samples_through(now);
     focused_ = focused;
     local_hold_ = false;
     suspend(focused ? InputState::Neutral : InputState::Background);
@@ -277,6 +282,7 @@ void Model::step(const Snapshot& snapshot, Tick now)
 {
     if (!focused_) { return; }
     if (local_hold_) { return; }
+    if (discarded_through_ && snapshot.sampled_at <= *discarded_through_) { return; }
     if (!snapshot.sequence || snapshot.sampled_at > now || now - snapshot.sampled_at > live::live_sample_age_ms
         || (last_now_ && (now < *last_now_ || snapshot.sequence < last_sequence_ || snapshot.sampled_at < last_sample_
             || (snapshot.sequence == last_sequence_ && snapshot.sampled_at != last_sample_)))) {

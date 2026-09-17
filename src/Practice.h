@@ -36,7 +36,8 @@ inline constexpr live::Rect scroll_area{120, 40, 500, 340};
 // Only local scene state. No native handles, delivery objects, settings, or output callbacks.
 class Model {
 public:
-    void focus(bool focused);
+    void focus(bool focused, Tick now = 0);
+    void discard_samples_through(Tick now);
     void physical_takeover();
     void cancel_local();
     void step(const Snapshot& snapshot, Tick now);
@@ -93,6 +94,7 @@ private:
     std::array<std::uint64_t, slot_count> epochs_{};
     std::optional<unsigned> slot_;
     std::optional<Tick> last_now_;
+    std::optional<Tick> discarded_through_;
     Tick last_sample_ = 0;
     std::uint64_t last_sequence_ = 0, keyboard_sequence_ = 0, revision_ = 1;
     std::uint16_t previous_buttons_ = 0;

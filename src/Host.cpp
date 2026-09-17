@@ -1849,6 +1849,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             MessageBoxW(nullptr, L"Could not start the practice-only controller reader. No desktop mapping was started.",
                 L"Practice - no desktop input", MB_OK | MB_ICONERROR);
             result = 1;
+        } catch (const std::bad_alloc&) {
+            MessageBoxW(nullptr, L"Could not allocate the practice-only controller reader. No desktop mapping was started.",
+                L"Practice - no desktop input", MB_OK | MB_ICONERROR);
+            result = 1;
         }
     } else if (keyboard_preview) {
         result = gamepad::run_keyboard_preview(instance, show,

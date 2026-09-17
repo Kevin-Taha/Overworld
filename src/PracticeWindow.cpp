@@ -127,6 +127,7 @@ public:
     }
     void command(int id)
     {
+        fence();
         if (id >= StepFirst && id < StepFirst + static_cast<int>(lesson_count)) {
             model.select(static_cast<Lesson>(id - StepFirst));
         } else {
@@ -146,12 +147,18 @@ public:
             default: break;
             }
         }
-        model.focus(focused());
+        model.focus(focused(), now());
         update();
+    }
+    Tick now() const { return source ? source->now() : clock_now(); }
+    void fence()
+    {
+        model.discard_samples_through(now());
+        if (source) { source->authorize(nullptr); }
     }
     void physical()
     {
-        if (source) { source->authorize(nullptr); }
+        fence();
         if (model.input() != InputState::Physical) { model.physical_takeover(); }
     }
     void local_command()
@@ -164,7 +171,7 @@ public:
     {
         const bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
         if (!keys.observe(model, static_cast<unsigned>(value), down)) { return true; }
-        if (source) { source->authorize(nullptr); }
+        fence();
         if (down && (data & (LPARAM{1} << 30)) == 0) {
             if (value == VK_F1) { command(Help); return true; }
             if (value == VK_ESCAPE) {
@@ -260,13 +267,13 @@ public:
         switch (message) {
         case WM_TIMER:
             if (source && error.empty()) {
-                model.focus(focused());
+                model.focus(focused(), now());
                 const bool allowed = focused() && !tracking && !mouse_held && !keys.held() && GetCapture() == nullptr;
                 source->authorize(allowed ? window : nullptr);
                 if (allowed) {
                     const auto sample = source->read();
                     if (focused()) { model.step(sample, source->now()); }
-                    else { model.focus(false); }
+                    else { model.focus(false, now()); }
                     local_command();
                     if (!window) { return 0; }
                 }
@@ -277,13 +284,14 @@ public:
         case WM_ACTIVATE:
             if (LOWORD(wparam) == WA_INACTIVE) {
                 if (source) { source->authorize(nullptr); }
-                keys.reset(); mouse_held = false; model.focus(false);
+                keys.reset(); mouse_held = false; model.focus(false, now());
             }
             return 0;
         case WM_ENTERSIZEMOVE: case WM_ENTERMENULOOP:
-            if (source) { source->authorize(nullptr); }
+            fence();
             tracking = true; model.cancel_local(); return 0;
         case WM_EXITSIZEMOVE: case WM_EXITMENULOOP:
+            fence();
             tracking = false; model.cancel_local(); return 0;
         case WM_COMMAND: if (HIWORD(wparam) == BN_CLICKED) { command(LOWORD(wparam)); } return 0;
         case WM_ERASEBKGND: return 1;
@@ -310,7 +318,7 @@ public:
             return TRUE;
         }
         case WM_SIZE:
-            if (wparam == SIZE_MINIMIZED) { model.focus(false); }
+            if (wparam == SIZE_MINIMIZED) { model.focus(false, now()); }
             if (!visual.frame().pixels.empty()) { update(); }
             return 0;
         case WM_GETMINMAXINFO: {
@@ -328,6 +336,7 @@ public:
             return 0;
         }
         case WM_DPICHANGED: {
+            fence();
             model.cancel_local();
             const auto& rect = *reinterpret_cast<const RECT*>(lparam);
             if (!SetWindowPos(window, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,

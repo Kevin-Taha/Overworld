@@ -43,6 +43,9 @@ native output adapter, global physical-input
 observer, cursor-hiding ownership, navigation hook, microphone, clipboard, or text
 target lookup. Physical takeover is observed through messages to its own windows.
 The existing pure key classification is shared through `InputClassification.h`.
+Focus return, physical input, and native practice commands fence off snapshots
+sampled at or before that transition. An unread mailbox neutral cannot authorize
+a held gesture after a handoff merely because it is less than 100 ms old.
 Reserved `VK_GAMEPAD` and `VK_NAVIGATION` messages from controller gestures never
 enter the physical held-key ledger or cancel a lesson. This is own-window message
 handling only, not a global hook or a change to the optional navigation filter.
