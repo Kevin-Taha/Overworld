@@ -57,7 +57,8 @@ bool KeyboardPopup::update(HWND host, KeyboardDelivery& keyboard, const VoicePre
         }
         const auto dpi = GetDpiForWindow(foreground);
         RECT rect{0, 0, MulDiv(keyboard_visual_width, static_cast<int>(dpi ? dpi : 96), 96),
-            MulDiv(keyboard_visual_height, static_cast<int>(dpi ? dpi : 96), 96)};
+            MulDiv(keyboard.prediction_enabled() ? keyboard_prediction_height : keyboard_visual_height,
+                static_cast<int>(dpi ? dpi : 96), 96)};
         const auto& work = monitor.rcWork;
         const int width = std::min<int>(rect.right - rect.left, work.right - work.left);
         const int height = std::min<int>(rect.bottom - rect.top, work.bottom - work.top);
@@ -86,7 +87,10 @@ void KeyboardPopup::paint()
     if (error_.empty()) {
         const bool active = keyboard_->accepts_typing();
         const auto message = active ? std::wstring{} : keyboard_->status();
-        const KeyboardVisualState state{active, false, message, {}, {voice_phase_, voice_level_, voice_hint_}};
+        KeyboardVisualState state{active, false, message, {}, {voice_phase_, voice_level_, voice_hint_}};
+        state.word_suggestions = keyboard_->prediction_enabled();
+        state.prediction = keyboard_->prediction_view();
+        state.prediction_hint = keyboard_->prediction_hint();
         if (visual_->paint(window_, keyboard_->model(), state)) { return; }
         error_ = L"Keyboard drawing failed: " + visual_->error();
         keyboard_->block(L"Keyboard unavailable. View closes.");

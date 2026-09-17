@@ -108,7 +108,10 @@ struct Child {
 
 class Host {
 public:
-    explicit Host(bool inspection) : inspection_(inspection) {}
+    explicit Host(bool inspection, bool prediction) : inspection_(inspection)
+    {
+        if (prediction && !inspection) { desktop_.enable_prediction(); }
+    }
     ~Host()
     {
         poller_.stop();
@@ -1730,6 +1733,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     }
     const bool restore = argc == 2 && std::wstring_view{argv[1]} == L"--restore-cursor";
     const bool inspection = argc == 2 && std::wstring_view{argv[1]} == L"--inspect";
+    const bool word_prediction = argc == 2 && std::wstring_view{argv[1]} == L"--word-prediction";
     const bool prediction_demo = argc == 2 && std::wstring_view{argv[1]} == L"--prediction-demo";
     const bool prediction_onehand = argc == 2 && std::wstring_view{argv[1]} == L"--prediction-preview-one-handed";
     const bool prediction_preview = prediction_demo || prediction_onehand
@@ -1738,10 +1742,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview-one-handed");
     const bool keyboard_preview = prediction_preview || one_hand_preview
         || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview");
-    const bool valid_arguments = argc == 1 || restore || inspection || keyboard_preview;
+    const bool valid_arguments = argc == 1 || restore || inspection || keyboard_preview || word_prediction;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\nPreviews are local only; prediction is an in-memory practice experiment, never external output. The prediction demo uses synthetic input only.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --word-prediction | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\n--word-prediction enables optional suggestions in trusted classic multiline Edit fields. Previews have no external output.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
@@ -1802,8 +1806,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons,
             prediction_preview, prediction_demo);
     } else {
-        Host host(inspection);
-        result = host.create(instance, show) ? host.run() : 1;
+        try {
+            Host host(inspection, word_prediction);
+            result = host.create(instance, show) ? host.run() : 1;
+        } catch (const std::system_error&) {
+            MessageBoxW(nullptr, L"Could not start the word-suggestion metadata worker. No mapper was started.",
+                L"Gamepad Desktop", MB_OK | MB_ICONERROR);
+            result = 1;
+        }
     }
     ReleaseMutex(singleton);
     CloseHandle(singleton);

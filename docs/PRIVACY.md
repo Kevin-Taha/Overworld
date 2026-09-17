@@ -20,22 +20,37 @@ Microphone access requires opt-in, a deliberate held control, a valid original
 target, and an unexpired capture lease. Windows microphone privacy/device settings
 remain authoritative and are not changed by the app.
 
-## Preview-only word suggestions
+## Opt-in word suggestions
 
-The default-off `--prediction-preview` experiment is confined to its own visible
-in-memory practice sample. It cannot deliver text to another application, and
-normal application/inspection modes do not collect prediction prefixes. All
-external targets are ineligible, including known password fields and unknown
-protected/custom controls. This is deliberate scope restriction, **not password
-detection** or a claim that HWND identity identifies a safe semantic field.
+Normal launch and `--inspect` do not collect prediction prefixes. Runtime
+`--word-prediction` permits the scoped native pilot, but each keyboard session
+also requires a deliberate D-pad Down hold to trust the original non-secret
+field before collection. Only system-style classic multiline Edit controls with
+no password/readonly style are eligible. Single-line Edit, RichEdit, browsers,
+modern Notepad and unknown/custom controls are excluded. Internal subclassing
+cannot be universally detected: never trust a field used for secrets. This is
+**not universal password detection**.
 
-Only completed practice-keyboard edits feed a bounded ephemeral prefix. The
-authored generic word table is fixed: no learning, personal-word-list reads,
-OS dictionary access, global UIA value reads, clipboard access, application text
-scraping, model, network service or history is involved. The predictor does not
-receive dictation. Preview focus loss and physical key/mouse messages reset
-practice; device/context/mode/cancellation boundaries revoke suggestions. Nothing
-is persisted or logged, and the preview does not open the microphone.
+The metadata worker requests only scalar selection indices and field length,
+never text contents or text buffers. Stable length below 65,535 code units is
+required to reject actual packed-selection wraparound; all larger fields are
+unavailable. Queries are bounded to 20 ms each and 60 ms for a batch. Metadata
+failure does not disable ordinary typing. Same-length programmatic text changes
+can be unobservable; metadata does not prove receipt, safe application behavior
+or atomic delivery.
+
+Only this keyboard's fully transport-completed edits feed a maximum 16-letter
+ephemeral prefix. The fixed 10,000-word frequency list is embedded public
+CC BY-SA 4.0 data, not personal history. There is no learning, personal-word-list
+read, OS dictionary access, global UIA value read, clipboard access, text scraping,
+ML, network service or transcript source. Cancellation, unknown Backspace,
+physical takeover, caret/selection/target/context/device/mode changes and voice
+transitions clear or invalidate hints. Nothing is persisted or logged.
+
+`--prediction-preview` remains a separate visible in-memory practice sample. It
+cannot deliver text to another application or open a microphone. Preview focus
+loss and ordinary keyboard/mouse messages reset practice; reserved controller
+and navigation key messages do not masquerade as physical-key takeover.
 
 Do not type secrets into the explicitly visible practice field. Like existing
 previews it displays its own bounded sample, and process memory is not promised

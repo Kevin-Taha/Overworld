@@ -122,6 +122,7 @@ bool Desktop::initialize(HWND host, bool emergency_ready)
 
 void Desktop::shutdown()
 {
+    prediction_target_.close();
     ready_ = false;
     if (foreground_hook_) { UnhookWinEvent(foreground_hook_); foreground_hook_ = nullptr; }
     if (focus_hook_) { UnhookWinEvent(focus_hook_); focus_hook_ = nullptr; }
@@ -707,13 +708,29 @@ TextObservation Desktop::observe_text(std::optional<TextKey> owned)
         : observation.mode == Mode::Menu || route.windows[3].window || route.windows[4].window
             ? L"Keyboard not opened: close menus and release capture first"
         : observation.reason;
+    result.text_revision = text_revision_;
+    if (prediction_enabled_ && text_context_eligible(result)) {
+        const auto time = now();
+        // Sent metadata messages can overtake queued input. Leave one input tick
+        // before requesting a new proof; this is not an acknowledgement of receipt.
+        result.prediction = time >= text_changed_at_ && time - text_changed_at_ >= 16
+            ? prediction_target_.observe(result.target, text_revision_, time)
+            : PredictionEvidence{prediction_target_support(result.target.windows[2])};
+    }
     return result;
+}
+
+void Desktop::enable_prediction()
+{
+    prediction_target_.start();
+    prediction_enabled_ = true;
 }
 
 unsigned Desktop::send_text(TextEvent event)
 {
     auto input = keyboard_input(event);
     const auto accepted = SendInput(1, &input, sizeof(input));
+    if (accepted == 1) { ++text_revision_; text_changed_at_ = now(); }
     if (accepted == 1 && event.up) { released_keys_.accepted_up(text_virtual_key(event.key), now()); }
     return accepted;
 }

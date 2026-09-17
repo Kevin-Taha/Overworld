@@ -20,6 +20,14 @@ struct TextTarget {
     bool operator==(const TextTarget&) const = default;
 };
 
+enum class PredictionSupport { Off, Unsupported, Protected, Unavailable, PlainEdit };
+struct PredictionEvidence {
+    PredictionSupport support = PredictionSupport::Off;
+    std::optional<std::uint32_t> caret;
+    std::uint64_t revision = 0;
+    Tick sampled_at = 0;
+};
+
 struct TextObservation {
     TextTarget target;
     bool allowed = false;
@@ -28,7 +36,15 @@ struct TextObservation {
     bool stable = false;
     std::wstring_view reason = L"Text target unavailable";
     bool settling = false;
+    PredictionEvidence prediction;
+    std::uint64_t text_revision = 0;
 };
+[[nodiscard]] inline bool prediction_proven(const TextObservation& observation, Tick now)
+{
+    return observation.prediction.support == PredictionSupport::PlainEdit && observation.prediction.caret
+        && observation.prediction.revision == observation.text_revision
+        && observation.prediction.sampled_at <= now && now - observation.prediction.sampled_at <= 100;
+}
 
 enum class TextKeyKind { Unicode, Backspace, Enter };
 struct TextKey {
@@ -58,6 +74,8 @@ public:
     virtual unsigned send_text(TextEvent event) = 0;
     // Only the in-memory practice sink opts in. Native/unknown/password targets never do.
     virtual bool prediction_preview() const { return false; }
+    virtual bool prediction_enabled() const { return prediction_preview(); }
+    virtual void prediction_closed() {}
     [[nodiscard]] bool native_keyboard_session() const { return native_keyboard_session_; }
 private:
     friend class KeyboardDelivery;
@@ -79,7 +97,8 @@ class TextDelivery {
 public:
     explicit TextDelivery(TextBoundary& boundary) : boundary_(boundary) {}
     bool start(const TextTarget& target);
-    bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires);
+    bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
+        std::optional<std::uint32_t> prediction_caret = {});
     CompletedTextEdits pump(unsigned budget = 8);
     void stop(std::wstring_view reason);
     void cleanup(bool explicit_retry = false);
@@ -112,6 +131,7 @@ private:
         unsigned next = 0;
         Tick sampled_at = 0;
         Tick expires = 0;
+        std::optional<std::uint32_t> prediction_caret;
     };
     std::array<PendingEdit, keyboard_edit_queue_limit> queue_{};
     std::size_t head_ = 0;

@@ -4,11 +4,14 @@
 #include "KeyboardPreviewInput.h"
 
 #include <cmath>
+#include <algorithm>
+#include <chrono>
 #include <deque>
 #include <functional>
 #include <iostream>
 #include <numbers>
 #include <stdexcept>
+#include <set>
 #include <vector>
 
 using namespace gamepad;
@@ -32,7 +35,10 @@ struct Fake final : TextBoundary {
     std::wstring field;
     std::optional<gamepad::live::Observation> route;
     bool preview = false;
+    bool native_prediction = false;
+    bool automatic_caret = true;
     bool prediction_preview() const override { return preview; }
+    bool prediction_enabled() const override { return preview || native_prediction; }
     Fake()
     {
         observation.allowed = observation.cleanup_allowed = observation.stable = true;
@@ -45,6 +51,9 @@ struct Fake final : TextBoundary {
         owners.push_back(owned);
         if (during_observe) { during_observe(); }
         auto result = observation;
+        if (native_prediction && automatic_caret) {
+            result.prediction = {PredictionSupport::PlainEdit, static_cast<std::uint32_t>(field.size()), observation.text_revision, now};
+        }
         if (route) {
             result.allowed = result.allowed && route->available && route->baseline_known
                 && route->mode == gamepad::live::Mode::Pointer && gamepad::live::keyboard_route_allowed(*route, native_keyboard_session());
@@ -60,6 +69,7 @@ struct Fake final : TextBoundary {
         const unsigned count = returns.empty() ? 1 : returns.front();
         if (!returns.empty()) { returns.pop_front(); }
         if (count == 1) {
+            ++observation.text_revision;
             accepted.push_back(event);
             if (!event.up) {
                 if (event.key.kind == TextKeyKind::Unicode) { field.push_back(static_cast<wchar_t>(event.key.unit)); }
@@ -149,6 +159,22 @@ struct Fixture {
         }
         center_stick(); tick();
     }
+    void trust_prediction()
+    {
+        fake.native_prediction = true;
+        tick(); tick(); button(0x8000); button(0); tick();
+        button(0x0002);
+        for (unsigned i = 0; i < 5; ++i) { tick(100); }
+        button(0); tick();
+    }
+    void type_he()
+    {
+        if (keyboard.model().input_mode() == KeyboardInputMode::OneHanded) {
+            flick(45, 0); flick(45, 180);
+        } else {
+            aim(45); tick(); tap(0x8000); tap(0x1000); center_stick(); tick();
+        }
+    }
 };
 struct PointerFake final : gamepad::live::OutputBoundary {
     gamepad::live::Observation observation;
@@ -180,6 +206,125 @@ int main()
         body(); ++count; std::cout << "PASS " << name << '\n';
     };
     try {
+        test("embedded vocabulary has ten thousand ranked unique words and bounded lookup cost", [] {
+            const auto vocabulary = prediction_vocabulary();
+            check(vocabulary.size() == 10000, "embedded dataset count");
+            std::set<std::string_view> unique;
+            std::size_t bytes = vocabulary.size_bytes();
+            for (auto word : vocabulary) {
+                check(word.size() >= 3 && word.size() <= prediction_word_limit
+                    && std::all_of(word.begin(), word.end(), [](char c) { return c >= 'a' && c <= 'z'; }),
+                    "vocabulary contains only bounded lowercase ASCII words");
+                check(unique.insert(word).second, "vocabulary cannot repeat words");
+                bytes += word.size() + 1;
+            }
+            check(bytes < 300000, "static vocabulary payload and view table stay below 300 KB");
+            WordPrediction prediction;
+            prediction.clear(true);
+            prediction.completed(letter(U'h')); prediction.completed(letter(U'e'));
+            check(prediction.view().words == std::array<std::wstring, 3>{L"here", L"her", L"hey"},
+                "he candidates follow source frequency rather than alphabetical order");
+            prediction.clear(true);
+            for (auto c : U"tha") { if (c) { prediction.completed(letter(c)); } }
+            check(prediction.view().words == std::array<std::wstring, 3>{L"that", L"thank", L"than"}, "common prefix ordering");
+            const auto started = std::chrono::steady_clock::now();
+            for (unsigned i = 0; i < 1000; ++i) {
+                prediction.clear(true);
+                prediction.completed(letter(U'z')); prediction.completed(letter(U'q'));
+                check(!prediction.view().count, "worst-case unmatched prefix has no suggestions");
+            }
+            const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
+            check(elapsed < 2000, "1000 bounded full-list lookups must complete within two seconds");
+            std::cout << "Vocabulary bytes " << bytes << "; 1000 worst-case lookups " << elapsed << " ms\n";
+        });
+        test("native prediction requires runtime and per-session plain-field trust, then no leading space", [] {
+            for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+                Fixture f; f.fake.native_prediction = true; f.keyboard.set_input_mode(mode);
+                f.tick(); f.tick(); f.button(0x8000); f.button(0); f.type_he();
+                check(!f.keyboard.prediction_view().count && f.fake.field == L"he",
+                    "runtime option alone must not collect native prefixes");
+                Fixture g; g.keyboard.set_input_mode(mode); g.trust_prediction();
+                check(g.keyboard.prediction_hint() == L"Local word suggestions on - type two letters", "explicit field trust succeeds");
+                g.type_he();
+                check(g.keyboard.prediction_view().count == 3 && g.fake.field == L"he", "two letters show native suggestions without Space");
+                g.tap(0x0001);
+                check(g.fake.field == L"here", "native acceptance uses the existing fake transport and suffix only");
+                g.tap(0x0001); check(g.fake.field == L"here", "native completion is not replayable");
+                g.tap(0x0020);
+                check(!g.keyboard.prediction_view().count, "close revokes native field trust");
+            }
+        });
+        test("protected unknown readonly and unavailable native fields cannot arm prediction", [] {
+            for (auto support : {PredictionSupport::Off, PredictionSupport::Protected,
+                    PredictionSupport::Unsupported, PredictionSupport::Unavailable}) {
+                Fixture f; f.fake.automatic_caret = false; f.fake.observation.prediction.support = support;
+                f.trust_prediction(); f.type_he(); f.tap(0x0001);
+                check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
+                    "ineligible fields retain ordinary typing but never collect or append suggestions");
+            }
+        });
+        test("native caret proof must be fresh collapsed and bound to completed output revision", [] {
+            for (unsigned invalid = 0; invalid < 5; ++invalid) {
+                Fixture f; f.trust_prediction(); f.type_he();
+                f.fake.automatic_caret = false;
+                f.fake.observation.prediction = {PredictionSupport::PlainEdit, 2, f.fake.observation.text_revision, f.fake.now};
+                switch (invalid) {
+                case 0: f.fake.observation.prediction.caret = 1; break;
+                case 1: f.fake.observation.prediction.caret.reset(); break;
+                case 2: f.fake.observation.prediction.sampled_at -= 101; break;
+                case 3: --f.fake.observation.prediction.revision; break;
+                default: f.fake.observation.prediction.sampled_at += 1000; break;
+                }
+                f.button(0x0001);
+                check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
+                    "caret move, selection, stale, revision-mismatched or future proof blocks suggestions");
+            }
+        });
+        test("native suffix validates each character's caret and never changes original intent expiry", [] {
+            for (unsigned failure = 0; failure < 4; ++failure) {
+                Fixture f; f.trust_prediction(); f.type_he();
+                f.fake.during_send = [&](TextEvent event) {
+                    if (event.up && f.fake.field == L"her") {
+                        f.fake.automatic_caret = false;
+                        f.fake.observation.prediction = {PredictionSupport::PlainEdit, 3,
+                            f.fake.observation.text_revision, f.fake.now};
+                        if (failure == 0) { f.fake.observation.prediction.caret = 0; }
+                        else if (failure == 1) { f.fake.observation.prediction.support = PredictionSupport::Protected; }
+                        else if (failure == 2) { f.fake.observation.prediction.revision = 0; }
+                        else { ++f.fake.observation.target.focus_revision; }
+                    }
+                };
+                f.button(0x0001); f.button(0);
+                for (unsigned i = 0; i < 11; ++i) { f.tick(100); }
+                check(f.fake.field == L"her" && !f.keyboard.prediction_view().count && !f.keyboard.delivery().pending_edits(),
+                    "mid-suffix caret/protection/revision/focus changes cancel unsent text without replay");
+            }
+        });
+        test("native ordinary partial edits, voice intent and metadata loss revoke predictions", [] {
+            Fixture f; f.trust_prediction(); f.type_he();
+            f.fake.returns = {1, 0}; f.aim(45); f.tick(); f.button(0x1000);
+            check(!f.keyboard.prediction_view().count, "partial transport acceptance never authorizes native prediction");
+            Fixture g; g.trust_prediction(); g.type_he(); g.tap(0x0080); g.tap(0x0001);
+            check(g.fake.field == L"he" && !g.keyboard.prediction_view().count, "voice intent revokes per-field trust even without backend");
+            Fixture h; h.trust_prediction(); h.type_he();
+            h.fake.automatic_caret = false; h.fake.observation.prediction = {PredictionSupport::Unavailable};
+            h.tick(); h.fake.automatic_caret = true; h.tick(); h.tap(0x0001);
+            check(h.fake.field == L"he" && !h.keyboard.prediction_view().count, "restored metadata requires a new deliberate trust action");
+        });
+        test("native pending suffix cancels stick activity even while acceptance Up remains held", [] {
+            Fixture f; f.trust_prediction(); f.type_he();
+            f.fake.during_send = [&](TextEvent event) {
+                if (event.up) {
+                    f.fake.automatic_caret = false;
+                    f.fake.observation.prediction = {PredictionSupport::PlainEdit};
+                }
+            };
+            f.button(0x0001);
+            check(f.fake.field == L"her" && f.keyboard.delivery().pending_edits() == 1, "one suffix character awaits metadata");
+            f.aim(90); f.tick();
+            check(f.fake.field == L"her" && !f.keyboard.delivery().pending_edits() && !f.keyboard.prediction_view().count,
+                "held Up cannot mask other controller activity or authorize remaining suffix");
+        });
         test("reserved controller window messages preserve practice before and after XInput actions", [] {
             constexpr std::array<UINT, 4> messages{WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP};
             constexpr std::array<std::pair<unsigned, unsigned>, 2> ranges{{
@@ -206,10 +351,10 @@ int main()
                             check(selected.selected == 1 && !dispatch() && f.keyboard.prediction_view() == selected,
                                 "reserved message after selection preserves the selected suggestion");
                             f.tap(0x0001);
-                            check(f.fake.field == L" help" && !dispatch() && f.fake.field == L" help",
+                            check(f.fake.field == L" her" && !dispatch() && f.fake.field == L" her",
                                 "reserved message after acceptance cannot erase completed output");
                             f.tap(0x0001);
-                            check(f.fake.field == L" help" && !closed && !suspended,
+                            check(f.fake.field == L" her" && !closed && !suspended,
                                 "message dispatch never cancels practice or replays controller acceptance");
                         }
                     }
@@ -260,7 +405,7 @@ int main()
             check(!dispatch_keyboard_preview_input(WM_PAINT, 'A', true, [] { return true; },
                 [] {}, [&] { ++suspended; }) && !suspended, "non-input messages do not reset practice");
         });
-        test("authored suggestions are bounded case-preserving and require a known word boundary", [] {
+        test("ranked suggestions are bounded case-preserving and require a known word boundary", [] {
             for (const auto prefix : {U"he", U"He", U"HE"}) {
                 WordPrediction prediction;
                 for (auto c : std::u32string_view(prefix)) { prediction.completed(letter(c)); }
@@ -268,10 +413,10 @@ int main()
                 prediction.completed(letter(U' '));
                 for (auto c : std::u32string_view(prefix)) { prediction.completed(letter(c)); }
                 const auto view = prediction.view();
-                check(view.count == 3 && view.words[0].size() == 5, "authored he family offers exactly three choices");
+                check(view.count == 3 && view.words[0].size() == 4, "ranked he family offers exactly three choices");
                 check(view.words[0].starts_with(std::wstring(prediction.prefix())), "suggestion preserves prefix case");
                 const auto suffix = prediction.accept(view.generation);
-                check(suffix && (suffix == U"llo" || suffix == U"LLO"), "only the remaining suffix is returned");
+                check(suffix && (suffix == U"re" || suffix == U"RE"), "only the remaining suffix is returned");
                 check(!prediction.accept(view.generation), "acceptance is consumed exactly once");
             }
             WordPrediction prediction;
@@ -328,19 +473,19 @@ int main()
                 check(f.keyboard.prediction_view().count == 3, mode == KeyboardInputMode::FaceButtons
                     ? "face mode builds suggestions from completed edits" : "one-handed mode builds suggestions from completed edits");
                 f.button(0x0008);
-                check(f.keyboard.prediction_view().selected == 1, "right chooses help");
+                check(f.keyboard.prediction_view().selected == 1, "right chooses her");
                 f.tick(); check(f.keyboard.prediction_view().selected == 1, "held D-pad never repeats");
                 f.button(0x0001);
                 check(f.fake.field == L" he", "rolling right into up without neutral cannot accept");
                 f.button(0); f.button(0x0001);
-                check(f.fake.field == L" help", "deliberate up appends suffix only, no automatic space");
+                check(f.fake.field == L" her", "deliberate up appends suffix only, no automatic space");
                 for (unsigned i = 0; i < 8; ++i) { f.tick(); }
                 f.button(0); f.tap(0x0001);
-                check(f.fake.field == L" help" && !f.keyboard.prediction_view().count, "held and repeated acceptance cannot replay");
-                f.tap(0x0100); check(f.fake.field == L" hel", "LB still edits real preview output without inferring suffix prefix");
+                check(f.fake.field == L" her" && !f.keyboard.prediction_view().count, "held and repeated acceptance cannot replay");
+                f.tap(0x0100); check(f.fake.field == L" he", "LB still edits real preview output without inferring suffix prefix");
                 check(!f.keyboard.prediction_view().count, "deleting a completion does not reconstruct its prefix");
-                f.tap(0x0200); check(f.fake.field == L" hel ", "RB remains explicit space");
-                f.tap(0x0010); check(f.fake.field == L" hel \r\n", "Menu remains Enter");
+                f.tap(0x0200); check(f.fake.field == L" he ", "RB remains explicit space");
+                f.tap(0x0010); check(f.fake.field == L" he \r\n", "Menu remains Enter");
                 f.tap(0x0020); check(!f.keyboard.visible(), "View remains cancellation");
             }
         });
@@ -357,7 +502,7 @@ int main()
             check(g.fake.field == L" h", "one-handed Backspace still works");
         });
         test("partial edits and failed completion events never become prediction hints or replay", [] {
-            for (unsigned accepted = 0; accepted < 6; ++accepted) {
+            for (unsigned accepted = 0; accepted < 4; ++accepted) {
                 Fixture f; f.fake.preview = true; f.prediction_word();
                 for (unsigned i = 0; i < accepted; ++i) { f.fake.returns.push_back(1); }
                 f.fake.returns.push_back(0);

@@ -45,6 +45,8 @@ public:
     [[nodiscard]] const Daisywheel& model() const { return keyboard_; }
     [[nodiscard]] const TextDelivery& delivery() const { return delivery_; }
     [[nodiscard]] PredictionView prediction_view() const;
+    [[nodiscard]] bool prediction_enabled() const { return boundary_.prediction_enabled(); }
+    [[nodiscard]] std::wstring_view prediction_hint() const;
     [[nodiscard]] std::wstring status() const;
     [[nodiscard]] const std::wstring& last_dismissal() const { return last_dismissal_; }
 
@@ -56,6 +58,8 @@ private:
     bool voice_step(const Snapshot& snapshot, Tick now);
     void cancel_voice();
     bool prediction_step(const Snapshot& snapshot);
+    void prediction_observe(const TextObservation& observation, Tick now);
+    void prediction_complete(KeyboardEdit edit, Tick now);
     TextBoundary& boundary_;
     TextDelivery delivery_;
     Daisywheel keyboard_;
@@ -87,5 +91,12 @@ private:
     WordPrediction prediction_;
     bool prediction_neutral_ = false;
     bool prediction_appending_ = false;
+    bool prediction_trusted_ = false;
+    bool prediction_ready_ = false;
+    PredictionSupport prediction_support_ = PredictionSupport::Off;
+    std::optional<Tick> prediction_trust_started_;
+    std::optional<Tick> prediction_caret_wait_;
+    std::optional<std::uint32_t> prediction_caret_;
+    Tick prediction_proof_time_ = 0;
 };
 } // namespace gamepad

@@ -28,11 +28,16 @@ focus excursions, same-HWND field changes, expired capture leases, invalid model
 bytes, strict migration, and ambiguous injected-source handling.
 
 Prediction regressions are part of `gamepad_delivery_tests`, not a native-input
-test. They cover the authored vocabulary, case/boundary rules, bounded prefixes
+test. They cover the 10,000-word frequency vocabulary, case/boundary rules, bounded prefixes
 and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
 target/context/physical/device changes, queue limits, both controller modes,
 mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
-Native boundary prediction stays default-off and never receives prefix hints.
+Native prediction stays default-off and requires explicit field trust. Fakes
+cover two-letter triggering without leading Space, unsupported/protected fields,
+caret revision/freshness/selection, per-character suffix checks, one fixed intent
+deadline, cancellation and partial output. Vocabulary tests assert exact count,
+ASCII/uniqueness/ranking, static payload below 300 KB and 1,000 worst-case full
+lookups below two seconds.
 Pure window-message dispatch regressions cover key down/up and system-key
 down/up across both reserved `VK_GAMEPAD` and `VK_NAVIGATION` ranges before and
 after XInput selection/acceptance. They retain ordinary keyboard/mouse takeover
@@ -64,7 +69,10 @@ unchanged wheel pixels, premultiplied alpha, owning cached strings, idle reuse,
 and hidden chips during inactivity/voice/no-prefix states. No real app text is
 used. `--prediction-demo` is a separate static no-output UI demo; it starts no
 controller poller, mapper, microphone or hook. Preview-only success does not
-validate external-app prediction or universal password detection.
+validate external-app compatibility or universal password detection. Native-view
+frames cover trusted/unavailable states and never echo practice/app text.
+Every vocabulary word is measured in lower/title/upper case with DirectWrite
+to reject clipping or ambiguous ellipsis.
 
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and
@@ -86,6 +94,38 @@ Inspect exact renderer frames at native and scaled DPI over light/dark backdrops
 Actual assistive-technology and multi-monitor behavior still needs device testing.
 
 ## Owned-message probes
+
+`gamepad_prediction_target_tests` is excluded from default builds/CTest. Build
+it explicitly and run `--allow-owned-metadata` under a bounded watchdog only in
+an authorized session. It creates offscreen, nonactivating owned classic Edit,
+password, single-line, read-only and custom controls. It tests native metadata,
+dynamic styles, timeout, changing length, out-of-bounds selection, actual
+70,000-to-4,464 packed-index wraparound rejection and cancellation generations.
+It records no text values, never calls `SendInput`, and verifies unchanged focus.
+
+For a separately authorized manual controller trial:
+
+```powershell
+cmake --build out\x64 --config Release --target gamepad_prediction_target_tests
+.\out\x64\Release\gamepad_prediction_target_tests.exe --practice-field
+# Separately start GamepadDesktop.exe --word-prediction, click the disposable
+# field, open Daisywheel, hold D-pad Down to trust, then type two letters.
+```
+
+The developer field host performs no automatic typing, microphone work or hooks.
+Do not run the normal mapper as part of deterministic or metadata tests.
+ARM64 metadata/interactive execution still requires an ARM64 device.
+
+To verify the dataset transformation against explicitly obtained pinned input:
+
+```powershell
+.\cmake\GeneratePredictionVocabulary.ps1 -Source .\out\en_50k.txt `
+  -Output .\third_party\PredictionVocabulary.inc -Check
+```
+
+The generator validates the source SHA-256, 50,000 rows, descending rank and
+10,000 unique lowercase ASCII words of length 3..24. It never downloads at build
+or runtime. The source corpus stays untracked; attribution/license are tracked.
 
 The ordinary `gamepad_self_caption_tests` invocation is pure. Its
 `--owned-messages` option creates owned windows and sends only window messages,

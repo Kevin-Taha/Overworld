@@ -54,8 +54,10 @@ if ($model.Length -ne 77704715 -or
 }
 $license = Join-Path $build 'voice-licenses\whisper.cpp-LICENSE.txt'
 $notice = Join-Path $PSScriptRoot 'third_party\voice-notices.txt'
+$predictionNotice = Join-Path $PSScriptRoot 'third_party\prediction-notices.txt'
+$predictionLicense = Join-Path $PSScriptRoot 'third_party\prediction-CC-BY-SA-4.0.txt'
 $readme = Join-Path $PSScriptRoot 'docs\ARM64-WHISPER.md'
-foreach ($path in @($license, $notice, $readme)) {
+foreach ($path in @($license, $notice, $predictionNotice, $predictionLicense, $readme)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing package input: $path" }
 }
 $bundle = Join-Path $build "packages\GamepadDesktop-ARM64-Whisper-$revision-$(Get-Date -Format yyyyMMdd-HHmmss)"
@@ -63,7 +65,7 @@ if (Test-Path -LiteralPath $bundle) { throw 'Refusing to overwrite an existing p
 New-Item -ItemType Directory -Path "$bundle\models", "$bundle\licenses" | Out-Null
 Copy-Item -LiteralPath $exe.FullName -Destination "$bundle\GamepadDesktop.exe"
 Copy-Item -LiteralPath $model.FullName -Destination "$bundle\models\ggml-tiny.en.bin"
-Copy-Item -LiteralPath $license, $notice -Destination "$bundle\licenses"
+Copy-Item -LiteralPath $license, $notice, $predictionNotice, $predictionLicense -Destination "$bundle\licenses"
 Copy-Item -LiteralPath $readme -Destination "$bundle\README.md"
 $files = @(Get-ChildItem -LiteralPath $bundle -Recurse -File | ForEach-Object {
     [ordered]@{

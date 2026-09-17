@@ -1,6 +1,8 @@
 #include "KeyboardVisual.h"
 #include "Keyboard.h"
 #include "PredictionPractice.h"
+#include <dwrite.h>
+#include <wrl/client.h>
 
 #include <algorithm>
 #include <cmath>
@@ -206,6 +208,33 @@ void export_frame(KeyboardVisual& visual, const std::filesystem::path& directory
 
 void prediction_frames(const std::filesystem::path& directory)
 {
+    Microsoft::WRL::ComPtr<IDWriteFactory> factory;
+    check(SUCCEEDED(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
+        reinterpret_cast<IUnknown**>(factory.GetAddressOf()))), "vocabulary text metrics factory");
+    Microsoft::WRL::ComPtr<IDWriteTextFormat> format;
+    check(SUCCEEDED(factory->CreateTextFormat(L"Segoe UI", nullptr, DWRITE_FONT_WEIGHT_SEMI_BOLD,
+        DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 14, L"en-US", format.GetAddressOf())), "vocabulary text format");
+    check(SUCCEEDED(format->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)), "vocabulary labels do not wrap");
+    check(SUCCEEDED(format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER))
+        && SUCCEEDED(format->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER)), "vocabulary label alignment");
+    for (auto word : prediction_vocabulary()) {
+        for (unsigned casing = 0; casing < 3; ++casing) {
+            std::wstring value(word.begin(), word.end());
+            for (std::size_t i = 0; i < value.size(); ++i) {
+                if (casing == 2 || (casing == 1 && !i)) { value[i] = static_cast<wchar_t>(value[i] - (L'a' - L'A')); }
+            }
+            Microsoft::WRL::ComPtr<IDWriteTextLayout> layout;
+            check(SUCCEEDED(factory->CreateTextLayout(value.data(), static_cast<UINT32>(value.size()), format.Get(),
+                98, 27, layout.GetAddressOf())), "vocabulary text layout");
+            check(SUCCEEDED(layout->SetFontSize(prediction_font_size(value.size()), {0, static_cast<UINT32>(value.size())})),
+                "vocabulary bounded font size");
+            DWRITE_TEXT_METRICS metrics{}; DWRITE_OVERHANG_METRICS ink{};
+            check(SUCCEEDED(layout->GetMetrics(&metrics)) && SUCCEEDED(layout->GetOverhangMetrics(&ink)), "vocabulary ink metrics");
+            check(metrics.widthIncludingTrailingWhitespace <= 98 && metrics.height <= 27
+                && ink.left <= 0 && ink.right <= 0 && ink.top <= 0 && ink.bottom <= 0,
+                "every lower/title/upper vocabulary word must fit without clipping or ellipsis");
+        }
+    }
     FakeTheme source;
     KeyboardVisual visual(&source);
     unsigned count = 0;
@@ -294,7 +323,7 @@ void prediction_frames(const std::filesystem::path& directory)
     state.prediction.count = 4;
     check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
         "oversized suggestion list explicitly rejected");
-    state.prediction.count = 3; state.prediction.words[0] = std::wstring(prediction_prefix_limit + 1, L'a');
+    state.prediction.count = 3; state.prediction.words[0] = std::wstring(prediction_word_limit + 1, L'a');
     check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
         "oversized suggestion text explicitly rejected");
     state.prediction.words[0] = L"bad\ntext";
@@ -303,6 +332,27 @@ void prediction_frames(const std::filesystem::path& directory)
     state.prediction.words[0] = L"WWWWWWWWWWWWWWWW";
     check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
         "actual ink that cannot fit must not silently truncate a completion");
+    state.prediction = practice.keyboard().prediction_view();
+    state.preview = state.prediction_preview = false;
+    state.word_suggestions = true;
+    state.prediction_hint = L"Local word suggestions on - type two letters";
+    state.practice_sample = L"NEVER DRAW PRIVATE APP TEXT";
+    render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
+    const auto native_raster = visual.frame().rasterizations;
+    state.practice_sample = {};
+    render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
+    check(visual.frame().rasterizations == native_raster, "native suggestion view cannot echo a practice sample or app text");
+    inspect(visual.frame(), source.theme.high_contrast);
+    if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-trusted"); }
+    state.prediction = {};
+    for (auto hint : {L"Hold D-pad Down: trust this plain-text field",
+            L"Word suggestions off: protected field", L"Word suggestions: classic multiline Edit only",
+            L"Word suggestions: waiting for caret confirmation"}) {
+        state.prediction_hint = hint;
+        render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
+        check(visual.frame().pixels[365 * keyboard_visual_width + 196] == 0, "native eligibility/trust/wait state never exposes candidate chips");
+    }
+    if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-unavailable"); }
     std::cout << "PASS " << count << " prediction mode/theme/DPI frames; label fit/contrast, hidden chips, ownership and idle reuse\n";
 }
 

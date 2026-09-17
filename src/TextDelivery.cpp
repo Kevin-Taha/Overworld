@@ -58,14 +58,15 @@ bool TextDelivery::start(const TextTarget& target)
     return true;
 }
 
-bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires)
+bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
+    std::optional<std::uint32_t> prediction_caret)
 {
     if (phase_ != TextPhase::Ready) { return false; }
     if (in_flight_) { fault(L"Reentrant edit request"); return false; }
     const auto input = edit_events(edit);
     if (!input || sampled_at > expires) { fault(L"Invalid keyboard edit"); return false; }
     if (size_ == queue_.size()) { fault(L"Typing queue full; pending edits cancelled"); return false; }
-    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires};
+    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires, prediction_caret};
     ++size_;
     return true;
 }
@@ -102,6 +103,24 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
             break;
         }
         if (current.settling) { break; }
+        if (pending.prediction_caret) {
+            if (!boundary_.prediction_enabled() || current.prediction.support != PredictionSupport::PlainEdit) {
+                stop(L"Word suggestion field eligibility changed; remaining suffix cancelled");
+                break;
+            }
+            if (!pending.next) {
+                if (current.prediction.sampled_at && current.prediction.revision == current.text_revision
+                    && !current.prediction.caret) {
+                    stop(L"Text selection changed; remaining suffix cancelled");
+                    break;
+                }
+                if (!prediction_proven(current, current_time)) { break; }
+                if (current.prediction.caret != pending.prediction_caret) {
+                    stop(L"Caret or selection changed; remaining suffix cancelled");
+                    break;
+                }
+            }
+        }
         const auto final = boundary_.observe_text(down_);
         if (phase_ != TextPhase::Ready) { break; }
         const auto final_time = boundary_.text_now();
@@ -112,6 +131,24 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
             break;
         }
         if (final.settling) { break; }
+        if (pending.prediction_caret) {
+            if (!boundary_.prediction_enabled() || final.prediction.support != PredictionSupport::PlainEdit) {
+                stop(L"Word suggestion field eligibility changed; remaining suffix cancelled");
+                break;
+            }
+            if (!pending.next) {
+                if (final.prediction.sampled_at && final.prediction.revision == final.text_revision
+                    && !final.prediction.caret) {
+                    stop(L"Text selection changed during validation; remaining suffix cancelled");
+                    break;
+                }
+                if (!prediction_proven(final, final_time)) { break; }
+                if (final.prediction.caret != pending.prediction_caret) {
+                    stop(L"Caret changed during suggestion validation; remaining suffix cancelled");
+                    break;
+                }
+            }
+        }
         const auto event = pending.input.events[pending.next];
         if (event.up != owned() || (event.up && event.key != *down_)) {
             fault(L"Keyboard output ownership mismatch");

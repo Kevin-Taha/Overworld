@@ -22,6 +22,8 @@ models\
 licenses\
   whisper.cpp-LICENSE.txt
   voice-notices.txt
+  prediction-notices.txt
+  prediction-CC-BY-SA-4.0.txt
 ```
 
 Release assets are distributed as individual files, not ZIP archives. Close any
@@ -83,13 +85,60 @@ contexts stop typing. Pending edits never move to a new target or replay
 automatically. A browser or custom control may change its internal field without
 changing native HWND identity, so exact targeting cannot be guaranteed for all apps.
 
-## Word suggestions: local practice experiment
+## Local word suggestions: scoped native pilot
 
-Word prediction is **default-off and preview-only**, not enabled for external
-applications. `--prediction-preview` opens a controller-driven in-memory practice
+Word suggestions are **off by default**. Start `GamepadDesktop.exe
+--word-prediction` to make them available for this run; no setting/schema is
+changed. This still launches the normal full mapper, not inspection mode.
+In an eligible plain-text field, open Daisywheel, center/release the controls,
+then **hold D-pad Down for half a second** to explicitly trust this field for this
+keyboard session. Do not trust a field used for passwords or other secrets.
+After two letters entered by this keyboard, up to three frequency-ranked
+suggestions appear. No leading Space is required.
+
+**D-pad Left/Right** chooses; **D-pad Up** appends only the remaining suffix once.
+Return to neutral between presses and finish an in-progress one-handed flick
+before choosing. No automatic Space, Enter, replacement or inferred Backspace is
+performed. Existing face-button, one-handed, LB/RB/Menu/View mappings are unchanged.
+A fixed one-second completion deadline and fresh per-character caret/target
+checks cancel unsent characters on uncertainty; partial output is never replayed.
+
+**Supported:** visible, enabled, writable classic Windows **multiline Edit**
+controls, collapsed selection, total field length below 65,535 UTF-16 code units.
+**Unsupported:** browsers, modern Notepad, RichEdit, custom/superclass controls,
+single-line fields, password/readonly fields, large fields, and unavailable
+or timed-out metadata. The footer states availability/trust status; ordinary
+Daisywheel typing remains available when suggestions are unavailable.
+This is not universal password detection: a classic Edit can be subclassed by its
+app, which is why explicit non-secret field trust is also required.
+
+Only this session's transport-completed keyboard edits feed a maximum 16-letter
+ephemeral prefix, not field contents. Space/punctuation reset it; unexpected
+caret/selection changes, physical takeover, target/context/device/mode changes,
+unknown Backspace, close and voice transitions clear or invalidate hints.
+Close and reopen (or cancel voice) requires a new field trust action.
+Receipt and application behavior are not guaranteed by `SendInput` acceptance.
+
+The embedded 10,000-word English frequency list is derived from the pinned
+HermitDave/FrequencyWords OpenSubtitles2018 data under **CC BY-SA 4.0**; see
+[`third_party/prediction-notices.txt`](third_party/prediction-notices.txt).
+It can contain names, slang and offensive language; it is not child-safe.
+No ML, cloud, OS dictionary, personal word list, clipboard, field-text read,
+learning or history is used. Full data attribution and license must accompany
+the EXE; the data license does not grant an application-code license.
+
+For a disposable classic Edit field, build the opt-in developer target
+`gamepad_prediction_target_tests` and manually run it with `--practice-field`.
+That host never injects input or opens the microphone. Click its field before
+opening the normal mapper keyboard. This trial host is not a required app file.
+
+### No-output practice modes
+
+`--prediction-preview` opens a controller-driven in-memory practice
 field; `--prediction-preview-one-handed` uses the same one-handed gestures as the
-normal keyboard. The regular application and `--inspect` do not collect prediction
-prefixes. No setting is loaded or saved by these previews.
+normal keyboard. The regular application without `--word-prediction` and
+`--inspect` do not collect prediction prefixes. No setting is loaded or saved by
+these previews, and there is no external output.
 
 Close any running mapper first. In the preview, center the controls and press Y
 (or left-stick click in one-handed mode) to open the keyboard. Press **RB Space**
@@ -106,18 +155,15 @@ limited to 256 characters; reaching capacity stops delivery explicitly.
 `--prediction-demo` shows the synthetic `he` example without polling a controller
 or producing external input. It is a static visual demo, not an active mapper.
 
-Suggestions use a small authored English word table, not ML, an OS dictionary,
-personal words, clipboard contents or application text. Prefix hints come only
-from this keyboard's completed edits. Unknown word boundaries, punctuation,
+Suggestions use the same embedded frequency list. Prefix hints come only
+from this keyboard's completed edits. In practice mode, unknown word boundaries, punctuation,
 mixed capitalization and excessive prefixes suppress suggestions rather than
 guessing. Clear/reset, focus loss, physical input received by the preview,
 controller interruption, mode changes and voice transitions invalidate hints.
 Accepted completions are never autocorrected, backed out, learned or replayed.
 
-The practice label is intentional: there is **no universal password detector**.
-Native, password and unknown/protected external fields are all ineligible for
-prediction. A real-app feature would need a separate reviewed eligibility design;
-transport acceptance alone never proves that an application received text.
+The practice label distinguishes this in-memory mode from the scoped native
+pilot; transport acceptance alone never proves that an application received text.
 The preview has no native text sink, microphone, hook or cursor-hiding path.
 
 ## Offline voice

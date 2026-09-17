@@ -17,6 +17,10 @@ class Daisywheel;
 inline constexpr int keyboard_visual_width = 392;
 inline constexpr int keyboard_visual_height = 350;
 inline constexpr int keyboard_prediction_height = 416;
+inline constexpr float prediction_font_size(std::size_t length)
+{
+    return length > 14 ? 9.0f : length > 11 ? 10.0f : length > 8 ? 12.0f : 14.0f;
+}
 
 struct KeyboardVisualState {
     bool active = false;
@@ -27,6 +31,8 @@ struct KeyboardVisualState {
     bool prediction_preview = false;
     PredictionView prediction{};
     std::wstring_view practice_sample;
+    bool word_suggestions = false;
+    std::wstring_view prediction_hint;
 };
 
 struct KeyboardGlyphBounds {
