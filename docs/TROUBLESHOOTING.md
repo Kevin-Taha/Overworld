@@ -71,6 +71,38 @@ If disabling or closing reports unresolved filter state, retain the diagnostic
 category rather than forcing cleanup input. Windows can silently remove a
 timed-out low-level hook, so absence of errors is not proof of continued filtering.
 
+### Optional shell-routing metadata
+
+Start, Search, taskbar and companion surfaces can have different foreground,
+focus and pointer-hit recipients. Do not infer their input source or rendering
+order from a window being visible/topmost. The filter remains conservative when
+the application's existing route cannot be validated.
+
+For a deliberate diagnostic session, build the separate `gamepad_shell_probe`
+target. It is excluded from normal builds and CTest. Run it only when ready to
+reproduce the issue yourself:
+
+```powershell
+$probe = Start-Process .\gamepad_shell_probe.exe -ArgumentList '--metadata-only' `
+  -NoNewWindow -PassThru
+if (-not $probe.WaitForExit(20000)) {
+    Stop-Process -Id $probe.Id
+    throw 'The owned metadata probe exceeded its external time limit.'
+}
+```
+
+The probe waits three seconds, then samples up to twenty times over ten seconds.
+The external timeout above also bounds a stalled OS metadata query. It writes
+only to the console: window/owner identities, process basenames, classes, cloak
+state, session/integrity and query errors. It does not read titles, text, key data,
+coordinates, audio or screenshots, and does not change input, focus or visibility.
+Unstable or protected-desktop samples are withheld.
+
+This output still reveals application metadata; review it before sharing.
+Pair the relevant sample with the utility's build, eligibility, last missed
+GAMEPAD down and gate/age, and keyboard-dismissal category. The probe does not
+prove the origin of native controller input or permission to inject.
+
 ## Settings and UI tests
 
 Save validates the full editor and detects external file changes. Reload is

@@ -91,6 +91,32 @@ int main()
         body(); ++count; std::cout << "PASS " << name << '\n';
     };
     try {
+        test("failed cursor image queries recover without repeated polling or identity changes", [] {
+            CursorImageQuerySchedule query;
+            check(query.take(false, 1000), "first unknown image must be queried");
+            for (Tick now = 1001; now < 2000; ++now) {
+                check(!query.take(false, now), "failed image lookup must not repeat on each cursor tick");
+            }
+            check(query.take(false, 2000), "one transient image lookup failure must not cache Unknown forever");
+            check(!query.take(true, 3000), "live verified process image can remain cached");
+            query.reset();
+            check(query.take(false, 3001), "new root identity must allow an immediate lookup");
+            check(query.take(false, 999), "clock rollback must reestablish image evidence");
+        });
+        test("retrying unknown image never fabricates Start or shows unowned hiding", [] {
+            CursorImageQuerySchedule query;
+            CursorSurfaceRoot root{{}, L"Windows.UI.Core.CoreWindow", true, true, false, false};
+            Fixture f;
+            StartCursorFallback fallback;
+            check(query.take(false, 1000), "initial image probe");
+            fallback.update(f.cursor, classify_cursor_surface(root), false, f.settings);
+            check(!fallback.active() && f.count("show-native") == 0, "query failure must stay inconclusive");
+            check(query.take(false, 2000), "bounded retry after failed lookup");
+            root.executable = L"StartMenuExperienceHost.exe";
+            fallback.update(f.cursor, classify_cursor_surface(root), false, f.settings);
+            check(fallback.active() && f.count("show-native") == 0 && !f.cursor.owns_hide(),
+                "verified Start can establish fallback without force-showing unowned native state");
+        });
         test("Start classifier requires exact executable class and validated visible root", [] {
             CursorSurfaceRoot root{L"StartMenuExperienceHost.exe", L"Windows.UI.Core.CoreWindow", true, true, false, false};
             check(classify_cursor_surface(root) == CursorSurfaceObservation::Start, "observed Start root");

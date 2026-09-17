@@ -69,12 +69,15 @@ public:
     void select(HWND window, int page);
     bool shortcut(HWND window, MSG& message);
     bool dpi_changed(HWND window, UINT dpi);
+    bool fit_window(HWND window, UINT dpi, const RECT* suggested = nullptr);
+    [[nodiscard]] bool window_bounds(HWND window, UINT dpi, const RECT& suggested,
+        const RECT& work_area, RECT& bounds) const;
     [[nodiscard]] int selected() const { return selected_; }
 private:
     struct Control { HWND window; int id; RECT rect; };
     std::vector<Control> controls_;
     HFONT font_ = nullptr, title_ = nullptr;
-    UINT initial_dpi_ = 96;
+    SIZE client_{};
     int selected_ = 0;
 };
 } // namespace gamepad
