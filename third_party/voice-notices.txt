@@ -1,0 +1,37 @@
+Offline voice dependencies
+
+whisper.cpp v1.7.6, commit a8d002cfd879315632a579e73f0148d06959de36
+https://github.com/ggml-org/whisper.cpp
+Copyright (c) 2023-2024 The ggml authors
+The fetched source's LICENSE covers whisper.cpp and its bundled ggml code;
+redistribute it alongside this notice with the voice-enabled build.
+
+OpenAI Whisper tiny.en model, converted to ggml by ggerganov/whisper.cpp:
+https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin
+SHA256 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f
+Copyright (c) 2022 OpenAI
+https://github.com/openai/whisper
+
+Build variants: voice-portable is the baseline CPU flavor. voice-avx2 requires
+AVX2, FMA, F16C and BMI2 from process start; it is not a portable fallback build.
+voice-off has no recognizer backend. The flavor is included in the EXE build label.
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
