@@ -35,6 +35,10 @@ endif()
 add_library(gamepad_navigation src/NavigationFilter.cpp)
 target_link_libraries(gamepad_navigation PUBLIC gamepad_core)
 
+add_library(gamepad_practice src/Practice.cpp)
+target_link_libraries(gamepad_practice PUBLIC gamepad_core gamepad_keyboard)
+target_compile_options(gamepad_practice PRIVATE /W4 /WX /permissive- /utf-8)
+
 add_library(gamepad_settings src/Settings.cpp src/RingPixels.cpp src/CursorPresentation.cpp)
 target_link_libraries(gamepad_settings PUBLIC gamepad_core Shell32 Ole32)
 target_compile_definitions(gamepad_settings PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -45,7 +49,8 @@ target_compile_definitions(gamepad_ring PUBLIC UNICODE _UNICODE WIN32_LEAN_AND_M
 
 add_executable(GamepadDesktop WIN32 src/Host.cpp src/XInputReader.cpp src/Desktop.cpp src/NativeCursorVisibility.cpp
     src/KeyboardPreview.cpp src/KeyboardPopup.cpp src/KeyboardVisual.cpp src/NativeNavigationFilter.cpp src/NativeCursorSurface.cpp src/Host.rc)
-target_sources(GamepadDesktop PRIVATE src/AppUi.cpp)
+target_sources(GamepadDesktop PRIVATE src/AppUi.cpp src/PracticeWindow.cpp src/PracticeVisual.cpp)
+target_link_libraries(GamepadDesktop PRIVATE gamepad_practice)
 target_link_libraries(GamepadDesktop PRIVATE gamepad_ring gamepad_keyboard gamepad_voice gamepad_navigation Xinput Shell32 User32 Gdi32 Wtsapi32 Advapi32 Comctl32 Magnification D2d1 Dwrite Windowscodecs Ole32)
 target_link_libraries(GamepadDesktop PRIVATE Dwmapi)
 target_link_libraries(GamepadDesktop PRIVATE Uxtheme)
@@ -80,6 +85,22 @@ target_include_directories(GamepadDesktop PRIVATE "${gamepad_build_info_dir}")
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(gamepad_practice_tests tests/PracticeTests.cpp)
+    target_link_libraries(gamepad_practice_tests PRIVATE gamepad_practice)
+    target_compile_options(gamepad_practice_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    add_test(NAME gamepad_practice_tests COMMAND gamepad_practice_tests)
+    add_test(NAME gamepad_practice_isolation_tests COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/PracticeIsolationTests.cmake")
+    # Source-free owned-window renderer: explicit opt-in, no default CTest/native input.
+    add_executable(gamepad_practice_visual_tests EXCLUDE_FROM_ALL tests/PracticeVisualTests.cpp
+        src/PracticeWindow.cpp src/PracticeVisual.cpp src/KeyboardVisual.cpp src/AppUi.cpp)
+    target_include_directories(gamepad_practice_visual_tests PRIVATE "${gamepad_build_info_dir}")
+    target_link_libraries(gamepad_practice_visual_tests PRIVATE gamepad_practice
+        User32 Gdi32 Comctl32 Advapi32 D2d1 Dwrite Windowscodecs Ole32 Dwmapi Uxtheme)
+    target_compile_definitions(gamepad_practice_visual_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(gamepad_practice_visual_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    target_link_options(gamepad_practice_visual_tests PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
+    add_dependencies(gamepad_practice_visual_tests gamepad_build_info)
     add_executable(gamepad_voice_model_tests tests/VoiceModelTests.cpp src/VoiceModel.cpp)
     target_include_directories(gamepad_voice_model_tests PRIVATE src)
     target_compile_features(gamepad_voice_model_tests PRIVATE cxx_std_20)

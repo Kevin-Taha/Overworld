@@ -17,6 +17,16 @@ the native hook. Settings tests write only to their owned test-scratch directory
 ARM64 tests can be built by cross-compilation, but must be executed on an
 appropriate ARM64 environment.
 
+`gamepad_practice_tests` exercises five-skill progress, local typing and
+one-handed selection, real pointer precision/scaling, release-only clicks,
+drag cancellation, focus/physical takeover, stale/rollback samples, reconnects,
+multiple controllers, help, retry, reset, and fail-closed launch arguments.
+Reserved controller/navigation window-key messages are interleaved with dragging
+and character selection; ordinary arrows, Enter, Shift, letters, and adjacent
+non-reserved key values must still take over.
+`gamepad_practice_isolation_tests` checks the shared-guard/pre-Host launch branch
+and forbidden native boundaries in practice sources. Neither starts the app.
+
 For a focused change:
 
 ```powershell
@@ -47,6 +57,39 @@ Rendered artifacts are local review evidence, not repository content.
 Do not use `PrintWindow` success alone as visibility evidence for layered windows.
 Inspect exact renderer frames at native and scaled DPI over light/dark backdrops.
 Actual assistive-technology and multi-monitor behavior still needs device testing.
+
+### Practice frames
+
+The separate practice helper has no XInput, desktop-output, cursor-hiding,
+microphone, or hook adapter linked. It creates only hidden owned windows and
+synthetic scenes, and has a two-minute process watchdog. It is never registered
+with default CTest:
+
+```powershell
+cmake --build out\x64 --config Release --target gamepad_practice_visual_tests --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\gamepad_practice_visual_tests.exe --render-only .\out\practice-frames
+```
+
+The explicit flag is required. Frames cover all five skills, one-handed typing,
+help, light/dark and black/white high-contrast palettes at 96/144/192 DPI, and
+compact/wide layouts. Checks use actual DirectWrite ink containment and
+nonoverlap, visible glyph pixels, opaque premultiplied alpha, native accessible
+names/tab order/control geometry, same-target scene-command clicks, unchanged
+raster/surface reuse, repeated native-window resource lifetimes, and exact RGB
+comparison through the owned `WM_PRINTCLIENT`/`WM_DRAWITEM` paint handlers,
+including child offsets. Hidden `PrintWindow` success can be blank; it is not
+used as evidence of visibility. All PNGs
+are produced from the real renderer; inspect them rather than treating a paint
+return value as visibility evidence. Existing keyboard visual tests separately
+cover the reused keyboard's glyph geometry and alpha.
+
+Morning device trials must be deliberate: close all other instances, launch
+`GamepadDesktop.exe --practice`, select its window, center the controller, and
+try the five skills. Point and tap A on Retry/Help/Reset, close the keyboard with
+View before navigating, and leave/return to the window during a drag to confirm
+neutral reacquisition. Practice itself never starts microphone capture or
+desktop mapping. Render/model tests do not establish controller hardware,
+screen-reader, multi-monitor, or actual live-application compatibility.
 
 ## Owned-message probes
 

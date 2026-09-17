@@ -22,6 +22,47 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Optional filter | `NavigationFilter.*`, `NativeNavigationFilter.*` | Pure key ledger plus bounded native hook adapter |
 | Own caption | `SelfCaption.h` | Deferred self-window min/max/close after a processed matching release |
 | Simulator | `Core.*` | Shared snapshot types and retained dry-run model; not a second output boundary |
+| Practice | `Practice.*`, `PracticeWindow.*`, `PracticeVisual.*` | Pure lesson state, owned native scene, shared Pointer/Daisywheel models; no desktop output |
+
+## Deliberate practice
+
+`LaunchMode.h` parses explicit modes strictly. `--practice` branches after the
+same single-mapper mutex and before any `Host` construction. Practice and all
+other no-output invocations refuse an existing instance rather than forwarding
+an activation to a live mapper. Starting the normal app while Practice owns the
+guard cannot start another mapper.
+
+Practice owns only scene state and native child controls. `PracticeWindow` receives
+an observation-only source. A reader thread is authorized by a 50 ms lease only
+while its own window is active, foreground, non-iconic, and not processing a held
+local mouse/key gesture. The reader independently checks foreground identity and
+minimization before XInput sampling; it does not sample in the background. The UI
+consumes only the latest timestamped snapshot and rechecks its own focus. This
+keeps device reads independent of rendering. There is no settings load/save,
+native output adapter, global physical-input
+observer, cursor-hiding ownership, navigation hook, microphone, clipboard, or text
+target lookup. Physical takeover is observed through messages to its own windows.
+The existing pure key classification is shared through `InputClassification.h`.
+Reserved `VK_GAMEPAD` and `VK_NAVIGATION` messages from controller gestures never
+enter the physical held-key ledger or cancel a lesson. This is own-window message
+handling only, not a global hook or a change to the optional navigation filter.
+
+The pure model integrates the existing Pointer response and precision settings,
+scaling the training coordinates to preserve physical-pixel speed. The existing
+bounded-preview Daisywheel produces local characters, including one-handed
+flicks. Controller ownership, sample age/clock checks, neutral reacquisition,
+focus loss, connection epochs, and multiple-controller ambiguity cancel partial
+gestures without completing a drop or replaying a click. Same-button down/up
+hit-testing calls only local practice commands; it is not another native output
+boundary. Help suspends lesson effects while allowing its own buttons and View.
+
+The complete practice frame is a retained opaque premultiplied WIC/D2D surface
+with measured DirectWrite ink. The keyboard is composited from its unchanged
+renderer. Standard owner-drawn BUTTON/STATIC children expose accessible names,
+tab order, status, and keyboard actions while presenting the same pixels.
+The scene's native accessible name also exposes its bounded local typing sample.
+Theme reads reuse `AppUi`; no system preference is written. With no controller
+source, the window stays hidden/offscreen for the opt-in render-only helper.
 
 ## Input authorization and ownership
 

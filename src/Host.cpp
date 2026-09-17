@@ -16,6 +16,8 @@
 #include "HostShutdown.h"
 #include "AppUi.h"
 #include "SelfCaption.h"
+#include "LaunchMode.h"
+#include "PracticeWindow.h"
 
 #include <Windows.h>
 #include <Shellapi.h>
@@ -24,6 +26,8 @@
 #include <windowsx.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <iomanip>
 #include <new>
@@ -1729,25 +1733,28 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 1;
     }
-    const bool restore = argc == 2 && std::wstring_view{argv[1]} == L"--restore-cursor";
-    const bool inspection = argc == 2 && std::wstring_view{argv[1]} == L"--inspect";
-    const bool one_hand_preview = argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview-one-handed";
-    const bool keyboard_preview = one_hand_preview || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview");
-    const bool valid_arguments = argc == 1 || restore || inspection || keyboard_preview;
+    const std::array<std::wstring_view, 1> argument{argc == 2 ? argv[1] : L""};
+    const auto mode = argc == 1 ? LaunchMode::Desktop : argc == 2 ? launch_mode(argument) : LaunchMode::Invalid;
+    const bool restore = mode == LaunchMode::RestoreCursor;
+    const bool inspection = mode == LaunchMode::Inspect;
+    const bool practice = mode == LaunchMode::Practice;
+    const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard;
+    const bool keyboard_preview = one_hand_preview || mode == LaunchMode::Keyboard;
+    const bool valid_arguments = mode != LaunchMode::Invalid;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nBoth keyboard previews are local only; inspect disables input; recovery shows the Windows pointer.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--practice | --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nPractice and keyboard previews are local only; inspect disables input; recovery shows the Windows pointer.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
     const HANDLE singleton = CreateMutexW(nullptr, TRUE, L"Local\\GamepadDesktop.M1.SingleMapper");
     if (singleton && GetLastError() == ERROR_ALREADY_EXISTS) {
         CloseHandle(singleton);
-        if (keyboard_preview) {
+        if (keyboard_preview || practice || inspection) {
             MessageBoxW(nullptr,
-                L"Exit the running Gamepad Desktop instance before opening keyboard preview.\r\n"
-                L"This prevents controller typing from also moving or clicking the desktop. No input was started.",
-                L"Gamepad Desktop - keyboard preview", MB_OK | MB_ICONINFORMATION);
+                L"Exit the running Gamepad Desktop instance before opening a no-output mode.\r\n"
+                L"This prevents practice or preview input from also moving or clicking the desktop. No input was started.",
+                L"Gamepad Desktop - no-output mode", MB_OK | MB_ICONINFORMATION);
             return 1;
         }
         // Never wait for the existing process (or a modal second-instance notice) to exit.
@@ -1769,8 +1776,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
                     L"Gamepad Desktop", MB_OK | MB_ICONERROR);
                 return 1;
             }
-        } else if (restore || FindWindowW(L"GamepadDesktop.KeyboardPreview", nullptr)) {
-            MessageBoxW(nullptr, L"Close keyboard preview (or wait for the existing instance to finish starting/stopping), then retry.",
+        } else if (restore || FindWindowW(L"GamepadDesktop.KeyboardPreview", nullptr)
+            || FindWindowW(L"GamepadDesktop.Practice", nullptr)) {
+            MessageBoxW(nullptr, L"Close practice or keyboard preview (or wait for the existing instance to finish starting/stopping), then retry.",
                 L"Gamepad Desktop", MB_OK | MB_ICONWARNING);
             return 1;
         }
@@ -1792,6 +1800,56 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             ? L"Windows pointer show request succeeded. No desktop mapping was started and no settings were saved."
             : error.c_str(), L"Gamepad Desktop - pointer recovery", MB_OK | (restored && released ? MB_ICONINFORMATION : MB_ICONERROR));
         result = restored && released ? 0 : 1;
+    } else if (practice) {
+        class PracticeReader final : public gamepad::practice::ControllerSource {
+        public:
+            PracticeReader() : thread_([this](std::stop_token stop) {
+                XInputReader reader;
+                std::mutex wait_mutex;
+                std::unique_lock wait_lock(wait_mutex);
+                while (!stop.stop_requested()) {
+                    const auto window = window_.load();
+                    const auto deadline = deadline_.load();
+                    const auto at = monotonic_now();
+                    if (window && gamepad::practice::reader_lease_current(deadline, at)
+                        && GetForegroundWindow() == window && !IsIconic(window)) {
+                        const auto sample = reader.read();
+                        std::lock_guard lock(mutex_);
+                        latest_ = sample;
+                    }
+                    wake_.wait_for(wait_lock, stop, std::chrono::milliseconds(16), [] { return false; });
+                }
+            }) {}
+            ~PracticeReader() override {
+                authorize(nullptr);
+                thread_.request_stop();
+                wake_.notify_all();
+            }
+            void authorize(HWND window) override {
+                if (window) { deadline_.store(monotonic_now() + gamepad::practice::reader_lease_ms); }
+                window_.store(window);
+            }
+            Snapshot read() override {
+                std::lock_guard lock(mutex_);
+                return latest_;
+            }
+            Tick now() override { return monotonic_now(); }
+        private:
+            std::atomic<HWND> window_{nullptr};
+            std::atomic<Tick> deadline_{0};
+            std::mutex mutex_;
+            Snapshot latest_;
+            std::condition_variable_any wake_;
+            std::jthread thread_;
+        };
+        try {
+            PracticeReader reader;
+            result = gamepad::practice::run(instance, show, reader);
+        } catch (const std::system_error&) {
+            MessageBoxW(nullptr, L"Could not start the practice-only controller reader. No desktop mapping was started.",
+                L"Practice - no desktop input", MB_OK | MB_ICONERROR);
+            result = 1;
+        }
     } else if (keyboard_preview) {
         result = gamepad::run_keyboard_preview(instance, show,
             one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);

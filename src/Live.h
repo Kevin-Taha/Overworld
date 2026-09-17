@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Pointer.h"
+#include "InputClassification.h"
 
 #include <string>
 #include <vector>
@@ -12,9 +13,6 @@ enum class BlockReason {
     None, Infrastructure, DesktopSession, Routing, Recipient, Exclusion, Surface,
     Geometry, SwappedButtons, Physical, Settling, Auto, AutoUnavailable, AutoNotPresent, TextOutput
 };
-enum class InputCategory { None, Keyboard, Modifier, Mouse, ReservedGamepad, ReservedNavigation, Owned };
-[[nodiscard]] InputCategory input_category(unsigned key, bool owned = false);
-[[nodiscard]] std::wstring input_diagnostic_text(InputCategory category, bool raw, bool asynchronous, bool settling);
 enum class AutoReason { None, ExclusiveD3D, Presentation, Confinement, NotPresent, Unavailable };
 enum class EffectiveMode { Desktop, Physical, ManualNative, AutoNative, Blocked };
 struct AppIdentity {
@@ -30,7 +28,6 @@ struct AppActivation {
 [[nodiscard]] bool known_app(AppIdentity app);
 [[nodiscard]] bool heuristic_auto(AutoReason reason);
 [[nodiscard]] std::wstring_view block_reason_text(BlockReason reason);
-[[nodiscard]] bool physical_async_key(unsigned key);
 [[nodiscard]] bool confinement_candidate(std::uint32_t foreground, std::uint32_t shell, std::uint32_t self);
 enum class KeyState { Clear, Physical, Settling };
 class ReleasedKeyState {
