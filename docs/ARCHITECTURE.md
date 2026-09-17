@@ -141,6 +141,13 @@ Cancellation, target/context/activity/device changes and voice transitions clear
 the hint and revoke acceptance/trust; dictation is not a prediction source.
 Unexplained caret/selection changes hide and clear hints rather than reconstruct
 field text. Pending own edits have at most 100 ms to obtain a matching caret.
+For suffix delivery, both dispatch guards share an explicit record of the caret
+before an accepted own down and its expected advancement. Only that known old
+caret can defer the next down, for at most 100 ms from the accepted down and
+never beyond the original completion deadline. Key-up cannot renew this wait.
+A fresh advanced-caret observation consumes the allowance, including observations
+during key-up or in the keyboard's outer validation; a later rollback is rejected.
+Timeout cancels the unsent suffix explicitly and never replays accepted events.
 Length/caret stability is not proof of unchanged content or atomic insertion;
 unobservable same-length programmatic replacements remain a documented limit.
 

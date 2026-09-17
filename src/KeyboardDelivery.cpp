@@ -520,6 +520,7 @@ std::wstring_view KeyboardDelivery::prediction_hint() const
 void KeyboardDelivery::prediction_observe(const TextObservation& observation, Tick now)
 {
     if (boundary_.prediction_preview()) { return; }
+    delivery_.observe_prediction_caret(observation, now);
     prediction_support_ = observation.prediction.support;
     prediction_ready_ = false;
     if (!boundary_.prediction_enabled()) { return; }
@@ -543,7 +544,7 @@ void KeyboardDelivery::prediction_observe(const TextObservation& observation, Ti
             prediction_caret_.reset();
             prediction_caret_wait_.reset();
         }
-        if (prediction_caret_wait_ && now - *prediction_caret_wait_ > 100) {
+        if (prediction_caret_wait_ && now - *prediction_caret_wait_ > prediction_confirmation_ms) {
             prediction_.clear();
             prediction_caret_.reset();
         }
@@ -556,7 +557,8 @@ void KeyboardDelivery::prediction_observe(const TextObservation& observation, Ti
         return;
     }
     if (prediction_caret_ != observation.prediction.caret) {
-        if (prediction_caret_wait_ && now >= *prediction_caret_wait_ && now - *prediction_caret_wait_ <= 100) { return; }
+        if (prediction_caret_wait_ && now >= *prediction_caret_wait_
+            && now - *prediction_caret_wait_ <= prediction_confirmation_ms) { return; }
         prediction_.clear(true);
         prediction_caret_ = observation.prediction.caret;
     }

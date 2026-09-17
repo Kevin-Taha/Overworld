@@ -38,6 +38,13 @@ caret revision/freshness/selection, per-character suffix checks, one fixed inten
 deadline, cancellation and partial output. Vocabulary tests assert exact count,
 ASCII/uniqueness/ranking, static payload below 300 KB and 1,000 worst-case full
 lookups below two seconds.
+Delayed-application fakes separate transport acceptance from applied text and
+exercise the same `TextDelivery` in both controller modes. Known old caret
+observations defer without duplicate output; 80-ms and exact 100-ms advancement
+complete `here`, while 101-ms or original-intent expiry cancels the remainder.
+Both observation guards retain stale-proof deferral and reject unrelated moves,
+selections, protected/changed targets and rollbacks after confirmed advancement.
+Accepted key-up remains independent and cannot renew the confirmation window.
 Pure window-message dispatch regressions cover key down/up and system-key
 down/up across both reserved `VK_GAMEPAD` and `VK_NAVIGATION` ranges before and
 after XInput selection/acceptance. They retain ordinary keyboard/mouse takeover

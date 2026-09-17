@@ -87,6 +87,7 @@ private:
 [[nodiscard]] bool text_eligible(const TextObservation& observation);
 enum class TextPhase { Idle, Ready, Stopped };
 constexpr std::size_t keyboard_edit_queue_limit = 32;
+constexpr Tick prediction_confirmation_ms = 100;
 
 struct CompletedTextEdits {
     std::array<KeyboardEdit, 4> edits{};
@@ -100,6 +101,7 @@ public:
     bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
         std::optional<std::uint32_t> prediction_caret = {});
     CompletedTextEdits pump(unsigned budget = 8);
+    void observe_prediction_caret(const TextObservation& observation, Tick now);
     void stop(std::wstring_view reason);
     void cleanup(bool explicit_retry = false);
     [[nodiscard]] TextPhase phase() const { return phase_; }
@@ -121,6 +123,7 @@ public:
 
 private:
     void fault(std::wstring_view reason);
+    bool prediction_caret_ready(const TextObservation& observation, std::uint32_t expected, Tick now);
     TextBoundary& boundary_;
     TextPhase phase_ = TextPhase::Idle;
     TextTarget target_;
@@ -137,6 +140,11 @@ private:
     std::size_t head_ = 0;
     std::size_t size_ = 0;
     std::optional<TextKey> down_;
+    struct PendingCaret {
+        std::uint32_t before = 0, after = 0;
+        Tick accepted_at = 0, expires = 0;
+    };
+    std::optional<PendingCaret> pending_caret_;
     std::size_t accepted_events_ = 0;
     std::size_t completed_edits_ = 0;
     Tick last_dispatch_ms_ = 0;

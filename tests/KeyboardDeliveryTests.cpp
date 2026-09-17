@@ -37,6 +37,8 @@ struct Fake final : TextBoundary {
     bool preview = false;
     bool native_prediction = false;
     bool automatic_caret = true;
+    Tick application_delay = 0;
+    std::deque<std::pair<Tick, TextEvent>> pending_application;
     bool prediction_preview() const override { return preview; }
     bool prediction_enabled() const override { return preview || native_prediction; }
     Fake()
@@ -49,6 +51,10 @@ struct Fake final : TextBoundary {
     TextObservation observe_text(std::optional<TextKey> owned) override
     {
         owners.push_back(owned);
+        while (!pending_application.empty() && pending_application.front().first <= now) {
+            apply(pending_application.front().second);
+            pending_application.pop_front();
+        }
         if (during_observe) { during_observe(); }
         auto result = observation;
         if (native_prediction && automatic_caret) {
@@ -63,6 +69,12 @@ struct Fake final : TextBoundary {
         return result;
     }
     Tick text_now() const override { return now; }
+    void apply(TextEvent event)
+    {
+        if (event.key.kind == TextKeyKind::Unicode) { field.push_back(static_cast<wchar_t>(event.key.unit)); }
+        if (event.key.kind == TextKeyKind::Backspace && !field.empty()) { field.pop_back(); }
+        if (event.key.kind == TextKeyKind::Enter) { field += L"\r\n"; }
+    }
     unsigned send_text(TextEvent event) override
     {
         attempted.push_back(event);
@@ -72,9 +84,8 @@ struct Fake final : TextBoundary {
             ++observation.text_revision;
             accepted.push_back(event);
             if (!event.up) {
-                if (event.key.kind == TextKeyKind::Unicode) { field.push_back(static_cast<wchar_t>(event.key.unit)); }
-                if (event.key.kind == TextKeyKind::Backspace && !field.empty()) { field.pop_back(); }
-                if (event.key.kind == TextKeyKind::Enter) { field += L"\r\n"; }
+                if (application_delay) { pending_application.emplace_back(now + application_delay, event); }
+                else { apply(event); }
             }
         }
         if (during_send) { during_send(event); }
@@ -174,6 +185,24 @@ struct Fixture {
         } else {
             aim(45); tick(); tap(0x8000); tap(0x1000); center_stick(); tick();
         }
+    }
+};
+struct CompletionFixture {
+    Fake fake;
+    TextDelivery delivery{fake};
+    explicit CompletionFixture(Tick delay = 80, Tick intent_ms = 1000)
+    {
+        fake.native_prediction = true;
+        fake.field = L"he";
+        fake.application_delay = delay;
+        check(delivery.start(fake.observation.target), "start native completion fixture");
+        check(delivery.enqueue(letter(U'r'), fake.now, fake.now + intent_ms, 2)
+            && delivery.enqueue(letter(U'e'), fake.now, fake.now + intent_ms, 3), "queue suffix with fixed caret expectations");
+    }
+    CompletedTextEdits pump(Tick elapsed, unsigned budget = 8)
+    {
+        fake.now += elapsed;
+        return delivery.pump(budget);
     }
 };
 struct PointerFake final : gamepad::live::OutputBoundary {
@@ -299,6 +328,164 @@ int main()
                 check(f.fake.field == L"her" && !f.keyboard.prediction_view().count && !f.keyboard.delivery().pending_edits(),
                     "mid-suffix caret/protection/revision/focus changes cancel unsent text without replay");
             }
+        });
+        test("native completion tolerates bounded delayed application without replaying accepted text", [] {
+            for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+                Fixture f; f.keyboard.set_input_mode(mode); f.trust_prediction(); f.type_he();
+                const auto before = f.fake.accepted.size();
+                f.fake.application_delay = 80;
+                f.button(0x0001);
+                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 2
+                    && f.keyboard.delivery().pending_edits() == 1 && f.keyboard.delivery().phase() == TextPhase::Ready,
+                    "transport-completed r with unchanged application caret must defer e, not pause");
+                f.button(0);
+                for (unsigned i = 0; i < 3; ++i) { f.tick(); }
+                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 2,
+                    "64ms application lag cannot replay r or dispatch e early");
+                f.tick();
+                check(f.fake.field == L"her" && f.fake.accepted.size() == before + 4,
+                    "80ms exact caret advancement releases e once");
+                for (unsigned i = 0; i < 5; ++i) { f.tick(); }
+                f.tap(0x0001);
+                check(f.fake.field == L"here" && f.fake.accepted.size() == before + 4
+                    && !f.keyboard.delivery().pending_edits() && f.keyboard.delivery().phase() == TextPhase::Ready,
+                    "both delayed characters eventually form exact here without duplication or pause");
+            }
+        });
+        test("TextDelivery waits only for its completed own edit and enforces the original confirmation cap", [] {
+            for (Tick delay : {80u, 100u, 101u}) {
+                CompletionFixture f(delay);
+                const auto first = f.pump(0, 2);
+                check(first.count == 1 && first.edits[0] == letter(U'r') && f.fake.field == L"he",
+                    "completed transport edit is distinct from application receipt");
+                check(!f.pump(16).count && f.delivery.phase() == TextPhase::Ready && f.fake.accepted.size() == 2,
+                    "fresh current-revision pre-edit caret defers without output");
+                const auto next = f.pump(delay - 16);
+                if (delay <= prediction_confirmation_ms) {
+                    check(next.count == 1 && next.edits[0] == letter(U'e') && f.fake.field == L"her"
+                        && f.fake.accepted.size() == 4 && !f.delivery.pending_edits(), "exact advancement within cap resumes e once");
+                    f.fake.now += delay;
+                    f.fake.observe_text({});
+                    check(f.fake.field == L"here", "delayed application eventually contains exact completion");
+                } else {
+                    check(!next.count && f.delivery.phase() == TextPhase::Stopped && !f.delivery.pending_edits()
+                        && f.delivery.reason().find(L"confirmation expired") != std::wstring::npos
+                        && f.fake.field == L"her" && f.fake.accepted.size() == 2,
+                        "advancement after 100ms cannot revive an expired own-edit confirmation");
+                    f.pump(900);
+                    check(f.fake.field == L"her" && f.fake.accepted.size() == 2, "timed-out partial suffix never replays");
+                }
+            }
+            CompletionFixture f(500);
+            f.pump(0, 1);
+            check(f.delivery.owned() && f.fake.accepted.size() == 1, "accepted down retains release ownership");
+            f.pump(101, 1);
+            check(!f.delivery.owned() && f.fake.accepted.size() == 2,
+                "accepted up is not blocked by expired caret confirmation and does not reset its clock");
+            f.pump(0);
+            check(f.delivery.phase() == TextPhase::Stopped && f.fake.accepted.size() == 2,
+                "late accepted up cannot grant a fresh 100ms wait for another down");
+            CompletionFixture bounded(81, 80);
+            bounded.pump(0, 2); bounded.pump(80);
+            check(bounded.delivery.phase() == TextPhase::Ready, "known lag may wait through exact original intent boundary");
+            bounded.pump(1);
+            check(bounded.delivery.phase() == TextPhase::Stopped && bounded.fake.accepted.size() == 2,
+                "shorter original intent deadline wins over remaining confirmation window");
+        });
+        test("both TextDelivery observation guards defer missing proofs and reject fresh caret rollbacks", [] {
+            for (unsigned guarded_observation : {1u, 2u}) {
+                CompletionFixture missing;
+                missing.pump(0, 2);
+                unsigned observations = 0;
+                missing.fake.during_observe = [&] {
+                    if (++observations == guarded_observation) {
+                        missing.fake.automatic_caret = false;
+                        missing.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
+                            missing.fake.observation.text_revision - 1, missing.fake.now};
+                    }
+                };
+                check(!missing.pump(80).count && missing.delivery.phase() == TextPhase::Ready
+                    && missing.fake.accepted.size() == 2, "either guard defers stale revision without output");
+                missing.fake.during_observe = {};
+                missing.fake.automatic_caret = true;
+                check(missing.pump(1).count == 1 && missing.fake.accepted.size() == 4,
+                    "both guards require fresh exact advancement before e");
+                missing.fake.now += 80;
+                missing.fake.observe_text({});
+                check(missing.fake.field == L"here", "guard deferral never duplicates r or e");
+
+                CompletionFixture rollback;
+                rollback.pump(0, 2);
+                rollback.fake.now += 80;
+                const auto advanced = rollback.fake.observe_text({});
+                if (guarded_observation == 1) {
+                    rollback.delivery.observe_prediction_caret(advanced, rollback.fake.now);
+                }
+                observations = 0;
+                rollback.fake.during_observe = [&] {
+                    if (++observations == guarded_observation) {
+                        rollback.fake.automatic_caret = false;
+                        rollback.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
+                            rollback.fake.observation.text_revision, rollback.fake.now};
+                    }
+                };
+                check(!rollback.pump(0).count && rollback.delivery.phase() == TextPhase::Stopped
+                    && rollback.fake.accepted.size() == 2,
+                    "fresh rollback to known old caret rejects after outer/current guard already confirmed advancement");
+            }
+            CompletionFixture release;
+            release.pump(0, 1);
+            release.pump(80, 1);
+            check(release.fake.field == L"her" && release.fake.accepted.size() == 2 && !release.delivery.owned(),
+                "post-edit caret may be confirmed while releasing the accepted down");
+            release.fake.automatic_caret = false;
+            release.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
+                release.fake.observation.text_revision, release.fake.now};
+            release.pump(0);
+            check(release.delivery.phase() == TextPhase::Stopped && release.fake.accepted.size() == 2,
+                "up completion must not recreate lag allowance after advancement was already confirmed");
+        });
+        test("caret lag does not exempt unrelated moves selections protection or target loss at either guard", [] {
+            for (unsigned guarded_observation : {1u, 2u}) {
+                for (unsigned failure = 0; failure < 5; ++failure) {
+                    CompletionFixture f;
+                    f.pump(0, 2);
+                    unsigned observations = 0;
+                    f.fake.during_observe = [&] {
+                        if (++observations != guarded_observation) { return; }
+                        f.fake.automatic_caret = false;
+                        auto& value = f.fake.observation;
+                        value.prediction = {PredictionSupport::PlainEdit, 3, value.text_revision, f.fake.now};
+                        switch (failure) {
+                        case 0: value.prediction.caret = 1; break;
+                        case 1: value.prediction.caret.reset(); break;
+                        case 2: value.prediction.support = PredictionSupport::Protected; break;
+                        case 3: ++value.target.focus_revision; break;
+                        default: value.physical_held = true; break;
+                        }
+                    };
+                    f.pump(guarded_observation == 1 ? 16 : 80);
+                    check(f.delivery.phase() == TextPhase::Stopped && f.fake.accepted.size() == 2
+                        && !f.delivery.pending_edits(), "lag grace cannot authorize unrelated changes at either guard");
+                }
+            }
+            Fake fake;
+            fake.native_prediction = true; fake.field = L"he";
+            TextDelivery delivery(fake);
+            check(delivery.start(fake.observation.target) && delivery.enqueue(letter(U'e'), fake.now, fake.now + 1000, 3),
+                "isolated guarded edit fixture");
+            delivery.pump();
+            check(delivery.phase() == TextPhase::Stopped && fake.accepted.empty(),
+                "expected-minus-one without our own accepted edit is never lag");
+            CompletionFixture restarted;
+            restarted.pump(0, 2);
+            restarted.delivery.stop(L"Cancelled");
+            check(restarted.delivery.start(restarted.fake.observation.target)
+                && restarted.delivery.enqueue(letter(U'e'), restarted.fake.now, restarted.fake.now + 1000, 3),
+                "restart after cancellation has no down ownership");
+            restarted.pump(16);
+            check(restarted.delivery.phase() == TextPhase::Stopped && restarted.fake.accepted.size() == 2,
+                "new session cannot inherit prior accepted-edit lag authorization");
         });
         test("native ordinary partial edits, voice intent and metadata loss revoke predictions", [] {
             Fixture f; f.trust_prediction(); f.type_he();
