@@ -150,6 +150,14 @@ App/settings controls remain native HWND controls with tab navigation, accessibl
 names, DPI scaling, app light/dark preference, and system high-contrast colors.
 Theme reads are cached and invalidated by system notifications, never written.
 
+Settings measures the resource font's 96-DPI dialog units before replacing its
+fonts, then scales that fixed client/control layout. Native dialog-unit rounding
+at the creation monitor must not inflate the logical window on higher-DPI
+displays. The body and title remain 14 and 26 DIP. Initial placement and DPI
+changes calculate the complete nonclient frame at the target DPI and keep it
+inside the monitor work area; an unusably small work area is an explicit layout
+failure, not a reason to shrink fonts or silently clip footer actions.
+
 Settings schema 11 adds default-off voice preferences to existing pointer, keyboard,
 exclusion, and filter settings. Earlier supported schemas are read without writes;
 missing/duplicate/unknown fields are rejected according to their version.

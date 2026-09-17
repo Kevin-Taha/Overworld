@@ -21,7 +21,7 @@ private:
         DWORD process_id = 0;
         DWORD thread_id = 0;
         HANDLE process = nullptr;
-        bool attempted = false;
+        CursorImageQuerySchedule image_query;
         std::wstring executable;
     };
     CursorSurfaceObservation observe_root(HWND window, RootCache& cache);

@@ -1206,10 +1206,9 @@ private:
         }
         if (message == WM_DPICHANGED) {
             const auto* rect = reinterpret_cast<const RECT*>(lparam);
-            SetWindowPos(window, nullptr, rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top,
-                SWP_NOZORDER | SWP_NOACTIVATE);
-            if (!host->settings_pages_.dpi_changed(window, HIWORD(wparam))) {
-                host->settings_result(L"Settings font scaling failed; previous fonts retained.");
+            if (!host->settings_pages_.fit_window(window, HIWORD(wparam), rect)
+                || !host->settings_pages_.dpi_changed(window, HIWORD(wparam))) {
+                host->settings_result(L"Settings layout failed. Close and reopen Settings.");
             }
             return TRUE;
         }

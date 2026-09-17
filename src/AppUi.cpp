@@ -362,12 +362,44 @@ SettingsPages::~SettingsPages()
 bool SettingsPages::initialize(HWND window)
 {
     controls_.clear();
-    SetDialogDpiChangeBehavior(window, DDC_DISABLE_ALL, DDC_DISABLE_ALL);
-    initial_dpi_ = GetDpiForWindow(window);
+    if (!SetDialogDpiChangeBehavior(window, DDC_DISABLE_ALL, DDC_DISABLE_ALL)) { return false; }
+    const auto dpi = GetDpiForWindow(window);
+    RECT units{0, 0, 4, 8}, client{};
+    LOGFONTW resource_font{};
+    if (!dpi || !MapDialogRect(window, &units) || units.right <= 0 || units.bottom <= 0
+        || !GetClientRect(window, &client)
+        || GetObjectW(reinterpret_cast<HFONT>(SendMessageW(window, WM_GETFONT, 0, 0)),
+            sizeof(resource_font), &resource_font) != sizeof(resource_font)) { return false; }
+    // Dialog units round with the resource font, not proportionally with DPI.
+    // Keep a measured 96-DPI layout instead of preserving the creation monitor's rounding.
+    resource_font.lfHeight = MulDiv(resource_font.lfHeight, 96, static_cast<int>(dpi));
+    resource_font.lfWidth = MulDiv(resource_font.lfWidth, 96, static_cast<int>(dpi));
+    const auto reference_font = CreateFontIndirectW(&resource_font);
+    const auto dc = GetDC(window);
+    if (!reference_font || !dc) {
+        if (reference_font) { DeleteObject(reference_font); }
+        if (dc) { ReleaseDC(window, dc); }
+        return false;
+    }
+    const auto old = SelectObject(dc, reference_font);
+    if (!old || old == HGDI_ERROR) { ReleaseDC(window, dc); DeleteObject(reference_font); return false; }
+    TEXTMETRICW metrics{}; SIZE alphabet{};
+    const bool measured = GetTextMetricsW(dc, &metrics) && GetTextExtentPoint32W(dc,
+        L"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", 52, &alphabet);
+    SelectObject(dc, old); ReleaseDC(window, dc); DeleteObject(reference_font);
+    const int unit_x = (alphabet.cx / 26 + 1) / 2, unit_y = metrics.tmHeight;
+    if (!measured || unit_x <= 0 || unit_y <= 0) { return false; }
+    const auto normalize = [&](RECT rect) {
+        return RECT{MulDiv(rect.left, unit_x, units.right), MulDiv(rect.top, unit_y, units.bottom),
+            MulDiv(rect.right, unit_x, units.right), MulDiv(rect.bottom, unit_y, units.bottom)};
+    };
+    client = normalize(client);
+    client_ = {client.right, client.bottom};
     for (HWND control = GetWindow(window, GW_CHILD); control; control = GetWindow(control, GW_HWNDNEXT)) {
-        RECT rect{}; GetWindowRect(control, &rect);
+        RECT rect{};
+        if (!GetWindowRect(control, &rect)) { return false; }
         MapWindowPoints(nullptr, window, reinterpret_cast<POINT*>(&rect), 2);
-        controls_.push_back({control, GetDlgCtrlID(control), rect});
+        controls_.push_back({control, GetDlgCtrlID(control), normalize(rect)});
     }
     const auto tabs = GetDlgItem(window, IDC_SETTINGS_TABS);
     TabCtrl_DeleteAllItems(tabs);
@@ -376,7 +408,34 @@ bool SettingsPages::initialize(HWND window)
         if (TabCtrl_InsertItem(tabs, i, &item) == -1) { return false; }
     }
     select(window, 0);
-    return dpi_changed(window, initial_dpi_);
+    return fit_window(window, dpi) && dpi_changed(window, dpi);
+}
+
+bool SettingsPages::window_bounds(HWND window, UINT dpi, const RECT& suggested,
+    const RECT& work_area, RECT& bounds) const
+{
+    if (!dpi || client_.cx <= 0 || client_.cy <= 0) { return false; }
+    RECT frame{0, 0, MulDiv(client_.cx, static_cast<int>(dpi), 96), MulDiv(client_.cy, static_cast<int>(dpi), 96)};
+    if (!AdjustWindowRectExForDpi(&frame, static_cast<DWORD>(GetWindowLongPtrW(window, GWL_STYLE)),
+        FALSE, static_cast<DWORD>(GetWindowLongPtrW(window, GWL_EXSTYLE)), dpi)) { return false; }
+    const LONG width = frame.right - frame.left, height = frame.bottom - frame.top;
+    if (width > work_area.right - work_area.left || height > work_area.bottom - work_area.top) { return false; }
+    const LONG left = std::clamp(suggested.left, work_area.left, work_area.right - width);
+    const LONG top = std::clamp(suggested.top, work_area.top, work_area.bottom - height);
+    bounds = {left, top, left + width, top + height};
+    return true;
+}
+
+bool SettingsPages::fit_window(HWND window, UINT dpi, const RECT* suggested)
+{
+    RECT position{}, bounds{};
+    if (suggested) { position = *suggested; }
+    else if (!GetWindowRect(window, &position)) { return false; }
+    MONITORINFO monitor{sizeof(monitor)};
+    if (!GetMonitorInfoW(MonitorFromRect(&position, MONITOR_DEFAULTTONEAREST), &monitor)
+        || !window_bounds(window, dpi, position, monitor.rcWork, bounds)) { return false; }
+    return SetWindowPos(window, nullptr, bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top,
+        SWP_NOACTIVATE | SWP_NOZORDER) != FALSE;
 }
 
 bool SettingsPages::dpi_changed(HWND window, UINT dpi)
@@ -390,10 +449,13 @@ bool SettingsPages::dpi_changed(HWND window, UINT dpi)
     }
     for (const auto& control : controls_) {
         const auto& rect = control.rect;
-        MoveWindow(control.window, MulDiv(rect.left, static_cast<int>(dpi), static_cast<int>(initial_dpi_)),
-            MulDiv(rect.top, static_cast<int>(dpi), static_cast<int>(initial_dpi_)),
-            MulDiv(rect.right - rect.left, static_cast<int>(dpi), static_cast<int>(initial_dpi_)),
-            MulDiv(rect.bottom - rect.top, static_cast<int>(dpi), static_cast<int>(initial_dpi_)), FALSE);
+        const RECT scaled{MulDiv(rect.left, static_cast<int>(dpi), 96), MulDiv(rect.top, static_cast<int>(dpi), 96),
+            MulDiv(rect.right, static_cast<int>(dpi), 96), MulDiv(rect.bottom, static_cast<int>(dpi), 96)};
+        if (!MoveWindow(control.window, scaled.left, scaled.top, scaled.right - scaled.left, scaled.bottom - scaled.top, FALSE)) {
+            DeleteObject(font); DeleteObject(title); return false;
+        }
+    }
+    for (const auto& control : controls_) {
         SendMessageW(control.window, WM_SETFONT,
             reinterpret_cast<WPARAM>(control.id == IDC_SETTINGS_TITLE ? title : font), TRUE);
     }
