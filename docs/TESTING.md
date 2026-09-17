@@ -70,6 +70,33 @@ It has no XInput backend linked; all fake waits and stop operations are bounded.
 Exact Pointer response and production-layout typing contracts ensure
 the harness does not develop private motion/character behavior.
 
+Prediction regressions are part of `gamepad_delivery_tests`, not a native-input
+test. They cover the 10,000-word frequency vocabulary, case/boundary rules, bounded prefixes
+and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
+target/context/physical/device changes, queue limits, both controller modes,
+mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
+Native prediction stays default-off and requires explicit per-session consent.
+Opaque generic/browser/RichEdit-like fakes cover two-letter triggering without
+leading Space, preceding/large field contents, known protected/unknown privacy,
+quick hide and one fixed intent deadline, cancellation and partial output.
+No test needs an Edit class or selection/length/caret API to authorize typing.
+Vocabulary tests assert exact count,
+ASCII/uniqueness/ranking, static payload below 300 KB and 1,000 worst-case full
+lookups below two seconds.
+Delayed-application fakes separate transport acceptance from applied text and
+exercise the same `TextDelivery` in both controller modes. Literal suffix events
+match ordinary manual insertion regardless of 0/80/101/1500-ms application delay.
+Discarded application input is not retried. Both dispatch guards reject known
+protected/query-failure, physical and changed-target observations. Original
+completion expiry cancels unsent characters; accepted key-up remains an
+independent cleanup obligation and cannot revive the suffix.
+Pure window-message dispatch regressions cover key down/up and system-key
+down/up across both reserved `VK_GAMEPAD` and `VK_NAVIGATION` ranges before and
+after XInput selection/acceptance. They retain ordinary keyboard/mouse takeover
+and focused Escape exit, without creating windows, installing hooks or injecting
+input. Preview key classification reuses the existing `physical_async_key`
+reserved-range policy, not guessed injection flags.
+
 ## Render-only checks
 
 These targets are opt-in and excluded from default CTest because they create
@@ -86,6 +113,19 @@ Keyboard tests verify actual DirectWrite ink bounds, alpha/premultiplication,
 contrast, transparent space, idle equivalence, and resource reuse. App tests check
 native control geometry, tab order, DPI layout, and capability feedback.
 Rendered artifacts are local review evidence, not repository content.
+
+The keyboard visual suite also exports synthetic `prediction-*` frames from the
+actual no-output practice model. It checks light/dark and both high-contrast
+palettes at 100/150/200%, actual DirectWrite label fit, 4.5:1 suggestion ink,
+unchanged wheel pixels, premultiplied alpha, owning cached strings, idle reuse,
+and hidden chips during inactivity/voice/no-prefix states. No real app text is
+used. `--prediction-demo` is a separate static no-output UI demo; it starts no
+controller poller, mapper, microphone or hook. Preview-only success does not
+validate external-app compatibility or universal password detection. Native-view
+frames cover consent-on, unverified, protected and unavailable states and never
+echo practice/app text. Full privacy-warning labels must fit without ellipsis.
+Every vocabulary word is measured in lower/title/upper case with DirectWrite
+to reject clipping or ambiguous ellipsis.
 
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and
@@ -147,6 +187,32 @@ This is not a product feature or release asset; see the
 [development harness map](PRACTICE-HARNESS.md) for real versus unexercised surfaces.
 
 ## Owned-message probes
+
+`gamepad_prediction_privacy_tests` is excluded from default builds/CTest. Build
+it explicitly and run `--allow-owned-metadata` under a bounded watchdog only in
+an authorized session. It creates offscreen, nonactivating owned Edit, RichEdit,
+password, single-line, read-only and custom/browser-style controls. It tests
+recognized password-style suppression, unknown privacy for all other classes,
+identity failures and dynamic password changes. An owned subclass verifies the
+privacy helper sends zero target messages (including no text, length or caret
+queries). It never calls `SendInput` and verifies unchanged focus.
+
+The obsolete classic-Edit developer host and caret worker are removed. For a
+separately authorized manual trial, use a disposable non-secret document or web
+field with normal `--word-prediction`, then consent for that keyboard session.
+Never launch the mapper as part of deterministic or privacy metadata tests.
+ARM64 execution still requires an ARM64 device.
+
+To verify the dataset transformation against explicitly obtained pinned input:
+
+```powershell
+.\cmake\GeneratePredictionVocabulary.ps1 -Source .\out\en_50k.txt `
+  -Output .\third_party\PredictionVocabulary.inc -Check
+```
+
+The generator validates the source SHA-256, 50,000 rows, descending rank and
+10,000 unique lowercase ASCII words of length 3..24. It never downloads at build
+or runtime. The source corpus stays untracked; attribution/license are tracked.
 
 The ordinary `gamepad_self_caption_tests` invocation is pure. Its
 `--owned-messages` option creates owned windows and sends only window messages,

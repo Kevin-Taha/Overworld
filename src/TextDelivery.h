@@ -20,6 +20,8 @@ struct TextTarget {
     bool operator==(const TextTarget&) const = default;
 };
 
+enum class PredictionPrivacy { Unknown, Protected, Unavailable };
+
 struct TextObservation {
     TextTarget target;
     bool allowed = false;
@@ -28,6 +30,7 @@ struct TextObservation {
     bool stable = false;
     std::wstring_view reason = L"Text target unavailable";
     bool settling = false;
+    PredictionPrivacy prediction_privacy = PredictionPrivacy::Unknown;
 };
 
 enum class TextKeyKind { Unicode, Backspace, Enter };
@@ -56,6 +59,9 @@ public:
     virtual Tick text_now() const = 0;
     // Exactly one Unicode or virtual-key down/up. Only 0 and 1 are valid counts.
     virtual unsigned send_text(TextEvent event) = 0;
+    // Practice has no external output. Native availability requires separate runtime opt-in.
+    virtual bool prediction_preview() const { return false; }
+    virtual bool prediction_enabled() const { return prediction_preview(); }
     [[nodiscard]] bool native_keyboard_session() const { return native_keyboard_session_; }
 private:
     friend class KeyboardDelivery;
@@ -68,12 +74,19 @@ private:
 enum class TextPhase { Idle, Ready, Stopped };
 constexpr std::size_t keyboard_edit_queue_limit = 32;
 
+struct CompletedTextEdits {
+    std::array<KeyboardEdit, 4> edits{};
+    unsigned count = 0;
+    bool prediction_suppressed = false;
+};
+
 class TextDelivery {
 public:
     explicit TextDelivery(TextBoundary& boundary) : boundary_(boundary) {}
     bool start(const TextTarget& target);
-    bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires);
-    void pump(unsigned budget = 8);
+    bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
+        bool suggestion = false);
+    CompletedTextEdits pump(unsigned budget = 8);
     void stop(std::wstring_view reason);
     void cleanup(bool explicit_retry = false);
     [[nodiscard]] TextPhase phase() const { return phase_; }
@@ -101,9 +114,11 @@ private:
     std::wstring reason_;
     struct PendingEdit {
         EditEvents input;
+        KeyboardEdit edit;
         unsigned next = 0;
         Tick sampled_at = 0;
         Tick expires = 0;
+        bool suggestion = false;
     };
     std::array<PendingEdit, keyboard_edit_queue_limit> queue_{};
     std::size_t head_ = 0;

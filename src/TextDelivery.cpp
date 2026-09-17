@@ -58,14 +58,15 @@ bool TextDelivery::start(const TextTarget& target)
     return true;
 }
 
-bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires)
+bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
+    bool suggestion)
 {
     if (phase_ != TextPhase::Ready) { return false; }
     if (in_flight_) { fault(L"Reentrant edit request"); return false; }
     const auto input = edit_events(edit);
     if (!input || sampled_at > expires) { fault(L"Invalid keyboard edit"); return false; }
     if (size_ == queue_.size()) { fault(L"Typing queue full; pending edits cancelled"); return false; }
-    queue_[(head_ + size_) % queue_.size()] = {*input, 0, sampled_at, expires};
+    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires, suggestion};
     ++size_;
     return true;
 }
@@ -85,9 +86,10 @@ void TextDelivery::fault(std::wstring_view reason)
     stop(reason);
 }
 
-void TextDelivery::pump(unsigned budget)
+CompletedTextEdits TextDelivery::pump(unsigned budget)
 {
-    if (in_flight_ || phase_ != TextPhase::Ready) { return; }
+    CompletedTextEdits completed;
+    if (in_flight_ || phase_ != TextPhase::Ready) { return completed; }
     in_flight_ = true;
     for (unsigned i = 0; i < std::min(budget, 8u) && size_ && phase_ == TextPhase::Ready; ++i) {
         const auto pending = queue_[head_];
@@ -100,6 +102,11 @@ void TextDelivery::pump(unsigned budget)
             stop(L"Focus, physical input or controller freshness changed");
             break;
         }
+        completed.prediction_suppressed |= current.prediction_privacy != PredictionPrivacy::Unknown;
+        if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
+            stop(L"Word suggestion privacy changed; remaining suffix cancelled");
+            break;
+        }
         if (current.settling) { break; }
         const auto final = boundary_.observe_text(down_);
         if (phase_ != TextPhase::Ready) { break; }
@@ -108,6 +115,11 @@ void TextDelivery::pump(unsigned budget)
             || final_time < pending.sampled_at || final_time > pending.expires) {
             context_lost_ = true;
             stop(L"Target changed during validation");
+            break;
+        }
+        completed.prediction_suppressed |= final.prediction_privacy != PredictionPrivacy::Unknown;
+        if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
+            stop(L"Word suggestion privacy changed during validation; remaining suffix cancelled");
             break;
         }
         if (final.settling) { break; }
@@ -136,12 +148,15 @@ void TextDelivery::pump(unsigned budget)
         if (pending.next + 1 == pending.input.count) { ++completed_edits_; }
         if (phase_ != TextPhase::Ready) { break; }
         if (++queue_[head_].next == pending.input.count) {
+            completed.edits[completed.count++] = pending.edit;
             queue_[head_] = {};
             head_ = (head_ + 1) % queue_.size();
             --size_;
         }
     }
     in_flight_ = false;
+    if (phase_ != TextPhase::Ready) { return {}; }
+    return completed;
 }
 
 void TextDelivery::cleanup(bool explicit_retry)

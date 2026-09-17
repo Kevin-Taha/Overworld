@@ -707,6 +707,9 @@ TextObservation Desktop::observe_text(std::optional<TextKey> owned)
         : observation.mode == Mode::Menu || route.windows[3].window || route.windows[4].window
             ? L"Keyboard not opened: close menus and release capture first"
         : observation.reason;
+    if (prediction_enabled_ && text_context_eligible(result)) {
+        result.prediction_privacy = prediction_target_privacy(result.target.windows[2]);
+    }
     return result;
 }
 

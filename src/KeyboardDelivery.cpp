@@ -156,6 +156,11 @@ void KeyboardDelivery::open(const Snapshot& snapshot, Tick now, unsigned slot, b
         return;
     }
     phase_ = DesktopKeyboardPhase::Composing;
+    prediction_.clear();
+    prediction_neutral_ = prediction_appending_ = false;
+    prediction_trusted_ = false;
+    prediction_trust_started_.reset();
+    prediction_observe(final);
     voice_buttons_ = snapshot.slots[slot_].buttons;
     native_session_ = opening_chord_ = native;
     view_released_ = false;
@@ -227,8 +232,18 @@ void KeyboardDelivery::step(const Snapshot& snapshot, Tick now, KeyboardEligibil
                 opening_chord_ = false;
                 view_released_ = true;
             }
+            prediction_observe(current);
+            auto completion_controls = pad;
+            completion_controls.buttons &= ~0x0001;
+            if (!boundary_.prediction_preview() && prediction_appending_ && delivery_.pending_edits()
+                && (!prediction_trusted_ || !keyboard_neutral(completion_controls))) {
+                block(L"Word completion cancelled; remaining suffix not sent");
+                return;
+            }
             if (voice_step(snapshot, now)) { return; }
-            const auto action = keyboard_.step(snapshot, now);
+            const bool prediction_consumed = prediction_step(snapshot);
+            if (phase_ != DesktopKeyboardPhase::Composing) { return; }
+            const auto action = prediction_consumed ? KeyboardAction::None : keyboard_.step(snapshot, now);
             if (action == KeyboardAction::Cancel) { dismiss(); return; }
             while (const auto edit = keyboard_.take_edit()) {
                 if (!delivery_.enqueue(*edit, snapshot.sampled_at, snapshot.sampled_at + fresh_ms)) {
@@ -236,7 +251,21 @@ void KeyboardDelivery::step(const Snapshot& snapshot, Tick now, KeyboardEligibil
                     return;
                 }
             }
-            delivery_.pump();
+            const auto generation = interruption_;
+            const auto completed = delivery_.pump();
+            if (boundary_.prediction_enabled() && generation == interruption_) {
+                if (completed.prediction_suppressed) { revoke_prediction(); }
+                if (!boundary_.prediction_preview()) {
+                    const auto after = boundary_.observe_text(delivery_.owned_key());
+                    if (generation == interruption_ && after.target == target_ && text_context_eligible(after)) {
+                        prediction_observe(after);
+                    } else { revoke_prediction(); }
+                }
+                if (generation == interruption_) {
+                    for (unsigned i = 0; i < completed.count; ++i) { prediction_complete(completed.edits[i]); }
+                }
+            }
+            if (!delivery_.pending_edits()) { prediction_appending_ = false; }
             if (phase_ == DesktopKeyboardPhase::Closed) { return; }
             if (delivery_.phase() == TextPhase::Stopped) {
                 if (delivery_.context_lost()) { dismiss(delivery_.reason()); }
@@ -316,6 +345,12 @@ void KeyboardDelivery::set_voice(VoiceBoundary* voice)
 
 void KeyboardDelivery::cancel_voice()
 {
+    if (prediction_appending_ && delivery_.pending_edits()) {
+        delivery_.stop(L"Word completion cancelled; remaining suffix not sent");
+        if (visible()) { phase_ = DesktopKeyboardPhase::Paused; }
+    }
+    revoke_prediction();
+    prediction_appending_ = false;
     ++voice_generation_;
     if (voice_) { voice_->cancel(); }
     if (!dictation_.empty() && delivery_.pending_edits()) {
@@ -333,6 +368,7 @@ bool KeyboardDelivery::voice_step(const Snapshot& snapshot, Tick now)
     const auto& pad = snapshot.slots[slot_];
     const bool held = (pad.buttons & voice_button) != 0;
     const bool pressed = held && !(voice_buttons_ & voice_button);
+    if (held) { revoke_prediction(); }
     voice_buttons_ = pad.buttons;
     const bool active = voice_status_.phase == VoiceBackendPhase::Loading || voice_status_.phase == VoiceBackendPhase::Listening
         || voice_status_.phase == VoiceBackendPhase::Transcribing || voice_status_.phase == VoiceBackendPhase::Ready;
@@ -446,6 +482,114 @@ bool KeyboardDelivery::voice_step(const Snapshot& snapshot, Tick now)
             keyboard_.suspend();
         }
     }
+    return true;
+}
+
+PredictionView KeyboardDelivery::prediction_view() const
+{
+    if (!boundary_.prediction_enabled() || !accepts_typing() || delivery_.pending_edits()
+        || voice_status_.phase != VoiceBackendPhase::Idle
+        || keyboard_.flick_stage() != KeyboardFlickStage::Group) { return {}; }
+    if (!boundary_.prediction_preview() && (!prediction_trusted_ || prediction_privacy_ != PredictionPrivacy::Unknown)) { return {}; }
+    return prediction_.view();
+}
+
+std::wstring_view KeyboardDelivery::prediction_hint() const
+{
+    if (!boundary_.prediction_enabled()) { return {}; }
+    if (boundary_.prediction_preview()) { return L"LOCAL PRACTICE - no external output"; }
+    if (voice_status_.phase != VoiceBackendPhase::Idle) { return L"Word suggestions paused for voice"; }
+    if (prediction_privacy_ == PredictionPrivacy::Protected) { return L"Word suggestions off: protected field"; }
+    if (prediction_privacy_ == PredictionPrivacy::Unavailable) { return L"Word suggestions: privacy metadata unavailable"; }
+    if (!prediction_trusted_) { return L"Privacy unverified. Hold Down to enable"; }
+    return L"Suggestions ON - privacy unverified. Down hides";
+}
+
+void KeyboardDelivery::revoke_prediction()
+{
+    prediction_.clear();
+    prediction_trusted_ = prediction_neutral_ = false;
+    prediction_trust_started_.reset();
+}
+
+void KeyboardDelivery::prediction_observe(const TextObservation& observation)
+{
+    if (boundary_.prediction_preview()) { return; }
+    prediction_privacy_ = observation.prediction_privacy;
+    if (!boundary_.prediction_enabled() || prediction_privacy_ != PredictionPrivacy::Unknown) { revoke_prediction(); }
+}
+
+void KeyboardDelivery::prediction_complete(KeyboardEdit edit)
+{
+    if (prediction_appending_ || (!boundary_.prediction_preview() && !prediction_trusted_)) { return; }
+    prediction_.completed(edit);
+    if (!boundary_.prediction_preview() && edit.kind == KeyboardEditKind::Character && edit.character <= U'~'
+        && std::wstring_view(L".,!?;:-'\"/()[]{}").find(static_cast<wchar_t>(edit.character)) != std::wstring_view::npos) {
+        prediction_.clear(true);
+    }
+}
+
+bool KeyboardDelivery::prediction_step(const Snapshot& snapshot)
+{
+    if (!boundary_.prediction_enabled()) { return false; }
+    const auto& pad = snapshot.slots[slot_];
+    constexpr std::uint16_t dpad = 0x000f;
+    const bool armed = prediction_neutral_;
+    prediction_neutral_ = keyboard_neutral(pad);
+    if (!boundary_.prediction_preview()) {
+        auto rest = pad;
+        rest.buttons &= ~0x0002;
+        if (prediction_trusted_ && armed && pad.buttons == 0x0002 && keyboard_neutral(rest)) {
+            revoke_prediction();
+            return true;
+        }
+        if (pad.buttons == 0x0002 && keyboard_neutral(rest) && accepts_typing()
+            && keyboard_.flick_stage() == KeyboardFlickStage::Group && prediction_privacy_ == PredictionPrivacy::Unknown
+            && !delivery_.pending_edits()) {
+            if (prediction_trusted_) {
+                return true;
+            }
+            if (armed && !prediction_trust_started_) { prediction_trust_started_ = snapshot.sampled_at; }
+            if (prediction_trust_started_ && snapshot.sampled_at - *prediction_trust_started_ >= 500) {
+                prediction_trusted_ = true;
+                prediction_.clear(true);
+                prediction_trust_started_.reset();
+            }
+            return true;
+        }
+        prediction_trust_started_.reset();
+    }
+    if (!(pad.buttons & dpad)) { return false; }
+    auto rest = pad;
+    rest.buttons &= ~dpad;
+    const bool isolated = keyboard_neutral(rest)
+        && (pad.buttons == 0x0001 || pad.buttons == 0x0004 || pad.buttons == 0x0008);
+    // Never complete a pending one-handed recenter, Menu release, or face edge as
+    // a side effect of choosing a suggestion. Existing edits win mixed samples.
+    if (!isolated || !armed || keyboard_.flick_stage() != KeyboardFlickStage::Group
+        || !accepts_typing()) { return false; }
+    const auto view = prediction_view();
+    if (!view.count) { return false; }
+    if (pad.buttons == 0x0004 || pad.buttons == 0x0008) {
+        prediction_.select(pad.buttons == 0x0008);
+        return true;
+    }
+    const auto suffix = prediction_.accept(view.generation);
+    if (!suffix) { block(L"Suggestion expired; no completion sent"); return true; }
+    if (delivery_.pending_edits() || suffix->size() > keyboard_edit_queue_limit) {
+        block(L"Suggestion queue unavailable; no completion sent");
+        return true;
+    }
+    prediction_appending_ = true;
+    for (auto c : *suffix) {
+        if (!delivery_.enqueue({KeyboardEditKind::Character, c}, snapshot.sampled_at,
+            snapshot.sampled_at + (boundary_.prediction_preview() ? fresh_ms : 1000),
+            !boundary_.prediction_preview())) {
+            block(delivery_.reason());
+            return true;
+        }
+    }
+    keyboard_.suspend();
     return true;
 }
 

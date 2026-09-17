@@ -15,6 +15,7 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Cursor | `CursorPresentation.*`, `CursorRing.*`, `NativeCursor*` | Layered pixels and ownership-safe native hiding |
 | Keyboard | `Keyboard.*`, `KeyboardDelivery.*`, `TextDelivery.*` | Selection, explicit edits, original-target delivery and recovery |
 | Keyboard visuals | `KeyboardVisual.*`, `KeyboardPopup.*`, `KeyboardPreview.*` | Nonactivating alpha popup and no-output previews |
+| Word suggestions | `WordPrediction.*`, `PredictionTarget.*`, `PredictionPractice.h` | Bounded frequency-ranked fragments, explicit suffix append, negative password metadata and practice |
 | Voice | `Voice.*`, `NativeVoice.*`, `Audio*`, `VoiceModel.*`, `VoiceRecognizer.*` | Bounded capture, validation, local inference, cancellation |
 | Voice view | `VoicePresentation.h`, `VoiceViewAdapter.h` | Backend-independent phase/level/hint snapshots |
 | App UI | `Host.*`, `AppUi.*`, `Resources.h` | Native dashboard, modeless settings, status, tray, lifecycle |
@@ -150,6 +151,66 @@ its target or deadline. Focus notifications are filtered for relevance and
 deduplicated; real field changes and foreground excursions still invalidate the
 target. Caret blinking is not routing identity. HWND identity cannot establish
 internal field identity in every browser or custom control.
+
+### Explicit append-only word suggestions
+
+`TextBoundary::prediction_enabled()` is off by default. Runtime
+`--word-prediction` enables native availability, but collection still requires
+an isolated neutral-then-500-ms D-pad Down hold in an eligible original target for
+each keyboard session. Unknown privacy is explicitly shown as unverified.
+A fresh Down press hides suggestions without erasing typed text; its held tail
+cannot reenable collection. `PredictionPractice` remains a separate no-output sink.
+Both use `KeyboardDelivery` and `TextDelivery` rather than a second output path.
+
+The completion path accepts the same otherwise-eligible `TextBoundary` targets
+as manual typing/voice. There is no support allowlist, classic-Edit restriction,
+caret/length RPC, selection-index limit, metadata worker or application receipt
+protocol. `PredictionTarget` now supplies only negative privacy evidence from
+kernel window identity/class/style metadata: recognized Edit/RichEdit password
+styles suppress suggestions; metadata query failure suppresses with a distinct
+status. Everything else is `Unknown`, never positive proof of a plain-text field.
+Browsers/custom controls can hide password state or semantic-field transitions
+inside one HWND. Deliberate per-session non-secret-field consent is required.
+
+`TextDelivery::pump` returns at most four fully completed edits per eight-event
+budget. A partial edit or stopped/reentered delivery is not a prefix update.
+The predictor stores at most 16 ASCII letters and three candidates from the
+separately licensed, embedded 10,000-word frequency list. Session consent starts an
+empty fragment immediately: two own letters suffice without leading Space,
+without claiming knowledge of preceding field content. Space/punctuation reset
+the prefix; overflow, unknown Backspace and non-ASCII boundaries suppress it.
+Lowercase, title case and uppercase are preserved. There is no native draft,
+inferred Backspace, text/length/caret read, learning or Unicode segmentation framework.
+
+D-pad selection/acceptance requires a fresh neutral sample, no other controls,
+the one-handed Group stage and an empty delivery queue. Acceptance consumes a
+generation and enqueues only the validated remaining suffix. Native completions
+have one fixed one-second deadline from acceptance. Each event uses the same
+original-target, physical-input, context and deadline guards as ordinary text,
+plus known-protected/unavailable privacy suppression. Accepted ups retain
+independent cleanup ownership accounting. Preview completions retain the
+original 100-ms deadline. Pending suffix work never feeds itself back into
+prediction. No Space, Enter or replacement is implicit.
+Cancellation, target/context/activity/device changes and voice transitions clear
+the fragment and revoke consent; dictation is not a prediction source. Ordinary
+observed keyboard/mouse navigation invalidates through the existing physical
+activity boundary. Reserved controller/navigation key messages are not confused
+with physical takeover. Any protected/unavailable observation during an ordinary
+edit suppresses the prediction batch even if privacy becomes unknown afterward;
+manual typing itself is not disabled by the optional privacy feature.
+
+User-selected completion is a literal append request, not an editor synchronizer:
+the app owns its current caret/selection and may apply or discard the input.
+The utility never intentionally replaces text or issues inferred Backspace.
+Unobserved programmatic caret/selection changes remain the same targeting
+limitation as manual typing/voice. Delayed or absent application receipt cannot
+cause retries, and neither prefix hints nor accepted input prove field contents.
+
+The optional 66-DIP suggestion strip is outside the original wheel/footer. Its
+owning view/cache is bounded, validates actual label fit, and hides chips when
+inactive, voice-active or without a candidate. Normal keyboard dimensions and
+pixels without the option are unchanged. `--prediction-demo` seeds only synthetic keyboard snapshots
+and does not start controller polling.
 
 ## Local voice
 

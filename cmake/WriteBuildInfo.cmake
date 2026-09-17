@@ -56,6 +56,7 @@ endif()
 file(GLOB_RECURSE inputs LIST_DIRECTORIES false RELATIVE "${SOURCE_DIR}"
     "${SOURCE_DIR}/src/*.cpp" "${SOURCE_DIR}/src/*.h"
     "${SOURCE_DIR}/src/*.rc" "${SOURCE_DIR}/src/*.in"
+    "${SOURCE_DIR}/third_party/PredictionVocabulary.inc"
     "${SOURCE_DIR}/cmake/*.cmake" "${SOURCE_DIR}/cmake/*.in"
     "${SOURCE_DIR}/cmake/*.ps1" "${SOURCE_DIR}/cmake/CMakeLists.txt")
 list(APPEND inputs CMakeLists.txt)

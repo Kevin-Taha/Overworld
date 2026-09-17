@@ -117,6 +117,15 @@ It deliberately refuses a mismatched or uncommitted build. For an unversioned
 source snapshot, build/test first; initialize and commit the approved standalone
 source repository, then rebuild before using the release packager.
 
+All builds embed separately licensed word-frequency data, even when the runtime
+suggestion option is off. Include `prediction-licenses\prediction-notices.txt`
+and `prediction-licenses\prediction-CC-BY-SA-4.0.txt` from the build in the
+release's `licenses` directory. The ARM64 packager includes these files.
+The filtered data is reproducible using `cmake\GeneratePredictionVocabulary.ps1`;
+its source pin, hash, transformation and CC BY-SA 4.0 attribution are in
+`third_party\prediction-notices.txt`. No runtime dictionary file is required.
+The vocabulary data's ShareAlike license is separate from application code.
+
 Include `voice-licenses\whisper.cpp-LICENSE.txt` from the build and
 `third_party\voice-notices.txt` with voice-enabled distributions. These cover the
 named third-party code/model, not a new license for this application's source.

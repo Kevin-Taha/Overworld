@@ -22,6 +22,8 @@ models\
 licenses\
   whisper.cpp-LICENSE.txt
   voice-notices.txt
+  prediction-notices.txt
+  prediction-CC-BY-SA-4.0.txt
 ```
 
 Release assets are distributed as individual files, not ZIP archives. Close any
@@ -82,6 +84,91 @@ Focus changes, physical takeover, controller loss, mode changes, and unsafe
 contexts stop typing. Pending edits never move to a new target or replay
 automatically. A browser or custom control may change its internal field without
 changing native HWND identity, so exact targeting cannot be guaranteed for all apps.
+
+## Local word suggestions
+
+Word suggestions are **off by default**. Start `GamepadDesktop.exe --word-prediction`
+to make them available for this run; no setting/schema is
+changed. This still launches the normal full mapper, not inspection mode.
+In a non-secret field where ordinary Daisywheel typing works, open the keyboard,
+center/release the controls, then **hold D-pad Down for half a second** to opt in
+for this keyboard session. The footer says **Privacy unverified**, not that the
+field is verified safe. Do not enable suggestions in passwords or other secrets.
+After two letters entered by this keyboard, up to three frequency-ranked
+suggestions appear. No leading Space is required. **Press D-pad Down again to
+hide suggestions immediately**; text already typed is not changed.
+
+**D-pad Left/Right** chooses; **D-pad Up** appends only the remaining suffix once.
+Return to neutral between presses and finish an in-progress one-handed flick
+before choosing. No automatic Space, Enter, replacement or inferred Backspace is
+performed. Existing face-button, one-handed, LB/RB/Menu/View mappings are unchanged.
+A selected completion is an explicit request to type its literal suffix, like
+ordinary manual text or dictation. It uses the same original-target validation,
+bounded output queue and accepted-key release ledger, with one fixed one-second
+deadline. Unsent characters are cancelled on known interruptions; partial output
+is never replayed. No caret or application-receipt synchronization is attempted.
+
+**Coverage follows existing keyboard typing**, including browser, Notepad,
+RichEdit, single-line and custom targets; there is no application/class allowlist,
+field-length limit or Edit-specific message requirement. The existing mapper
+security, focus, session/integrity and exclusion checks still apply.
+Recognized native Edit/RichEdit password styles suppress suggestions, and failed
+privacy metadata queries are reported explicitly. Unknown/custom field privacy
+cannot be verified: browser password fields can be unknown, so per-session
+non-secret-field consent is essential. This is **not universal password detection**.
+Ordinary typing is unchanged when suggestions are off or suppressed.
+
+Only this session's transport-completed keyboard edits feed a maximum 16-letter
+ephemeral word fragment, not field contents. Space/punctuation reset it; observed
+physical keyboard/mouse navigation, takeover, target/context/device/mode changes,
+unknown Backspace, close and voice transitions clear or invalidate hints.
+Close/reopen or a voice transition requires new consent. Programmatic caret or
+selection changes and internal field changes invisible to the existing target
+checks remain limitations, just as for manual text/dictation. The app may discard
+input or apply it at its current caret/selection; transport acceptance is not
+proof of receipt or atomic insertion. Check your target before accepting.
+
+The embedded 10,000-word English frequency list is derived from the pinned
+HermitDave/FrequencyWords OpenSubtitles2018 data under **CC BY-SA 4.0**; see
+[`third_party/prediction-notices.txt`](third_party/prediction-notices.txt).
+It can contain names, slang and offensive language; it is not child-safe.
+No ML, cloud, OS dictionary, personal word list, clipboard, field-text read,
+learning or history is used. Full data attribution and license must accompany
+the EXE; the data license does not grant an application-code license.
+
+### No-output practice modes
+
+`--prediction-preview` opens a controller-driven in-memory practice
+field; `--prediction-preview-one-handed` uses the same one-handed gestures as the
+normal keyboard. The regular application without `--word-prediction` and
+`--inspect` do not collect prediction prefixes. No setting is loaded or saved by
+these previews, and there is no external output.
+
+Close any running mapper first. In the preview, center the controls and press Y
+(or left-stick click in one-handed mode) to open the keyboard. Press **RB Space**
+to establish a new word boundary, then type at least two letters, for example
+`he`. Three small suggestions appear below the unchanged wheel. With both sticks
+centered and other buttons released, **D-pad Left/Right** chooses a word and
+**D-pad Up** appends its remaining suffix once. Release to neutral between actions.
+No space is added: RB remains the explicit Space control. One-handed selection
+must finish its current character/action gesture before choosing a suggestion.
+
+A/B/X/Y, LB Backspace, RB Space, Menu Enter and View Cancel are unchanged.
+View clears the practice session; Escape exits the preview. The local sample is
+limited to 256 characters; reaching capacity stops delivery explicitly.
+`--prediction-demo` shows the synthetic `he` example without polling a controller
+or producing external input. It is a static visual demo, not an active mapper.
+
+Suggestions use the same embedded frequency list. Prefix hints come only
+from this keyboard's completed edits. In practice mode, unknown word boundaries, punctuation,
+mixed capitalization and excessive prefixes suppress suggestions rather than
+guessing. Clear/reset, focus loss, physical input received by the preview,
+controller interruption, mode changes and voice transitions invalidate hints.
+Accepted completions are never autocorrected, backed out, learned or replayed.
+
+The practice label distinguishes this in-memory mode from native completion;
+transport acceptance alone never proves that an application received text.
+The preview has no native text sink, microphone, hook or cursor-hiding path.
 
 ## Offline voice
 

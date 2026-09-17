@@ -110,7 +110,10 @@ struct Child {
 
 class Host {
 public:
-    explicit Host(bool inspection) : inspection_(inspection) {}
+    explicit Host(bool inspection, bool prediction) : inspection_(inspection)
+    {
+        if (prediction && !inspection) { desktop_.enable_prediction(); }
+    }
     ~Host()
     {
         poller_.stop();
@@ -1734,12 +1737,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     const auto mode = argc == 1 ? LaunchMode::Desktop : argc == 2 ? launch_mode(argument) : LaunchMode::Invalid;
     const bool restore = mode == LaunchMode::RestoreCursor;
     const bool inspection = mode == LaunchMode::Inspect;
-    const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard;
-    const bool keyboard_preview = one_hand_preview || mode == LaunchMode::Keyboard;
+    const bool word_prediction = mode == LaunchMode::WordPrediction;
+    const bool prediction_demo = mode == LaunchMode::PredictionDemo;
+    const bool prediction_preview = prediction_demo || mode == LaunchMode::Prediction
+        || mode == LaunchMode::OneHandedPrediction;
+    const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard || mode == LaunchMode::OneHandedPrediction;
+    const bool keyboard_preview = prediction_preview || one_hand_preview || mode == LaunchMode::Keyboard;
     const bool valid_arguments = mode != LaunchMode::Invalid;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nKeyboard previews are local only; inspect disables input; recovery shows the Windows pointer.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --word-prediction | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\n--word-prediction offers explicit append-only completions where keyboard typing is allowed. Privacy is unverified: enable per session only in non-secret fields. Previews have no external output.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
@@ -1796,9 +1803,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         result = restored && released ? 0 : 1;
     } else if (keyboard_preview) {
         result = gamepad::run_keyboard_preview(instance, show,
-            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
+            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons,
+            prediction_preview, prediction_demo);
     } else {
-        Host host(inspection);
+        Host host(inspection, word_prediction);
         result = host.create(instance, show) ? host.run() : 1;
     }
     return result;

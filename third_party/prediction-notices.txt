@@ -1,0 +1,38 @@
+WORD PREDICTION DATA - Attribution and ShareAlike notice
+
+The separately identified PredictionVocabulary.inc DATA, including the filtered
+selection and ordering, is made available under Creative Commons
+Attribution-ShareAlike 4.0 International (CC BY-SA 4.0).
+
+Author/source: Hermit Dave and contributors, HermitDave/FrequencyWords.
+Original tokenized corpus identified by the source: OpenSubtitles2018 (OPUS).
+Source repository: https://github.com/hermitdave/FrequencyWords
+Pinned revision: 525f9b560de45753a5ea01069454e72e9aa541c6
+Source file:
+https://github.com/hermitdave/FrequencyWords/blob/525f9b560de45753a5ea01069454e72e9aa541c6/content/2018/en/en_50k.txt
+Source SHA-256:
+5351ff405b1126ef555791dd4d9798a48e3e9a501a9fc481a9da957752cfb458
+Source length: 622749 bytes, 50000 rows.
+Source content-license declaration:
+https://github.com/hermitdave/FrequencyWords/blob/525f9b560de45753a5ea01069454e72e9aa541c6/README.md
+Corpus: http://opus.nlpl.eu/OpenSubtitles2018.php
+License: https://creativecommons.org/licenses/by-sa/4.0/
+Full license text accompanies this notice in prediction-CC-BY-SA-4.0.txt.
+
+Modifications for Gamepad Desktop: validate the pinned source hash and descending
+frequency order; retain the first 10000 distinct lowercase ASCII a-z words of
+length 3 through 24 in original rank order; remove occurrence counts; encode as
+an embedded static string array. Reproduce using
+cmake/GeneratePredictionVocabulary.ps1 with the pinned source file. No personal
+data, application text, learning or runtime dictionary access is incorporated.
+
+Frequency ranks come from subtitles, not a curated general-language dictionary.
+The data can include names, slang, offensive language and adult terms. It is not
+claimed to be child-safe. No endorsement by the source authors is implied.
+No warranty is provided; see the full license.
+
+Distribute this attribution and the full CC BY-SA 4.0 license with builds that
+embed the vocabulary. Adaptations of this DATA must retain attribution, identify
+changes and comply with ShareAlike. This notice applies only to the separately
+identified vocabulary data; it does not grant a license to the application's
+code or alter the separately documented third-party speech licenses.
