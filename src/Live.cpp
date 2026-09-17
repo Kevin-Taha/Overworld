@@ -230,6 +230,12 @@ bool same_context(const Observation& a, const Observation& b)
         && a.bounds == b.bounds && a.desktop == b.desktop;
 }
 
+bool same_pointer_target(const Observation& a, const Observation& b)
+{
+    return same_context(a, b) && known_app(a.app.identity) && a.app == b.app
+        && a.routing == b.routing && a.mode == b.mode && a.cursor == b.cursor;
+}
+
 unsigned physical_holds(unsigned asynchronous, unsigned observed_physical, unsigned owned)
 {
     return (asynchronous & ~owned) | (observed_physical & owned);
@@ -285,7 +291,8 @@ Emission Dispatcher::release(OutputKind kind, unsigned bit)
     return Emission::Blocked;
 }
 
-Emission Dispatcher::emit(const Output& output, const Observation& expected, std::optional<Tick> routing_wait_since)
+Emission Dispatcher::emit(const Output& output, const Observation& expected, std::optional<Tick> routing_wait_since,
+    const Observation* press_origin)
 {
     if (faulted_ || uncertain_) { return Emission::Blocked; }
     const auto up = up_bit(output.kind);
@@ -299,6 +306,7 @@ Emission Dispatcher::emit(const Output& output, const Observation& expected, std
         return now <= expected.expires && !routing_wait_expired(routing_wait_since, now);
     };
     const auto current = boundary_.observe(owned_, &output);
+    if (press_origin && !same_pointer_target(current, *press_origin)) { return Emission::Blocked; }
     const auto query_pending = [&](const Observation& value) {
         return pending_route(value) && same_context(value, expected) && current_time();
     };
@@ -310,6 +318,7 @@ Emission Dispatcher::emit(const Output& output, const Observation& expected, std
     const Point point = output.kind == OutputKind::Move ? output.point : current.cursor;
     if (!contains(current.bounds, point)) { return Emission::Blocked; }
     const auto final = boundary_.observe(owned_, &output);
+    if (press_origin && !same_pointer_target(final, *press_origin)) { return Emission::Blocked; }
     if (query_pending(final)) { return Emission::Deferred; }
     if (!final.available || !final.allowed || !final.baseline_known || final.mode == Mode::Blocked || final.physical_held
         || !same_context(current, final) || !current_time()) { return Emission::Blocked; }
@@ -367,6 +376,8 @@ void Dispatcher::recover(Tick now)
 
 void Live::disarm(Tick now, std::wstring_view reason)
 {
+    tap_press_.reset();
+    tap_release_owned_ = false;
     automatic_neutral_ = {};
     automatic_observation_.reset();
     armed_ = false;
@@ -633,7 +644,7 @@ void Live::automatic_step(const Snapshot& snapshot, Tick now, bool prerequisites
     }
     if (enabled_ && slot_ && snapshot.slots[*slot_].connection == Connection::Connected
         && snapshot.slots[*slot_].connection_epoch == *epoch_
-        && (output_.owned() || !pointer_neutral(snapshot.slots[*slot_], settings_))) {
+        && (output_.owned() || tap_press_ || !pointer_neutral(snapshot.slots[*slot_], settings_))) {
         // Existing live routing already revalidates the desktop and each output.
         // Avoid another expensive native query on every held-motion sample.
         step(snapshot, now);
@@ -732,9 +743,9 @@ std::wstring_view Live::set_exclusions(const ExecutableExclusions& names, Tick n
     return {};
 }
 
-bool Live::emit(Output output, const Observation& observation, Tick now)
+bool Live::emit(Output output, const Observation& observation, Tick now, const Observation* press_origin)
 {
-    const auto result = output_.emit(output, observation, routing_wait_since_);
+    const auto result = output_.emit(output, observation, routing_wait_since_, press_origin);
     const auto finished_at = boundary_.now();
     if (routing_wait_expired(routing_wait_since_, finished_at)) {
         effective_ = EffectiveMode::Blocked;
@@ -769,6 +780,21 @@ void Live::defer(Tick now)
     }
     reason_ = blocked_ == BlockReason::Settling ? block_reason_text(BlockReason::Settling)
         : L"LIVE - routing changing; event skipped, held edges not replayed";
+}
+
+bool Live::tap_controls(const Snapshot& snapshot) const
+{
+    if (!slot_) { return false; }
+    for (unsigned i = 0; i < slot_count; ++i) {
+        const auto& pad = snapshot.slots[i];
+        if (i != *slot_) {
+            if (pad.connection == Connection::Connected && !pointer_neutral(pad, settings_)) { return false; }
+            continue;
+        }
+        if ((pad.buttons & ~(a_button | 0x0100)) || pad.left_trigger > 30 || pad.right_trigger > 30
+            || std::hypot(pad.right_x, pad.right_y) / 32767.0 > settings_.right_exit) { return false; }
+    }
+    return true;
 }
 
 void Live::step(const Snapshot& snapshot, Tick now)
@@ -812,6 +838,11 @@ void Live::step(const Snapshot& snapshot, Tick now)
     observation.expires = snapshot.sampled_at + live_sample_age_ms;
     if (boundary_.now() > observation.expires) {
         disarm(now, L"PAUSED - controller sample expired during observation; fresh neutral required");
+        return;
+    }
+    if (tap_press_ && (gap || !same_pointer_target(observation, tap_press_->origin)
+        || !observation.routing_stable || observation.routing_pending || !tap_controls(snapshot))) {
+        disarm(now, L"Release-tap cancelled: target, route, sample continuity or controller gesture changed");
         return;
     }
     if (previous_ && !same_context(*previous_, observation)) {
@@ -868,13 +899,49 @@ void Live::step(const Snapshot& snapshot, Tick now)
     // A tap's accepted down survives a benign routing deferral of its up.
     if ((output_.owned() & Secondary) && !emit({OutputKind::SecondaryUp}, observation, now)) { return; }
     if ((output_.owned() & Escape) && !emit({OutputKind::EscapeUp}, observation, now)) { return; }
-    if (!primary && (output_.owned() & Primary)) {
+    if ((!primary || tap_release_owned_) && (output_.owned() & Primary)) {
         if (!emit({OutputKind::PrimaryUp}, observation, now)) { return; }
+        tap_release_owned_ = false;
     }
     const auto motion = pointer_.step(controller, observation.cursor, observation.bounds, now,
                                       !primary, settings_);
+    // A deferred release can leave an existing drag owned across a repress.
+    if (release_tap_ && !(output_.owned() & Primary) && ((pressed & a_button) || tap_press_)) {
+        constexpr Tick drag_hold_ms = 250;
+        if (!tap_controls(snapshot) || !known_app(observation.app.identity)) {
+            disarm(now, L"Release-tap cancelled: one controller and a known unchanged target are required");
+            return;
+        }
+        if (!tap_press_) { tap_press_ = TapPress{observation, snapshot.sampled_at}; }
+        const auto origin = tap_press_->origin;
+        const auto began = tap_press_->started;
+        if (snapshot.sampled_at < began || now < began) {
+            disarm(now, L"Release-tap cancelled: invalid gesture clock");
+            return;
+        }
+        if (!primary) {
+            if (snapshot.sampled_at - began >= drag_hold_ms || motion.point != observation.cursor) {
+                disarm(now, L"Release-tap cancelled: release was late or pointer moved before commit");
+                return;
+            }
+            // A fresh released sample is a new commit, not replay of a deferred down.
+            tap_press_.reset();
+            if (!emit({OutputKind::PrimaryDown}, observation, now, &origin)) { return; }
+            tap_release_owned_ = true;
+            reason_ = L"LIVE - release-tap down accepted; owned up follows on the next sample";
+            return;
+        }
+        if (motion.point != observation.cursor || snapshot.sampled_at - began >= drag_hold_ms) {
+            tap_press_.reset();
+            if (!emit({OutputKind::PrimaryDown}, observation, now, &origin)) { return; }
+        } else {
+            routing_wait_since_.reset(); // Fresh validation resolved the earlier no-output wait.
+            reason_ = L"Release-tap pending: release A to click; hold 250 ms or move to drag";
+            return;
+        }
+    }
     if (motion.point != observation.cursor && !emit({OutputKind::Move, motion.point}, observation, now)) { return; }
-    if ((pressed & a_button) && !(output_.owned() & Primary)) {
+    if (!release_tap_ && (pressed & a_button) && !(output_.owned() & Primary)) {
         if (!emit({OutputKind::PrimaryDown}, observation, now)) { return; }
     }
     if (!primary && !(output_.owned() & Primary)) {

@@ -35,11 +35,9 @@ struct Fake final : TextBoundary {
     std::wstring field;
     std::optional<gamepad::live::Observation> route;
     bool preview = false;
-    bool native_prediction = false;
     Tick application_delay = 0;
     std::deque<std::pair<Tick, TextEvent>> pending_application;
     bool prediction_preview() const override { return preview; }
-    bool prediction_enabled() const override { return preview || native_prediction; }
     Fake()
     {
         observation.allowed = observation.cleanup_allowed = observation.stable = true;
@@ -165,13 +163,9 @@ struct Fixture {
         }
         center_stick(); tick();
     }
-    void trust_prediction()
+    void open_prediction()
     {
-        fake.native_prediction = true;
         tick(); tick(); button(0x8000); button(0); tick();
-        button(0x0002);
-        for (unsigned i = 0; i < 5; ++i) { tick(100); }
-        button(0); tick();
     }
     void type_he()
     {
@@ -187,7 +181,6 @@ struct CompletionFixture {
     TextDelivery delivery{fake};
     explicit CompletionFixture(Tick delay = 80, Tick intent_ms = 1000)
     {
-        fake.native_prediction = true;
         fake.field = L"he";
         fake.application_delay = delay;
         check(delivery.start(fake.observation.target), "start native completion fixture");
@@ -261,22 +254,24 @@ int main()
             check(elapsed < 2000, "1000 bounded full-list lookups must complete within two seconds");
             std::cout << "Vocabulary bytes " << bytes << "; 1000 worst-case lookups " << elapsed << " ms\n";
         });
-        test("generic native prediction requires runtime and per-session consent, then no leading space", [] {
+        test("generic native prediction is enabled by default without consent or leading space", [] {
             for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
-                Fixture f; f.fake.native_prediction = true; f.keyboard.set_input_mode(mode);
+                Fixture f; f.keyboard.set_input_mode(mode);
                 f.tick(); f.tick(); f.button(0x8000); f.button(0); f.type_he();
-                check(!f.keyboard.prediction_view().count && f.fake.field == L"he",
-                    "runtime option alone must not collect native prefixes");
-                Fixture g; g.keyboard.set_input_mode(mode); g.trust_prediction();
-                check(g.keyboard.prediction_hint() == L"Suggestions ON - privacy unverified. Down hides",
-                    "session consent never claims verified plain text");
+                check(f.keyboard.prediction_enabled() && f.keyboard.prediction_view().count == 3 && f.fake.field == L"he",
+                    "two accepted own letters suffice from the first session");
+                Fixture g; g.keyboard.set_input_mode(mode); g.open_prediction();
+                check(g.keyboard.prediction_hint() == L"Word suggestions on - Down hides",
+                    "simple status without a per-field prompt");
                 g.type_he();
                 check(g.keyboard.prediction_view().count == 3 && g.fake.field == L"he", "two letters show native suggestions without Space");
                 g.tap(0x0001);
                 check(g.fake.field == L"here", "native acceptance uses the existing fake transport and suffix only");
                 g.tap(0x0001); check(g.fake.field == L"here", "native completion is not replayable");
                 g.tap(0x0020);
-                check(!g.keyboard.prediction_view().count, "close revokes native field trust");
+                check(!g.keyboard.prediction_view().count, "close clears the current fragment");
+                g.button(0); g.tick(); g.button(0x8000); g.button(0); g.type_he();
+                check(g.keyboard.prediction_view().count == 3, "every new session starts enabled without a consent gesture");
             }
         });
         test("generic browser and RichEdit-like targets share broad literal completion without class or value APIs", [] {
@@ -290,7 +285,7 @@ int main()
                     const auto existing = target == 0 ? std::wstring{} : target == 1
                         ? std::wstring(L"browser content before this session: ") : std::wstring(70000, L'x');
                     f.fake.field = existing;
-                    f.trust_prediction(); f.type_he();
+                    f.open_prediction(); f.type_he();
                     check(f.keyboard.prediction_view().words[0] == L"here", "own he fragment is independent of target's preceding content");
                     const auto before = f.fake.accepted.size();
                     f.tap(0x0001);
@@ -300,33 +295,28 @@ int main()
                 }
             }
         });
-        test("session consent is deliberate and quick hide neither erases text nor rearms while held", [] {
-            Fixture f; f.fake.native_prediction = true;
-            f.tick(); f.tick(); f.button(0x8000); f.button(0); f.tick();
-            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable", "initial warning never labels unknown fields plain");
-            f.button(0x0002);
-            for (unsigned i = 0; i < 4; ++i) { f.tick(100); }
-            f.tick(99);
-            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable", "499ms cannot grant consent");
-            f.tick(1); f.button(0); f.type_he();
-            check(f.keyboard.prediction_view().count == 3, "500ms consent enables two-own-letter suggestions");
+        test("quick hide is immediate for this session only and never erases text", [] {
+            Fixture f; f.open_prediction(); f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "suggestions already enabled");
             f.button(0x0002);
             check(!f.keyboard.prediction_view().count && f.fake.field == L"he", "fresh Down hides immediately without deleting output");
             for (unsigned i = 0; i < 8; ++i) { f.tick(100); }
-            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable",
+            check(f.keyboard.prediction_hint() == L"Word suggestions off for this session",
                 "held hide button cannot automatically reenable collection");
             f.button(0); f.type_he();
             check(!f.keyboard.prediction_view().count && f.fake.field == L"hehe", "typing remains available with suggestions hidden");
             Fixture onehand; onehand.keyboard.set_input_mode(KeyboardInputMode::OneHanded);
-            onehand.trust_prediction(); onehand.type_he();
+            onehand.open_prediction(); onehand.type_he();
             onehand.aim(45); onehand.tick(); onehand.center_stick(); onehand.tick();
             onehand.button(0x0002);
-            check(onehand.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable"
-                && onehand.fake.field == L"he", "quick hide also revokes consent during one-handed character stage without committing a glyph");
+            check(onehand.keyboard.prediction_hint() == L"Word suggestions off for this session"
+                && onehand.fake.field == L"he", "quick hide during one-handed character stage does not commit a glyph");
+            f.tap(0x0020); f.tick(); f.button(0x8000); f.button(0); f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "reopening restores the saved default without reenable friction");
         });
         test("recognized protection during an ordinary edit revokes hints even if the final observation is unknown", [] {
             for (unsigned guarded_observation : {2u, 3u}) {
-                Fixture f; f.trust_prediction(); f.type_he();
+                Fixture f; f.open_prediction(); f.type_he();
                 f.aim(45); f.tick();
                 unsigned observations = 0;
                 f.fake.during_observe = [&] {
@@ -339,31 +329,33 @@ int main()
                 f.fake.during_observe = {};
                 f.fake.observation.prediction_privacy = PredictionPrivacy::Unknown;
                 f.button(0); f.center_stick(); f.tick(); f.tap(0x0001);
-                check(f.fake.field == L"hee" && !f.keyboard.prediction_view().count, "unknown afterward cannot revive pre-protection consent");
+                check(f.fake.field == L"hee" && !f.keyboard.prediction_view().count, "unknown afterward cannot revive pre-protection fragments");
             }
         });
         test("privacy suppression clears suggestions without changing ordinary protected-field typing", [] {
-            Fixture f; f.trust_prediction(); f.type_he();
+            Fixture f; f.open_prediction(); f.type_he();
             f.fake.observation.prediction_privacy = PredictionPrivacy::Protected;
             f.tick(); f.type_he();
             check(f.fake.field == L"hehe" && !f.keyboard.prediction_view().count
-                && f.keyboard.prediction_hint() == L"Word suggestions off: protected field",
-                "recognized password status is visible and ordinary user-requested manual typing remains unchanged");
+                && f.keyboard.prediction_hint().empty(),
+                "recognized password suppression is quiet and manual typing remains unchanged");
             f.fake.observation.prediction_privacy = PredictionPrivacy::Unknown; f.tick();
-            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable",
-                "unmasking requires new explicit consent rather than inheriting secret-field input");
+            check(f.keyboard.prediction_hint() == L"Word suggestions on - Down hides"
+                && !f.keyboard.prediction_view().count, "unmasking cannot inherit protected-field input");
+            f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "only new accepted letters form the next fragment");
         });
         test("protected and unavailable privacy metadata cannot arm prediction", [] {
             for (auto privacy : {PredictionPrivacy::Protected, PredictionPrivacy::Unavailable}) {
                 Fixture f; f.fake.observation.prediction_privacy = privacy;
-                f.trust_prediction(); f.type_he(); f.tap(0x0001);
+                f.open_prediction(); f.type_he(); f.tap(0x0001);
                 check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
                     "ineligible fields retain ordinary typing but never collect or append suggestions");
             }
         });
         test("ordinary navigation, focus, context and physical takeover invalidate native suggestions", [] {
             for (unsigned invalid = 0; invalid < 4; ++invalid) {
-                Fixture f; f.trust_prediction(); f.type_he();
+                Fixture f; f.open_prediction(); f.type_he();
                 switch (invalid) {
                 case 0: ++f.fake.observation.target.activity; break;
                 case 1: ++f.fake.observation.target.focus_revision; break;
@@ -377,7 +369,7 @@ int main()
         });
         test("native suffix preserves original target and privacy checks throughout literal delivery", [] {
             for (unsigned failure = 0; failure < 4; ++failure) {
-                Fixture f; f.trust_prediction(); f.type_he();
+                Fixture f; f.open_prediction(); f.type_he();
                 f.fake.during_send = [&](TextEvent event) {
                     if (event.up && f.fake.field == L"her") {
                         if (failure == 0) { f.fake.observation.physical_held = true; }
@@ -394,7 +386,7 @@ int main()
         });
         test("native completion tolerates bounded delayed application without replaying accepted text", [] {
             for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
-                Fixture f; f.keyboard.set_input_mode(mode); f.trust_prediction(); f.type_he();
+                Fixture f; f.keyboard.set_input_mode(mode); f.open_prediction(); f.type_he();
                 const auto before = f.fake.accepted.size();
                 f.fake.application_delay = 80;
                 f.button(0x0001);
@@ -506,18 +498,18 @@ int main()
                 "ambiguous acceptance remains explicit and cannot be retried");
         });
         test("native ordinary partial edits, voice intent and metadata loss revoke predictions", [] {
-            Fixture f; f.trust_prediction(); f.type_he();
+            Fixture f; f.open_prediction(); f.type_he();
             f.fake.returns = {1, 0}; f.aim(45); f.tick(); f.button(0x1000);
             check(!f.keyboard.prediction_view().count, "partial transport acceptance never authorizes native prediction");
-            Fixture g; g.trust_prediction(); g.type_he(); g.tap(0x0080); g.tap(0x0001);
-            check(g.fake.field == L"he" && !g.keyboard.prediction_view().count, "voice intent revokes per-field trust even without backend");
-            Fixture h; h.trust_prediction(); h.type_he();
+            Fixture g; g.open_prediction(); g.type_he(); g.tap(0x0080); g.tap(0x0001);
+            check(g.fake.field == L"he" && !g.keyboard.prediction_view().count, "voice intent clears the fragment even without backend");
+            Fixture h; h.open_prediction(); h.type_he();
             h.fake.observation.prediction_privacy = PredictionPrivacy::Unavailable;
             h.tick(); h.fake.observation.prediction_privacy = PredictionPrivacy::Unknown; h.tick(); h.tap(0x0001);
-            check(h.fake.field == L"he" && !h.keyboard.prediction_view().count, "restored metadata requires a new deliberate trust action");
+            check(h.fake.field == L"he" && !h.keyboard.prediction_view().count, "restored metadata cannot revive the cleared fragment");
         });
         test("native pending suffix cancels stick activity even while acceptance Up remains held", [] {
-            Fixture f; f.trust_prediction(); f.type_he();
+            Fixture f; f.open_prediction(); f.type_he();
             f.fake.during_send = [&](TextEvent event) {
                 if (event.up) {
                     f.fake.observation.settling = true;
@@ -662,12 +654,65 @@ int main()
             prediction.completed(enter); prediction.completed(letter(U'h')); prediction.completed(letter(U'e'));
             check(prediction.view().count == 3, "explicit Enter establishes a new boundary without generating Enter");
         });
-        test("prediction remains unavailable at native unknown and password targets by default", [] {
-            Fixture f; f.prediction_word();
-            check(!f.keyboard.prediction_view().count && !f.fake.prediction_preview(), "native boundary does not collect/display prefixes");
+        test("Settings opt-out disables hints and completion but not ordinary typing", [] {
+            Fixture f; f.keyboard.set_prediction_enabled(false); f.prediction_word();
+            check(!f.keyboard.prediction_view().count && f.keyboard.prediction_hint().empty(), "opt-out has no hints");
             const auto before = f.fake.field;
             f.tap(0x0001);
             check(f.fake.field == before, "D-pad does not add external output");
+            f.keyboard.set_prediction_enabled(true); f.tick();
+            check(!f.keyboard.prediction_view().count, "opt-in never restores the old fragment");
+            f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "new letters collect without another consent gesture");
+            f.keyboard.set_prediction_enabled(false);
+            check(!f.keyboard.prediction_view().count && f.keyboard.prediction_hint().empty(), "disable clears immediately");
+        });
+        test("Settings opt-out cancels partial completion but preserves accepted-up ownership", [] {
+            for (bool after_down : {false, true}) {
+                Fixture f; f.open_prediction(); f.type_he();
+                bool disabled = false;
+                f.fake.during_send = [&](TextEvent event) {
+                    if (!disabled && event.up != after_down) {
+                        disabled = true;
+                        f.keyboard.set_prediction_enabled(false);
+                    }
+                };
+                f.button(0x0001);
+                check(disabled && f.fake.field == L"her" && !f.keyboard.delivery().pending_edits()
+                    && !f.keyboard.prediction_view().count && f.keyboard.prediction_hint().empty(),
+                    "only accepted first suffix character remains; unsent suffix and hints are cleared");
+                check(f.keyboard.delivery().owned() == after_down, "accepted down survives reentrant disable");
+                f.fake.during_send = {}; f.button(0); f.tick();
+                check(!f.keyboard.delivery().owned() && f.fake.field == L"her", "cleanup sends only matching up, never remaining text");
+                f.keyboard.set_prediction_enabled(true); f.tap(0x0001);
+                check(f.fake.field == L"her", "reenabling cannot replay interrupted completion");
+            }
+        });
+        test("Settings disable at either dispatch guard cannot start a completion", [] {
+            for (unsigned guard : {2u, 3u}) {
+                Fixture f; f.open_prediction(); f.type_he();
+                unsigned observations = 0;
+                f.fake.during_observe = [&] {
+                    if (++observations == guard) { f.keyboard.set_prediction_enabled(false); }
+                };
+                f.button(0x0001);
+                check(f.fake.field == L"he" && !f.keyboard.delivery().owned()
+                    && !f.keyboard.delivery().pending_edits() && f.keyboard.prediction_hint().empty(),
+                    "disable before first suffix dispatch cancels without external output");
+            }
+        });
+        test("held voice intent cannot repopulate prediction even without a voice backend", [] {
+            Fixture f; f.open_prediction(); f.aim(45); f.tick();
+            f.button(0x0080);
+            f.button(0x8080); f.button(0x0080);
+            f.button(0x1080); f.button(0x0080);
+            f.center_stick(); f.tick();
+            check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
+                "manual fallback edits during voice hold are not a prediction fragment");
+            f.button(0); f.tick();
+            check(!f.keyboard.prediction_view().count, "released voice intent cannot restore held fragment");
+            f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "fresh post-voice manual letters work without consent");
         });
         test("face and one-handed prediction require neutral deliberate D-pad acceptance without spaces", [] {
             for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {

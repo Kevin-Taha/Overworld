@@ -26,6 +26,7 @@ public:
     // an in-progress gesture; a fresh open uses the new mode's opener/layout.
     void set_input_mode(KeyboardInputMode mode);
     void set_native_mode_enabled(bool enabled);
+    void set_prediction_enabled(bool enabled);
     void set_voice(VoiceBoundary* voice);
     [[nodiscard]] const VoiceUpdate& voice_status() const { return voice_status_; }
     [[nodiscard]] bool native_session() const { return native_session_; }
@@ -92,8 +93,8 @@ private:
     WordPrediction prediction_;
     bool prediction_neutral_ = false;
     bool prediction_appending_ = false;
-    bool prediction_trusted_ = false;
+    bool prediction_collecting_ = false;
+    bool prediction_hidden_ = false;
     PredictionPrivacy prediction_privacy_ = PredictionPrivacy::Unknown;
-    std::optional<Tick> prediction_trust_started_;
 };
 } // namespace gamepad

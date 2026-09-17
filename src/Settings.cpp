@@ -13,11 +13,12 @@
 
 namespace gamepad {
 namespace {
-constexpr std::array<std::wstring_view, 23> keys{
+constexpr std::array<std::wstring_view, 24> keys{
     L"version", L"speed", L"precision", L"scroll", L"left_exit", L"left_enter",
     L"right_exit", L"right_enter", L"ring", L"ring_diameter", L"cursor_style", L"replace_cursor",
     L"motion_profile", L"link_hint", L"band_low", L"band_middle", L"band_high", L"automatic_game_switching",
-    L"keyboard_input", L"keyboard_in_native_mode", L"experimental_navigation_filter", L"voice_enabled", L"voice_model_path"};
+    L"keyboard_input", L"keyboard_in_native_mode", L"experimental_navigation_filter", L"voice_enabled", L"voice_model_path",
+    L"word_suggestions"};
 
 bool number(std::wstring_view text, double& result)
 {
@@ -160,12 +161,13 @@ std::wstring parse_settings(std::wstring_view text, Settings& result)
                 if (seen[index]) { return L"Duplicate settings key; file was not loaded."; }
                 seen[index] = true;
                 if (index == 0) {
-                    if (value == L"11") { version = 11; }
+                    if (value == L"12") { version = 12; }
+                    else if (value == L"11") { version = 11; }
                     else if (value == L"10") { version = 10; }
                     else if (value.size() == 1 && value.front() >= L'1' && value.front() <= L'9') {
                         version = value.front() - L'0';
                     } else {
-                        return L"Unsupported settings version (expected 1 through 11).";
+                        return L"Unsupported settings version (expected 1 through 12).";
                     }
                 } else if (index == 8) {
                     if (value != L"0" && value != L"1") { return L"ring must be 0 or 1."; }
@@ -204,6 +206,9 @@ std::wstring parse_settings(std::wstring_view text, Settings& result)
                     parsed.voice_enabled = value == L"1";
                 } else if (index == 22) {
                     parsed.voice_model_path = value;
+                } else if (index == 23) {
+                    if (value != L"0" && value != L"1") { return L"word_suggestions must be 0 or 1."; }
+                    parsed.word_suggestions = value == L"1";
                 } else if (index >= 14 && index <= 16) {
                     if (!number(value, parsed.pointer.band_rates[index - 14])) {
                         return L"Band speeds must be complete finite numbers.";
@@ -225,7 +230,7 @@ std::wstring parse_settings(std::wstring_view text, Settings& result)
             || (index == 12 && version >= 4) || (index == 13 && version == 4)
             || (index >= 14 && index <= 16 && version >= 6) || (index == 17 && version >= 7)
             || (index == 18 && version >= 8) || (index == 19 && version >= 9) || (index == 20 && version >= 10)
-            || (index >= 21 && version >= 11);
+            || (index >= 21 && index <= 22 && version >= 11) || (index == 23 && version >= 12);
         if (required && !seen[index]) { return L"Settings file is incomplete; required key missing."; }
         if (!required && seen[index]) { return L"Settings key is not supported in this version."; }
     }
@@ -239,7 +244,7 @@ std::wstring serialize_settings(const Settings& settings)
 {
     const auto& p = settings.pointer;
     const std::array<double, 7> values{p.speed, p.precision, p.scroll, p.left_exit, p.left_enter, p.right_exit, p.right_enter};
-    std::wstring text = L"version=11\r\n";
+    std::wstring text = L"version=12\r\n";
     for (std::size_t i = 0; i < values.size(); ++i) { text += std::wstring{keys[i + 1]} + L"=" + decimal(values[i]) + L"\r\n"; }
     text += L"ring_diameter=" + std::to_wstring(settings.ring_diameter) + L"\r\n";
     for (const auto& choice : cursor_styles) {
@@ -256,6 +261,7 @@ std::wstring serialize_settings(const Settings& settings)
     text += settings.experimental_navigation_filter ? L"experimental_navigation_filter=1\r\n" : L"experimental_navigation_filter=0\r\n";
     text += settings.voice_enabled ? L"voice_enabled=1\r\n" : L"voice_enabled=0\r\n";
     text += L"voice_model_path=" + settings.voice_model_path + L"\r\n";
+    text += settings.word_suggestions ? L"word_suggestions=1\r\n" : L"word_suggestions=0\r\n";
     for (const auto& name : settings.exclusions) { text += L"exclude=" + name + L"\r\n"; }
     return text;
 }

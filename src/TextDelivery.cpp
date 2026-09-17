@@ -104,7 +104,7 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
         }
         completed.prediction_suppressed |= current.prediction_privacy != PredictionPrivacy::Unknown;
         if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
-            stop(L"Word suggestion privacy changed; remaining suffix cancelled");
+            stop(L"Word suggestions unavailable; remaining suffix cancelled");
             break;
         }
         if (current.settling) { break; }
@@ -119,7 +119,7 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
         }
         completed.prediction_suppressed |= final.prediction_privacy != PredictionPrivacy::Unknown;
         if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
-            stop(L"Word suggestion privacy changed during validation; remaining suffix cancelled");
+            stop(L"Word suggestions unavailable during validation; remaining suffix cancelled");
             break;
         }
         if (final.settling) { break; }

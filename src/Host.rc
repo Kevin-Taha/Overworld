@@ -38,9 +38,10 @@ BEGIN
     CONTROL "Cursor preview", IDC_CURSOR_PREVIEW, "Static", SS_OWNERDRAW, 258, 195, 114, 63
 
     LTEXT "Controller keyboard", IDC_TYPING_HEADING, 28, 88, 344, 18
-    LTEXT "Selection style", IDC_KEYBOARD_MODE_LABEL, 28, 116, 148, 16
-    COMBOBOX IDC_KEYBOARD_INPUT_MODE, 182, 112, 190, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT "Face buttons: aim, then A / B / X / Y.\r\nOne-handed: flick a group, center, then flick a character.", IDC_TYPING_HINT, 28, 142, 344, 28
+    LTEXT "Selection style", IDC_KEYBOARD_MODE_LABEL, 28, 111, 148, 16
+    COMBOBOX IDC_KEYBOARD_INPUT_MODE, 182, 108, 190, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Face buttons: aim, then A / B / X / Y.\r\nOne-handed: flick a group, center, then flick a character.", IDC_TYPING_HINT, 28, 133, 344, 24
+    CONTROL "&Word suggestions", IDC_WORD_SUGGESTIONS, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 28, 158, 344, 18
     CONTROL "&Local voice input", IDC_VOICE_ENABLED, "Button", BS_AUTOCHECKBOX | WS_TABSTOP, 28, 179, 344, 18
     LTEXT "Hold right-stick click in the keyboard. Audio stays on this device.", IDC_VOICE_HINT, 28, 201, 344, 16
     LTEXT "Verified tiny.en model (blank uses the default path)", IDC_VOICE_MODEL_LABEL, 28, 222, 344, 12

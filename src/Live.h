@@ -89,6 +89,7 @@ struct Observation {
 };
 
 [[nodiscard]] bool same_context(const Observation& a, const Observation& b);
+[[nodiscard]] bool same_pointer_target(const Observation& a, const Observation& b);
 [[nodiscard]] unsigned physical_holds(unsigned asynchronous, unsigned observed_physical, unsigned owned);
 [[nodiscard]] bool process_integrity_allowed(unsigned host, unsigned target, bool ui_access);
 [[nodiscard]] bool mouse_report_activity(bool absolute, long x, long y, unsigned buttons);
@@ -126,7 +127,7 @@ class Dispatcher {
 public:
     explicit Dispatcher(OutputBoundary& boundary) : boundary_(boundary) {}
     Emission emit(const Output& output, const Observation& expected,
-                  std::optional<Tick> routing_wait_since = {});
+                  std::optional<Tick> routing_wait_since = {}, const Observation* press_origin = nullptr);
     void cancel(Tick now);
     void retry(Tick now);
     void recover(Tick now);
@@ -147,7 +148,7 @@ private:
 
 class Live {
 public:
-    explicit Live(OutputBoundary& boundary) : boundary_(boundary), output_(boundary) {}
+    explicit Live(OutputBoundary& boundary, bool release_tap = false) : boundary_(boundary), output_(boundary), release_tap_(release_tap) {}
     void select(std::optional<unsigned> slot, const Snapshot& snapshot, Tick now);
     void enable(Tick now);
     void pause(Tick now, std::wstring_view reason = L"Input paused; fresh neutral required");
@@ -180,6 +181,7 @@ public:
     [[nodiscard]] bool armed() const { return armed_; }
     [[nodiscard]] unsigned owned() const { return output_.owned(); }
     [[nodiscard]] bool faulted() const { return output_.faulted(); }
+    [[nodiscard]] bool release_tap() const { return release_tap_; }
     [[nodiscard]] std::wstring_view status() const { return reason_; }
 
 private:
@@ -188,7 +190,8 @@ private:
     bool activate_from_neutral(unsigned slot, const Snapshot& neutral, const Observation& observation, Tick now);
     void disarm(Tick now, std::wstring_view reason);
     void defer(Tick now);
-    bool emit(Output output, const Observation& observation, Tick now);
+    bool emit(Output output, const Observation& observation, Tick now, const Observation* press_origin = nullptr);
+    bool tap_controls(const Snapshot& snapshot) const;
     OutputBoundary& boundary_;
     Dispatcher output_;
     Pointer pointer_;
@@ -204,6 +207,10 @@ private:
     bool armed_ = false;
     bool controller_active_ = false;
     bool physical_owner_ = false;
+    const bool release_tap_;
+    struct TapPress { Observation origin; Tick started; };
+    std::optional<TapPress> tap_press_;
+    bool tap_release_owned_ = false;
     std::uint16_t buttons_ = 0;
     std::array<std::optional<Snapshot>, slot_count> automatic_neutral_;
     std::optional<Observation> automatic_observation_;

@@ -25,6 +25,9 @@ struct DashboardControl {
     int x, y, width, height;
 };
 [[nodiscard]] std::span<const DashboardControl> dashboard_controls();
+[[nodiscard]] constexpr const wchar_t* dashboard_title(bool release_tap) {
+    return release_tap ? L"Gamepad Desktop - release-tap" : L"Gamepad Desktop";
+}
 struct AppPalette {
     COLORREF background, surface, text, secondary, border, accent, accent_text;
     bool dark = false;

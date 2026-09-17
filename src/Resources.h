@@ -32,6 +32,7 @@
 #define IDC_VOICE_HINT 363
 #define IDC_VOICE_STATUS 364
 #define IDC_VOICE_BROWSE 365
+#define IDC_WORD_SUGGESTIONS 366
 
 // 360-379 are reserved for the voice integration.
 #define IDC_SETTINGS_TABS 400

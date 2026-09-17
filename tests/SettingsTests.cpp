@@ -67,9 +67,14 @@ std::wstring without(std::wstring text, std::wstring_view key)
     return text;
 }
 
+std::wstring version_eleven(const Settings& settings)
+{
+    return changed(without(serialize_settings(settings), L"word_suggestions"), L"version", L"11");
+}
+
 std::wstring version_ten(const Settings& settings)
 {
-    return changed(without(without(serialize_settings(settings), L"voice_enabled"), L"voice_model_path"), L"version", L"10");
+    return changed(without(without(version_eleven(settings), L"voice_enabled"), L"voice_model_path"), L"version", L"10");
 }
 
 std::wstring version_six(const Settings& settings)
@@ -151,6 +156,7 @@ int wmain(int argc, wchar_t** argv)
         test("exact product defaults", [] {
             const Settings s;
             check(s.pointer == live::PointerSettings{}, "pointer defaults preserved");
+            check(s.word_suggestions && !s.voice_enabled, "word suggestions default on; voice remains opt-in");
             check(s.ring_diameter == 28 && s.exclusions.empty(), "compact ring/exclusion defaults");
             check(s.cursor_style == CursorStyle::Arrow && s.pointer.profile == live::MotionProfile::Smooth, "modern pointer and Smooth defaults");
             check(settings_fields(s) == SettingsFields{L"1100", L"25", L"960", L"20", L"24", L"23", L"27", L"28",
@@ -164,7 +170,7 @@ int wmain(int argc, wchar_t** argv)
         });
         test("schema strictness preserves destination", [] {
             const auto text = serialize_settings({});
-            for (const auto& bad : {std::wstring{}, changed(text, L"version", L"12"), changed(text, L"version", L"1.0"),
+            for (const auto& bad : {std::wstring{}, changed(text, L"version", L"13"), changed(text, L"version", L"1.0"),
                 text + L"version=1\n", text + L"enabled=1\n", text + L"slot=0\n", text.substr(text.find(L'\n') + 1),
                 text + L"broken line\n", text + L"ring=true\n", text + std::wstring(1, L'\0')}) {
                 Settings output = unusual();
@@ -376,7 +382,7 @@ int wmain(int argc, wchar_t** argv)
             const auto original = unusual();
             Settings output;
             check(parse_settings(version_one(original), output).empty() && output == original, "legacy exact raw fields");
-            check(serialize_settings(output).starts_with(L"version=11\r\n"), "normal serializer emits v11");
+            check(serialize_settings(output).starts_with(L"version=12\r\n"), "normal serializer emits v12");
             check(parse_settings_fields(settings_fields(output), exclusion_text(output), output, output).empty()
                 && output == original, "unchanged migration apply retains all doubles");
         });
@@ -431,7 +437,7 @@ int wmain(int argc, wchar_t** argv)
                 "editor-only defaults no write");
             check(save_settings(scratch.file, original, baseline).empty(), "normal Apply migrates");
             const auto saved = load_settings(scratch.file);
-            check(saved.bytes.starts_with("version=11\r\n") && saved.settings == original, "migration preserves exact values and exclusions");
+            check(saved.bytes.starts_with("version=12\r\n") && saved.settings == original, "migration preserves exact values and exclusions");
         });
         test("v1 external conflict retains migration source", [&] {
             Scratch scratch{root};
@@ -473,7 +479,7 @@ int wmain(int argc, wchar_t** argv)
                     && result == expected, "editor exact");
                 check(save_settings(scratch.file, result, baseline).empty() && load_settings(scratch.file).settings == expected,
                     "profile persisted only on save");
-                check(baseline.bytes.starts_with("version=11\r\n") && baseline.bytes.find("link_hint=") == std::string::npos,
+                check(baseline.bytes.starts_with("version=12\r\n") && baseline.bytes.find("link_hint=") == std::string::npos,
                     "new schema omits removed hint");
             }
         });
@@ -501,7 +507,7 @@ int wmain(int argc, wchar_t** argv)
                     && load_settings(scratch.file).bytes == bytes, "legacy load no write");
                 auto next = baseline.settings; next.pointer.profile = live::MotionProfile::SpeedBands;
                 check(save_settings(scratch.file, next, baseline).empty(), "explicit migration");
-                check(baseline.bytes.starts_with("version=11\r\n") && load_settings(scratch.file).settings == next, "v11 exact");
+                check(baseline.bytes.starts_with("version=12\r\n") && load_settings(scratch.file).settings == next, "v12 exact");
             }
         });
         test("literal v4 hint zero and one migrate identically without rewriting storage", [&] {
@@ -531,7 +537,7 @@ int wmain(int argc, wchar_t** argv)
                     && editor == expected && load_settings(scratch.file).bytes == bytes, "editing retains exact values without saving");
                 check(save_settings(scratch.file, editor, baseline).empty(), "only explicit save migrates");
                 const auto saved = load_settings(scratch.file);
-                check(saved.state == LoadState::Loaded && saved.settings == expected && saved.bytes.starts_with("version=11\r\n")
+                check(saved.state == LoadState::Loaded && saved.settings == expected && saved.bytes.starts_with("version=12\r\n")
                     && saved.bytes.find("link_hint=") == std::string::npos, "v8 preserves values and drops obsolete field");
             }
         });
@@ -778,6 +784,44 @@ int wmain(int argc, wchar_t** argv)
                 Settings output = unusual();
                 check(!parse_settings(source + L"voice_enabled=1\r\n", output).empty() && output == unusual(),
                     "legacy schema cannot authorize voice");
+            }
+        });
+        test("v1-v11 enables suggestions without writes and explicit Save alone migrates", [&] {
+            Scratch scratch{root};
+            const auto expected = unusual();
+            for (const auto& source : {version_one(expected), version_two(expected, false, false), version_three(expected),
+                version_four(expected, false), version_five(expected), version_six(expected), version_seven(expected),
+                version_eight(expected), version_nine(expected), version_ten(expected), version_eleven(expected)}) {
+                const auto bytes = utf8(source); scratch.write(bytes);
+                const auto written = std::filesystem::last_write_time(scratch.file);
+                auto loaded = load_settings(scratch.file);
+                check(loaded.state == LoadState::Loaded && loaded.settings == expected && loaded.settings.word_suggestions
+                    && load_settings(scratch.file).bytes == bytes && std::filesystem::last_write_time(scratch.file) == written,
+                    "legacy prediction default must not alter bytes, timestamp, or previous preferences");
+                auto output = unusual();
+                check(!parse_settings(source + L"word_suggestions=0\r\n", output).empty() && output == unusual(),
+                    "old schemas reject new keys transactionally");
+                auto opted_out = loaded.settings; opted_out.word_suggestions = false;
+                check(save_settings(scratch.file, opted_out, loaded).empty(), "explicit Save migrates with opt-out");
+                check(loaded.bytes.starts_with("version=12\r\n") && load_settings(scratch.file).settings == opted_out,
+                    "schema12 retains the opt-out and all other preferences");
+            }
+        });
+        test("word suggestions strict bool roundtrip and atomic invalid rejection", [] {
+            for (bool enabled : {false, true}) {
+                auto expected = unusual(); expected.word_suggestions = enabled;
+                const auto source = serialize_settings(expected);
+                Settings actual;
+                check(parse_settings(source, actual).empty() && actual == expected, "exact suggestion option roundtrip");
+                check(parse_settings_fields(settings_fields(expected), exclusion_text(expected), expected, actual).empty()
+                    && actual == expected, "unchanged editor retains opt-out");
+                for (const auto& bad : {without(source, L"word_suggestions"), source + L"word_suggestions=0\r\n",
+                    changed(source, L"word_suggestions", L"true"), changed(source, L"word_suggestions", L"01"),
+                    changed(source, L"word_suggestions", L"2"), changed(source, L"word_suggestions", L"-1"),
+                    changed(source, L"word_suggestions", L""), changed(source, L"version", L"012")}) {
+                    actual = unusual();
+                    check(!parse_settings(bad, actual).empty() && actual == unusual(), "invalid prediction option is atomic");
+                }
             }
         });
         test("voice preferences round trip Unicode equals empty and long paths without numeric drift", [&] {

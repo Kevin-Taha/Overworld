@@ -158,8 +158,7 @@ void KeyboardDelivery::open(const Snapshot& snapshot, Tick now, unsigned slot, b
     phase_ = DesktopKeyboardPhase::Composing;
     prediction_.clear();
     prediction_neutral_ = prediction_appending_ = false;
-    prediction_trusted_ = false;
-    prediction_trust_started_.reset();
+    prediction_collecting_ = prediction_hidden_ = false;
     prediction_observe(final);
     voice_buttons_ = snapshot.slots[slot_].buttons;
     native_session_ = opening_chord_ = native;
@@ -236,7 +235,7 @@ void KeyboardDelivery::step(const Snapshot& snapshot, Tick now, KeyboardEligibil
             auto completion_controls = pad;
             completion_controls.buttons &= ~0x0001;
             if (!boundary_.prediction_preview() && prediction_appending_ && delivery_.pending_edits()
-                && (!prediction_trusted_ || !keyboard_neutral(completion_controls))) {
+                && (!prediction_collecting_ || !keyboard_neutral(completion_controls))) {
                 block(L"Word completion cancelled; remaining suffix not sent");
                 return;
             }
@@ -254,14 +253,15 @@ void KeyboardDelivery::step(const Snapshot& snapshot, Tick now, KeyboardEligibil
             const auto generation = interruption_;
             const auto completed = delivery_.pump();
             if (boundary_.prediction_enabled() && generation == interruption_) {
-                if (completed.prediction_suppressed) { revoke_prediction(); }
-                if (!boundary_.prediction_preview()) {
+                const bool suppress_prediction = completed.prediction_suppressed || (pad.buttons & voice_button);
+                if (suppress_prediction) { revoke_prediction(); }
+                else if (!boundary_.prediction_preview()) {
                     const auto after = boundary_.observe_text(delivery_.owned_key());
                     if (generation == interruption_ && after.target == target_ && text_context_eligible(after)) {
                         prediction_observe(after);
                     } else { revoke_prediction(); }
                 }
-                if (generation == interruption_) {
+                if (!suppress_prediction && generation == interruption_) {
                     for (unsigned i = 0; i < completed.count; ++i) { prediction_complete(completed.edits[i]); }
                 }
             }
@@ -341,6 +341,17 @@ void KeyboardDelivery::set_voice(VoiceBoundary* voice)
 {
     cancel_voice();
     voice_ = voice;
+}
+
+void KeyboardDelivery::set_prediction_enabled(bool enabled)
+{
+    if (boundary_.prediction_enabled_ == enabled) { return; }
+    boundary_.prediction_enabled_ = enabled;
+    ++interruption_;
+    revoke_prediction();
+    if (prediction_appending_ && delivery_.pending_edits()) {
+        block(L"Word suggestions disabled; remaining suffix cancelled");
+    }
 }
 
 void KeyboardDelivery::cancel_voice()
@@ -490,38 +501,39 @@ PredictionView KeyboardDelivery::prediction_view() const
     if (!boundary_.prediction_enabled() || !accepts_typing() || delivery_.pending_edits()
         || voice_status_.phase != VoiceBackendPhase::Idle
         || keyboard_.flick_stage() != KeyboardFlickStage::Group) { return {}; }
-    if (!boundary_.prediction_preview() && (!prediction_trusted_ || prediction_privacy_ != PredictionPrivacy::Unknown)) { return {}; }
+    if (!prediction_collecting_) { return {}; }
     return prediction_.view();
 }
 
 std::wstring_view KeyboardDelivery::prediction_hint() const
 {
-    if (!boundary_.prediction_enabled()) { return {}; }
+    if (!boundary_.prediction_enabled() || prediction_privacy_ != PredictionPrivacy::Unknown) { return {}; }
     if (boundary_.prediction_preview()) { return L"LOCAL PRACTICE - no external output"; }
-    if (voice_status_.phase != VoiceBackendPhase::Idle) { return L"Word suggestions paused for voice"; }
-    if (prediction_privacy_ == PredictionPrivacy::Protected) { return L"Word suggestions off: protected field"; }
-    if (prediction_privacy_ == PredictionPrivacy::Unavailable) { return L"Word suggestions: privacy metadata unavailable"; }
-    if (!prediction_trusted_) { return L"Privacy unverified. Hold Down to enable"; }
-    return L"Suggestions ON - privacy unverified. Down hides";
+    if (voice_status_.phase != VoiceBackendPhase::Idle) { return {}; }
+    return prediction_hidden_ ? L"Word suggestions off for this session" : L"Word suggestions on - Down hides";
 }
 
 void KeyboardDelivery::revoke_prediction()
 {
     prediction_.clear();
-    prediction_trusted_ = prediction_neutral_ = false;
-    prediction_trust_started_.reset();
+    prediction_collecting_ = prediction_neutral_ = false;
 }
 
 void KeyboardDelivery::prediction_observe(const TextObservation& observation)
 {
-    if (boundary_.prediction_preview()) { return; }
     prediction_privacy_ = observation.prediction_privacy;
-    if (!boundary_.prediction_enabled() || prediction_privacy_ != PredictionPrivacy::Unknown) { revoke_prediction(); }
+    if (!boundary_.prediction_enabled() || prediction_hidden_ || prediction_privacy_ != PredictionPrivacy::Unknown) {
+        revoke_prediction();
+    } else if (!prediction_collecting_) {
+        // This is only our new fragment, never a claim about the field's existing word/caret.
+        prediction_.clear(true);
+        prediction_collecting_ = true;
+    }
 }
 
 void KeyboardDelivery::prediction_complete(KeyboardEdit edit)
 {
-    if (prediction_appending_ || (!boundary_.prediction_preview() && !prediction_trusted_)) { return; }
+    if (prediction_appending_ || !prediction_collecting_) { return; }
     prediction_.completed(edit);
     if (!boundary_.prediction_preview() && edit.kind == KeyboardEditKind::Character && edit.character <= U'~'
         && std::wstring_view(L".,!?;:-'\"/()[]{}").find(static_cast<wchar_t>(edit.character)) != std::wstring_view::npos) {
@@ -536,28 +548,12 @@ bool KeyboardDelivery::prediction_step(const Snapshot& snapshot)
     constexpr std::uint16_t dpad = 0x000f;
     const bool armed = prediction_neutral_;
     prediction_neutral_ = keyboard_neutral(pad);
-    if (!boundary_.prediction_preview()) {
-        auto rest = pad;
-        rest.buttons &= ~0x0002;
-        if (prediction_trusted_ && armed && pad.buttons == 0x0002 && keyboard_neutral(rest)) {
-            revoke_prediction();
-            return true;
-        }
-        if (pad.buttons == 0x0002 && keyboard_neutral(rest) && accepts_typing()
-            && keyboard_.flick_stage() == KeyboardFlickStage::Group && prediction_privacy_ == PredictionPrivacy::Unknown
-            && !delivery_.pending_edits()) {
-            if (prediction_trusted_) {
-                return true;
-            }
-            if (armed && !prediction_trust_started_) { prediction_trust_started_ = snapshot.sampled_at; }
-            if (prediction_trust_started_ && snapshot.sampled_at - *prediction_trust_started_ >= 500) {
-                prediction_trusted_ = true;
-                prediction_.clear(true);
-                prediction_trust_started_.reset();
-            }
-            return true;
-        }
-        prediction_trust_started_.reset();
+    auto hide_rest = pad;
+    hide_rest.buttons &= ~0x0002;
+    if (armed && pad.buttons == 0x0002 && keyboard_neutral(hide_rest)) {
+        prediction_hidden_ = true;
+        revoke_prediction();
+        return true;
     }
     if (!(pad.buttons & dpad)) { return false; }
     auto rest = pad;

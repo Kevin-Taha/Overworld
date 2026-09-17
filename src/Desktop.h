@@ -118,8 +118,6 @@ public:
     TextObservation observe_text(std::optional<TextKey> owned) override;
     Tick text_now() const override { return now(); }
     unsigned send_text(TextEvent event) override;
-    void enable_prediction() { prediction_enabled_ = true; }
-    bool prediction_enabled() const override { return prediction_enabled_; }
 
 private:
     static void CALLBACK event_callback(HWINEVENTHOOK, DWORD event, HWND window,
@@ -204,7 +202,6 @@ private:
     bool input_settling_ = false;
     std::wstring attention_error_;
     std::wstring infrastructure_ = L"Live observers not initialized";
-    bool prediction_enabled_ = false;
 };
 
 } // namespace gamepad::live

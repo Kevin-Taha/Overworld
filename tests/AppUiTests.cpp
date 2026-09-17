@@ -44,6 +44,7 @@ struct Ui {
                     reinterpret_cast<WPARAM>(GetDlgItem(window, IDC_SPEED + i)), 0);
             }
             CheckDlgButton(window, IDC_AUTO_GAME_SWITCHING, BST_CHECKED);
+            CheckDlgButton(window, IDC_WORD_SUGGESTIONS, BST_CHECKED);
             SetDlgItemTextW(window, IDC_VOICE_STATUS, L"Off. Enabling this option does not start the microphone.");
             SetDlgItemTextW(window, IDC_SETTINGS_RESULT, L"Changes stay in this window until you Save.");
             ui->initialized = GetClientRect(window, &ui->resource_client) && GetWindowRect(window, &ui->resource_outer)
@@ -126,6 +127,8 @@ LRESULT CALLBACK dashboard_proc(HWND window, UINT message, WPARAM wparam, LPARAM
     return DefWindowProcW(window, message, wparam, lparam);
 }
 
+void text_bounds(HWND control, UINT dpi, int expected_font = 0);
+
 void dashboard_frames(const std::filesystem::path& output)
 {
     AppUi appearance;
@@ -151,17 +154,28 @@ void dashboard_frames(const std::filesystem::path& output)
             check(control.x >= 0 && control.y >= 0 && control.x+control.width<=488 && control.y+control.height<=324,
                 "dashboard control containment");
         }
-        for (int theme=0;theme<2;++theme) {
-            check(appearance.refresh(window,app_palette(theme==1)), "dashboard theme");
-            export_view(window,appearance,output/(L"dashboard-"+std::to_wstring(theme)+L"-"+std::to_wstring(dpi)+L".bmp"),
-                false,static_cast<UINT>(dpi));
+        for (bool release_tap : {false, true}) {
+            const auto label = GetDlgItem(window, AppTitle);
+            SetWindowTextW(label, dashboard_title(release_tap));
+            SendMessageW(label, WM_SETFONT, reinterpret_cast<WPARAM>(release_tap ? font : title), FALSE);
+            for (int theme = 0; theme < 3; ++theme) {
+                auto palette = app_palette(theme == 1);
+                if (theme == 2) {
+                    palette = {RGB(0,0,0), RGB(0,0,0), RGB(255,255,255), RGB(255,255,255),
+                        RGB(255,255,255), RGB(255,255,0), RGB(0,0,0), false, true};
+                }
+                check(appearance.refresh(window, palette), "dashboard theme");
+                text_bounds(label, static_cast<UINT>(dpi), release_tap ? 16 : 25);
+                export_view(window,appearance,output/(L"dashboard-"+std::to_wstring(release_tap)+L"-"
+                    +std::to_wstring(theme)+L"-"+std::to_wstring(dpi)+L".bmp"), false,static_cast<UINT>(dpi));
+            }
         }
         DestroyWindow(window); DeleteObject(font); DeleteObject(title);
     }
     UnregisterClassW(type.lpszClassName,type.hInstance);
 }
 
-void text_bounds(HWND control, UINT dpi)
+void text_bounds(HWND control, UINT dpi, int expected_font)
 {
     wchar_t type[64]{}, text[512]{};
     GetClassNameW(control, type, static_cast<int>(std::size(type)));
@@ -173,7 +187,7 @@ void text_bounds(HWND control, UINT dpi)
     const auto font = reinterpret_cast<HFONT>(SendMessageW(control, WM_GETFONT, 0, 0));
     LOGFONTW description{};
     check(GetObjectW(font, sizeof(description), &description) == sizeof(description), "control font");
-    check(description.lfHeight == -MulDiv(id == IDC_SETTINGS_TITLE ? 26 : 14, static_cast<int>(dpi), 96),
+    check(description.lfHeight == -MulDiv(expected_font ? expected_font : id == IDC_SETTINGS_TITLE ? 26 : 14, static_cast<int>(dpi), 96),
         "DPI fitting must preserve readable font sizes");
     RECT available{}; GetClientRect(control, &available);
     UINT flags = DT_SINGLELINE | DT_NOPREFIX;
@@ -339,6 +353,12 @@ void dpi_layout(Ui& ui, UINT dpi, SIZE logical)
 
 void voice_capabilities(Ui& ui, UINT dpi)
 {
+    check(settings_control_page(IDC_WORD_SUGGESTIONS) == 2, "word suggestions belongs only to Typing");
+    for (const bool enabled : {false, true}) {
+        CheckDlgButton(ui.window, IDC_WORD_SUGGESTIONS, enabled ? BST_CHECKED : BST_UNCHECKED);
+        check(IsWindowEnabled(GetDlgItem(ui.window, IDC_WORD_SUGGESTIONS)), "word suggestions available without voice");
+        geometry(ui, 2, dpi);
+    }
     for (const bool supported : {false, true}) {
         for (const bool enabled : {false, true}) {
             CheckDlgButton(ui.window, IDC_VOICE_ENABLED, enabled ? BST_CHECKED : BST_UNCHECKED);

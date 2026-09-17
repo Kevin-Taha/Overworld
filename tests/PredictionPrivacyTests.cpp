@@ -43,7 +43,6 @@ int wmain(int argc, wchar_t** argv)
         {
             Window root(CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, L"Static", L"Owned privacy test",
                 WS_POPUP, -32000, -32000, 300, 200, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr));
-            ShowWindow(root, SW_SHOWNOACTIVATE);
             const auto child = [&](const wchar_t* type, DWORD style) {
                 return CreateWindowExW(0, type, L"", WS_CHILD | WS_VISIBLE | style, 0, 0, 200, 100,
                     root, nullptr, GetModuleHandleW(nullptr), nullptr);

@@ -59,12 +59,13 @@ public:
     virtual Tick text_now() const = 0;
     // Exactly one Unicode or virtual-key down/up. Only 0 and 1 are valid counts.
     virtual unsigned send_text(TextEvent event) = 0;
-    // Practice has no external output. Native availability requires separate runtime opt-in.
+    // The owned preview has no external output; both paths share the explicit suffix model.
     virtual bool prediction_preview() const { return false; }
-    virtual bool prediction_enabled() const { return prediction_preview(); }
+    [[nodiscard]] bool prediction_enabled() const { return prediction_enabled_; }
     [[nodiscard]] bool native_keyboard_session() const { return native_keyboard_session_; }
 private:
     friend class KeyboardDelivery;
+    bool prediction_enabled_ = true;
     bool native_keyboard_session_ = false;
 };
 

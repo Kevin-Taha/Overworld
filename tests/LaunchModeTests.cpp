@@ -16,17 +16,26 @@ int main()
 {
     try {
         check(launch_mode({}) == LaunchMode::Desktop, "shipping default remains desktop");
+        check(!launch_uses_release_tap(launch_mode({})), "default click timing unchanged");
         check(practice::launch({}) == practice::Launch::Run, "separate development exe opens only its harness");
         for (const auto [flag, expected] : std::array{
             std::pair{L"--inspect", LaunchMode::Inspect},
             std::pair{L"--keyboard-preview", LaunchMode::Keyboard},
             std::pair{L"--keyboard-preview-one-handed", LaunchMode::OneHandedKeyboard},
-            std::pair{L"--restore-cursor", LaunchMode::RestoreCursor}}) {
+            std::pair{L"--restore-cursor", LaunchMode::RestoreCursor},
+            std::pair{L"--release-tap", LaunchMode::ReleaseTap}}) {
             const std::array<std::wstring_view, 1> argument{flag};
             check(launch_mode(argument) == expected, "supported production mode unchanged");
+            check(launch_uses_release_tap(expected) == (expected == LaunchMode::ReleaseTap),
+                "only explicit release-tap changes click timing");
+            const std::array<std::wstring_view, 2> duplicate{flag, flag}, mixed{flag, L"--release-tap"};
+            check(launch_mode(duplicate) == LaunchMode::Invalid && launch_mode(mixed) == LaunchMode::Invalid,
+                "duplicates and mode combinations fail closed");
             check(practice::launch(argument) == practice::Launch::Invalid, "development exe rejects production flags");
         }
-        for (const auto flag : {L"--practice", L"--Practice", L"--dev", L"--render-only", L"--help", L"--inspect=1", L""}) {
+        for (const auto flag : {L"--practice", L"--Practice", L"--dev", L"--render-only", L"--help", L"--inspect=1", L"",
+            L"--word-prediction", L"--prediction-demo", L"--prediction-preview", L"--prediction-preview-one-handed",
+            L"--system-cursor", L"--system-cursor-release-tap", L"--release-tap=1"}) {
             const std::array<std::wstring_view, 1> argument{flag};
             check(launch_mode(argument) == LaunchMode::Invalid, "unknown/development flags never activate shipping mapper");
             check(practice::launch(argument) == (argument[0] == L"--help" ? practice::Launch::Help : practice::Launch::Invalid),

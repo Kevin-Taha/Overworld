@@ -20,6 +20,7 @@ struct Settings {
     KeyboardInputMode keyboard_input_mode = KeyboardInputMode::FaceButtons;
     bool keyboard_in_native_mode = false;
     bool experimental_navigation_filter = false;
+    bool word_suggestions = true;
     bool voice_enabled = false;
     std::wstring voice_model_path; // Empty uses models\ggml-tiny.en.bin beside the executable.
     bool operator==(const Settings&) const = default;

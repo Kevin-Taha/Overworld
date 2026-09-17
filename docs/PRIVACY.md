@@ -20,22 +20,22 @@ Microphone access requires opt-in, a deliberate held control, a valid original
 target, and an unexpired capture lease. Windows microphone privacy/device settings
 remain authoritative and are not changed by the app.
 
-## Opt-in word suggestions
+## Local word suggestions
 
-Normal launch and `--inspect` do not collect prediction prefixes. Runtime
-`--word-prediction` permits explicit native suffix completion, but each keyboard
-session also requires a deliberate D-pad Down hold before collection. The UI says
-**Privacy unverified**. A fresh Down press hides suggestions immediately.
-Do not enable in a password or other secret field. Browser, Notepad, RichEdit,
+Word suggestions are on by default for eligible controller-keyboard sessions.
+**Settings > Typing > Word suggestions** provides an opt-out; Save persists only
+that preference, never typed fragments. No per-field consent gesture is required.
+A fresh Down press hides suggestions for the current session. Inspection mode
+does not permit live typing. Browser, Notepad, RichEdit,
 single-line and custom targets use the same existing keyboard delivery boundaries;
 there is no support allowlist or claim that these targets are verified safe.
 
 Kernel window/class/style metadata supplies negative evidence only: recognized
 Edit/RichEdit password styles suppress collection, display and completion.
-Failed metadata queries also suppress, with explicit status. Unknown field
+Failed metadata queries also suppress quietly. Unknown field
 privacy, including custom/browser password fields not exposed by these native
-styles, cannot be verified. Per-session consent is essential, **not universal
-password detection**. The optional feature does not disable ordinary typing.
+styles, cannot be verified. This is **not universal password detection**.
+The optional feature does not disable ordinary typing.
 No metadata worker, target messages, caret, selection, field-length or text
 reads remain. Programmatic caret/selection changes invisible to the existing
 target checks may affect where an app applies input, just as for manual
@@ -50,10 +50,10 @@ ML, network service or transcript source. Cancellation, unknown Backspace,
 physical keyboard/mouse navigation, takeover, observed target/context/device/mode changes and voice
 transitions clear or invalidate hints. Nothing is persisted or logged.
 
-`--prediction-preview` remains a separate visible in-memory practice sample. It
-cannot deliver text to another application or open a microphone. Preview focus
-loss and ordinary keyboard/mouse messages reset practice; reserved controller
-and navigation key messages do not masquerade as physical-key takeover.
+Development fixtures use a separate bounded in-memory sample. They cannot
+deliver text to another application or open a microphone and are not shipping
+product modes. Ordinary keyboard/mouse fixture messages reset the sample;
+reserved controller/navigation messages do not masquerade as physical takeover.
 
 Do not type secrets into the explicitly visible practice field. Like existing
 previews it displays its own bounded sample, and process memory is not promised

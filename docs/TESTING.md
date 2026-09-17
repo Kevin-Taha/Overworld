@@ -40,6 +40,17 @@ Retain regressions for accepted-down/up accounting, cancellation, stale samples,
 focus excursions, same-HWND field changes, expired capture leases, invalid model
 bytes, strict migration, and ambiguous injected-source handling.
 
+`gamepad_release_tap_tests` exercises the default immediate path and opt-in
+release-aware path with fake output and navigation events: 249/250-ms hold,
+drag-before-motion, both original-target dispatch pins, resolved/expired routing
+waits, repress while Primary is owned, scheduled tap-up and own-caption messages.
+It deliberately retains the modeled late-native-bridge limitation. These tests
+do not establish a fix for initial Start/Phone Link interaction.
+`gamepad_prediction_contracts` rejects target-text/caret/clipboard reads,
+fragment persistence, physical-keystroke collection and per-field consent UI.
+Settings tests cover schema 1-11 no-write loading and schema 12 strict opt-out;
+native UI checks measure the checkbox on Typing and both product title labels.
+
 ## Explicit deterministic development harness tests
 
 These targets and the practice libraries are excluded from `ALL_BUILD` and
@@ -75,7 +86,8 @@ test. They cover the 10,000-word frequency vocabulary, case/boundary rules, boun
 and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
 target/context/physical/device changes, queue limits, both controller modes,
 mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
-Native prediction stays default-off and requires explicit per-session consent.
+Native prediction defaults on without a per-field gesture; opt-out clears hints
+and partial completion without losing accepted-up ownership.
 Opaque generic/browser/RichEdit-like fakes cover two-letter triggering without
 leading Space, preceding/large field contents, known protected/unknown privacy,
 quick hide and one fixed intent deadline, cancellation and partial output.
@@ -119,11 +131,11 @@ actual no-output practice model. It checks light/dark and both high-contrast
 palettes at 100/150/200%, actual DirectWrite label fit, 4.5:1 suggestion ink,
 unchanged wheel pixels, premultiplied alpha, owning cached strings, idle reuse,
 and hidden chips during inactivity/voice/no-prefix states. No real app text is
-used. `--prediction-demo` is a separate static no-output UI demo; it starts no
-controller poller, mapper, microphone or hook. Preview-only success does not
+used. These development-only fixtures start no controller poller, mapper,
+microphone or hook. Fixture-only success does not
 validate external-app compatibility or universal password detection. Native-view
-frames cover consent-on, unverified, protected and unavailable states and never
-echo practice/app text. Full privacy-warning labels must fit without ellipsis.
+frames cover suggestions on, session-hide and quiet suppression and never
+echo practice/app text. Status labels must fit without ellipsis.
 Every vocabulary word is measured in lower/title/upper case with DirectWrite
 to reject clipping or ambiguous ellipsis.
 
@@ -199,7 +211,7 @@ queries). It never calls `SendInput` and verifies unchanged focus.
 
 The obsolete classic-Edit developer host and caret worker are removed. For a
 separately authorized manual trial, use a disposable non-secret document or web
-field with normal `--word-prediction`, then consent for that keyboard session.
+field with normal launch and Word suggestions enabled in Settings.
 Never launch the mapper as part of deterministic or privacy metadata tests.
 ARM64 execution still requires an ARM64 device.
 

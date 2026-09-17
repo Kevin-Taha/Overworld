@@ -53,6 +53,14 @@ The custom cursor appears only after controller activity. When an identified
 Windows Start surface is active, the app requests a native-cursor fallback by
 restoring only hiding it owns. This cannot make an externally hidden cursor visible.
 
+**Optional release-aware taps:** start `GamepadDesktop.exe --release-tap` after
+closing any running instance. The custom cursor and normal Start fallback stay
+unchanged. A stationary short A press clicks on release; holding for 250 ms or
+moving while held starts a drag. Target/routing changes cancel an uncommitted
+tap, and accepted button releases retain normal cleanup ownership.
+Normal launch still clicks on A-down. This experiment does not establish a fix
+for initial Start/Phone Link interaction or late native-navigation bridge events.
+
 ## Floating keyboard
 
 Focus a text field, release the controls, and press Y. The keyboard does not take
@@ -87,16 +95,12 @@ changing native HWND identity, so exact targeting cannot be guaranteed for all a
 
 ## Local word suggestions
 
-Word suggestions are **off by default**. Start `GamepadDesktop.exe --word-prediction`
-to make them available for this run; no setting/schema is
-changed. This still launches the normal full mapper, not inspection mode.
-In a non-secret field where ordinary Daisywheel typing works, open the keyboard,
-center/release the controls, then **hold D-pad Down for half a second** to opt in
-for this keyboard session. The footer says **Privacy unverified**, not that the
-field is verified safe. Do not enable suggestions in passwords or other secrets.
-After two letters entered by this keyboard, up to three frequency-ranked
-suggestions appear. No leading Space is required. **Press D-pad Down again to
-hide suggestions immediately**; text already typed is not changed.
+Word suggestions are **on by default**. Open the keyboard at an otherwise
+eligible target and type two letters to see up to three frequency-ranked choices.
+No leading Space or per-field enable gesture is required. Turn off **Settings >
+Typing > Word suggestions** and Save to opt out. **D-pad Down** hides suggestions
+for the current keyboard session only; reopening uses the saved preference.
+Neither action erases text already typed.
 
 **D-pad Left/Right** chooses; **D-pad Up** appends only the remaining suffix once.
 Return to neutral between presses and finish an in-progress one-handed flick
@@ -112,17 +116,17 @@ is never replayed. No caret or application-receipt synchronization is attempted.
 RichEdit, single-line and custom targets; there is no application/class allowlist,
 field-length limit or Edit-specific message requirement. The existing mapper
 security, focus, session/integrity and exclusion checks still apply.
-Recognized native Edit/RichEdit password styles suppress suggestions, and failed
-privacy metadata queries are reported explicitly. Unknown/custom field privacy
-cannot be verified: browser password fields can be unknown, so per-session
-non-secret-field consent is essential. This is **not universal password detection**.
+Recognized native Edit/RichEdit password styles and failed metadata queries
+quietly suppress suggestions. Unknown/custom field privacy cannot be verified:
+browser password fields can be unknown. This is **not universal password detection**.
 Ordinary typing is unchanged when suggestions are off or suppressed.
 
 Only this session's transport-completed keyboard edits feed a maximum 16-letter
 ephemeral word fragment, not field contents. Space/punctuation reset it; observed
 physical keyboard/mouse navigation, takeover, target/context/device/mode changes,
 unknown Backspace, close and voice transitions clear or invalidate hints.
-Close/reopen or a voice transition requires new consent. Programmatic caret or
+After a handoff or voice transition, only newly accepted own letters can form a
+new fragment. Programmatic caret or
 selection changes and internal field changes invisible to the existing target
 checks remain limitations, just as for manual text/dictation. The app may discard
 input or apply it at its current caret/selection; transport acceptance is not
@@ -136,39 +140,10 @@ No ML, cloud, OS dictionary, personal word list, clipboard, field-text read,
 learning or history is used. Full data attribution and license must accompany
 the EXE; the data license does not grant an application-code license.
 
-### No-output practice modes
-
-`--prediction-preview` opens a controller-driven in-memory practice
-field; `--prediction-preview-one-handed` uses the same one-handed gestures as the
-normal keyboard. The regular application without `--word-prediction` and
-`--inspect` do not collect prediction prefixes. No setting is loaded or saved by
-these previews, and there is no external output.
-
-Close any running mapper first. In the preview, center the controls and press Y
-(or left-stick click in one-handed mode) to open the keyboard. Press **RB Space**
-to establish a new word boundary, then type at least two letters, for example
-`he`. Three small suggestions appear below the unchanged wheel. With both sticks
-centered and other buttons released, **D-pad Left/Right** chooses a word and
-**D-pad Up** appends its remaining suffix once. Release to neutral between actions.
-No space is added: RB remains the explicit Space control. One-handed selection
-must finish its current character/action gesture before choosing a suggestion.
-
-A/B/X/Y, LB Backspace, RB Space, Menu Enter and View Cancel are unchanged.
-View clears the practice session; Escape exits the preview. The local sample is
-limited to 256 characters; reaching capacity stops delivery explicitly.
-`--prediction-demo` shows the synthetic `he` example without polling a controller
-or producing external input. It is a static visual demo, not an active mapper.
-
-Suggestions use the same embedded frequency list. Prefix hints come only
-from this keyboard's completed edits. In practice mode, unknown word boundaries, punctuation,
-mixed capitalization and excessive prefixes suppress suggestions rather than
-guessing. Clear/reset, focus loss, physical input received by the preview,
-controller interruption, mode changes and voice transitions invalidate hints.
-Accepted completions are never autocorrected, backed out, learned or replayed.
-
-The practice label distinguishes this in-memory mode from native completion;
-transport acceptance alone never proves that an application received text.
-The preview has no native text sink, microphone, hook or cursor-hiding path.
+Development tests use a bounded in-memory prediction fixture and the same
+compiled predictor, dictionary and keyboard renderer; see the
+[harness coverage contract](docs/PRACTICE-HARNESS.md). Prediction demo/preview
+launch modes are not part of the shipping application.
 
 ## Offline voice
 
@@ -221,7 +196,8 @@ system app light/dark colors, high contrast, and keyboard navigation.
 
 Settings live at `%LOCALAPPDATA%\GamepadDesktop\settings.ini`. Loading older
 supported schemas never rewrites the file; **Save** validates and detects external
-changes. Defaults affect the editor until saved. Back up settings before returning
+changes and writes schema 12, including the Word suggestions preference.
+Defaults affect the editor until saved. Back up settings before returning
 to an older executable, which may not understand the current schema.
 
 ## Development

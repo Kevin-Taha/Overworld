@@ -115,6 +115,16 @@ exclusions. It is temporary, not persistent app classification.
 
 ## Cursor presentation
 
+`--release-tap` is an immutable startup option on the existing `Live` model,
+independent of cursor presentation. A stationary short A press is pending until
+release; a held 250-ms press or movement becomes a normal drag. The original
+application activation, context, route, cursor and geometry stay pinned through
+both dispatcher validations. Interruptions discard uncommitted taps. An accepted
+tap down remains owned until the next-sample up, allowing processed own-caption
+messages to use the existing ledger. Repressing while a drag owns Primary never
+sends a second down. Fresh pending-entry validation clears a resolved routing
+wait, not the gesture's original timestamp. Default A-down timing is unchanged.
+
 The custom cursor publishes its image before hiding the native cursor. It restores
 only hiding owned by this process before dropping that image. A failed restore
 retains the last overlay and recovery obligation. Explicit user recovery is a
@@ -154,12 +164,11 @@ internal field identity in every browser or custom control.
 
 ### Explicit append-only word suggestions
 
-`TextBoundary::prediction_enabled()` is off by default. Runtime
-`--word-prediction` enables native availability, but collection still requires
-an isolated neutral-then-500-ms D-pad Down hold in an eligible original target for
-each keyboard session. Unknown privacy is explicitly shown as unverified.
-A fresh Down press hides suggestions without erasing typed text; its held tail
-cannot reenable collection. `PredictionPractice` remains a separate no-output sink.
+`TextBoundary::prediction_enabled()` is on by default, controlled by the one
+Settings > Typing checkbox. There is no per-field consent gesture. A fresh Down
+press hides suggestions for the current session without erasing typed text; its
+held tail cannot reenable collection. `PredictionPractice` is a development-test
+fixture only, not a shipping launch mode or runtime dependency.
 Both use `KeyboardDelivery` and `TextDelivery` rather than a second output path.
 
 The completion path accepts the same otherwise-eligible `TextBoundary` targets
@@ -167,15 +176,15 @@ as manual typing/voice. There is no support allowlist, classic-Edit restriction,
 caret/length RPC, selection-index limit, metadata worker or application receipt
 protocol. `PredictionTarget` now supplies only negative privacy evidence from
 kernel window identity/class/style metadata: recognized Edit/RichEdit password
-styles suppress suggestions; metadata query failure suppresses with a distinct
-status. Everything else is `Unknown`, never positive proof of a plain-text field.
+styles and metadata query failure quietly suppress suggestions. Everything else
+is `Unknown`, never positive proof of a plain-text field.
 Browsers/custom controls can hide password state or semantic-field transitions
-inside one HWND. Deliberate per-session non-secret-field consent is required.
+inside one HWND; existing manual/voice target guards remain authoritative.
 
 `TextDelivery::pump` returns at most four fully completed edits per eight-event
 budget. A partial edit or stopped/reentered delivery is not a prefix update.
 The predictor stores at most 16 ASCII letters and three candidates from the
-separately licensed, embedded 10,000-word frequency list. Session consent starts an
+separately licensed, embedded 10,000-word frequency list. Each session starts an
 empty fragment immediately: two own letters suffice without leading Space,
 without claiming knowledge of preceding field content. Space/punctuation reset
 the prefix; overflow, unknown Backspace and non-ASCII boundaries suppress it.
@@ -192,7 +201,9 @@ independent cleanup ownership accounting. Preview completions retain the
 original 100-ms deadline. Pending suffix work never feeds itself back into
 prediction. No Space, Enter or replacement is implicit.
 Cancellation, target/context/activity/device changes and voice transitions clear
-the fragment and revoke consent; dictation is not a prediction source. Ordinary
+the fragment; dictation is not a prediction source. Disabling suggestions clears
+the fragment, hints and unsent suffix immediately, including during reentrant
+output, but never clears accepted-up cleanup ownership. Ordinary
 observed keyboard/mouse navigation invalidates through the existing physical
 activity boundary. Reserved controller/navigation key messages are not confused
 with physical takeover. Any protected/unavailable observation during an ordinary
@@ -209,8 +220,8 @@ cause retries, and neither prefix hints nor accepted input prove field contents.
 The optional 66-DIP suggestion strip is outside the original wheel/footer. Its
 owning view/cache is bounded, validates actual label fit, and hides chips when
 inactive, voice-active or without a candidate. Normal keyboard dimensions and
-pixels without the option are unchanged. `--prediction-demo` seeds only synthetic keyboard snapshots
-and does not start controller polling.
+pixels with the setting disabled are unchanged. Development fixtures seed only
+synthetic keyboard snapshots and do not start controller polling.
 
 ## Local voice
 
@@ -253,8 +264,8 @@ changes calculate the complete nonclient frame at the target DPI and keep it
 inside the monitor work area; an unusably small work area is an explicit layout
 failure, not a reason to shrink fonts or silently clip footer actions.
 
-Settings schema 11 adds default-off voice preferences to existing pointer, keyboard,
-exclusion, and filter settings. Earlier supported schemas are read without writes;
+Settings schema 12 adds default-on word suggestions; voice remains default-off.
+All earlier supported schemas (1-11) are read without writes;
 missing/duplicate/unknown fields are rejected according to their version.
 Explicit Save validates, detects external changes, and preserves the old state
 on failure. Configuration changes cancel current interactions and require fresh

@@ -5,8 +5,7 @@
 
 namespace gamepad {
 enum class LaunchMode {
-    Desktop, Inspect, Keyboard, OneHandedKeyboard, RestoreCursor,
-    WordPrediction, Prediction, OneHandedPrediction, PredictionDemo, Invalid
+    Desktop, Inspect, Keyboard, OneHandedKeyboard, RestoreCursor, ReleaseTap, Invalid
 };
 
 // Arguments exclude the executable name. Never fall back to live mode on an unrecognized flag.
@@ -19,10 +18,8 @@ constexpr LaunchMode launch_mode(std::span<const std::wstring_view> arguments)
     if (value == L"--keyboard-preview") { return LaunchMode::Keyboard; }
     if (value == L"--keyboard-preview-one-handed") { return LaunchMode::OneHandedKeyboard; }
     if (value == L"--restore-cursor") { return LaunchMode::RestoreCursor; }
-    if (value == L"--word-prediction") { return LaunchMode::WordPrediction; }
-    if (value == L"--prediction-preview") { return LaunchMode::Prediction; }
-    if (value == L"--prediction-preview-one-handed") { return LaunchMode::OneHandedPrediction; }
-    if (value == L"--prediction-demo") { return LaunchMode::PredictionDemo; }
+    if (value == L"--release-tap") { return LaunchMode::ReleaseTap; }
     return LaunchMode::Invalid;
 }
+constexpr bool launch_uses_release_tap(LaunchMode mode) { return mode == LaunchMode::ReleaseTap; }
 } // namespace gamepad

@@ -34,6 +34,7 @@ the controller.
 | --- | --- | --- |
 | `gamepad_core` / `Pointer.cpp` | Production default motion curve, stick hysteresis/deadzones, integration cap, LB precision, wheel deltas; scene coordinates preserve physical-pixel speed | `Live` output ledger, Windows pointer movement, desktop bounds, or saved pointer preferences |
 | `gamepad_keyboard` / `Keyboard.cpp` | The actual `Daisywheel` selection, pages, repeat/edit rules, face-button and one-handed gestures; bounded preview text | Live unbounded edit delivery, external-field targeting, partially accepted input recovery |
+| `gamepad_keyboard` / `WordPrediction.cpp`, `KeyboardDelivery.cpp` | Explicit deterministic harness tests use `PredictionPractice`, a bounded fake field, with the same compiled default-on predictor and 10,000-word dictionary | The interactive five-scene harness does not yet present a suggestion-selection scenario; no native target/privacy or external delivery is simulated successfully |
 | `gamepad_keyboard_visual` / `KeyboardVisual.cpp` | The same compiled renderer, glyph layout, theme, alpha, cache, and keyboard pixels used by the production popup | Nonactivating popup placement over other apps, compositor visibility in other app surfaces |
 | `gamepad_cursor_pixels` / `RingPixels.cpp` | Exact production default cursor artwork and geometry, with shared size/style defaults also used by `Settings` | Native cursor visibility ownership, layered cursor window, surface fallback |
 | `gamepad_app_ui` / `AppUi.cpp` | Production palette/theme reads and native appearance support | A duplicate Settings editor; the training cards/buttons are owned test fixtures |
@@ -49,6 +50,16 @@ boundary is constructed. The microphone is never opened: Help only explains the
 live voice controls and never reports a recording/transcription success.
 New features are not automatically covered merely because they link to the app.
 Update this table and the relevant scenarios/contracts when adding one.
+
+Prediction's bounded fake scenario opens each real keyboard selection mode,
+types the synthetic `he` fragment, compares candidates with the shared
+`WordPrediction` model/dictionary, and clears on handoff. The separate explicit
+`gamepad_keyboard_visual_tests` renders that fixture through the same
+`gamepad_keyboard_visual` library, covering candidate labels, theme/DPI, alpha
+and idle reuse. It is not another product mode or copied predictor/renderer.
+Product prediction-preview/demo flags are rejected. The interactive harness's
+local click lesson is not evidence for the opt-in production `--release-tap`
+dispatcher; the latter has separate fake `gamepad_release_tap_tests`.
 
 ## Try a component change
 

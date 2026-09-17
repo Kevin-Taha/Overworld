@@ -35,7 +35,7 @@ AppPalette app_palette(bool dark)
 std::span<const DashboardControl> dashboard_controls()
 {
     static constexpr DashboardControl controls[]{
-        {AppTitle, L"STATIC", L"Gamepad Desktop", SS_LEFT, 24, 20, 440, 34},
+        {AppTitle, L"STATIC", L"Gamepad Desktop", SS_LEFT, 24, 20, 440, 36},
         {Banner, L"STATIC", L"Ready", SS_LEFT, 36, 82, 408, 34},
         {Selection, L"STATIC", L"Controller: automatic", SS_LEFT, 36, 122, 408, 24},
         {LiveStatus, L"STATIC", L"Move a controller stick to use the desktop.", SS_LEFT, 36, 157, 408, 58},

@@ -1,4 +1,5 @@
 #include "Practice.h"
+#include "PredictionPractice.h"
 
 #include <algorithm>
 #include <iostream>
@@ -344,9 +345,27 @@ void production_component_contracts()
     }
 }
 }
+void prediction_component_contracts()
+{
+    for (const auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+        PredictionPractice fixture;
+        seed_prediction_demo(fixture, mode);
+        check(fixture.keyboard().prediction_enabled() && fixture.keyboard().prediction_view().count == 3,
+            "bounded development fixture exercises default-on production delivery/predictor");
+        WordPrediction model;
+        model.clear(true);
+        model.completed({KeyboardEditKind::Character, U'h'});
+        model.completed({KeyboardEditKind::Character, U'e'});
+        check(fixture.keyboard().prediction_view().words == model.view().words
+            && prediction_vocabulary().size() == 10000, "same compiled predictor and pinned vocabulary");
+        fixture.clear();
+        check(fixture.sample().empty() && !fixture.keyboard().prediction_view().count,
+            "local handoff clears the bounded field and current prediction");
+    }
+}
 int main()
 {
-    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); production_component_contracts(); }
+    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); production_component_contracts(); prediction_component_contracts(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Practice: launch isolation, five skills, real models, reconnect, takeover, reset passed.\n";
 }

@@ -110,9 +110,8 @@ struct Child {
 
 class Host {
 public:
-    explicit Host(bool inspection, bool prediction) : inspection_(inspection)
+    Host(bool inspection, bool release_tap) : inspection_(inspection), live_(desktop_, release_tap)
     {
-        if (prediction && !inspection) { desktop_.enable_prediction(); }
     }
     ~Host()
     {
@@ -161,7 +160,7 @@ public:
             top = monitor.rcWork.top + (monitor.rcWork.bottom - monitor.rcWork.top - height) / 2;
         }
         const HWND created = CreateWindowExW(WS_EX_CONTROLPARENT, window_class,
-            L"Gamepad Desktop",
+            dashboard_title(live_.release_tap()),
             host_style, left, top, width, height, nullptr, nullptr, instance, this);
         if (!created) {
             const auto message = L"Could not initialize Gamepad Desktop. Win32 error "
@@ -266,7 +265,7 @@ private:
         }
         for (const auto& item : children_) {
             SendMessageW(item.window, WM_SETFONT, reinterpret_cast<WPARAM>(
-                item.id == AppTitle || item.id == Banner ? title : item.monospace ? mono : font), TRUE);
+                (item.id == AppTitle && !live_.release_tap()) || item.id == Banner ? title : item.monospace ? mono : font), TRUE);
         }
         if (font_) { DeleteObject(font_); }
         if (mono_font_) { DeleteObject(mono_font_); }
@@ -332,7 +331,7 @@ private:
         if (!InitCommonControlsEx(&common)) { initialization_error_ = GetLastError(); return false; }
         dpi_ = GetDpiForWindow(window_);
         for (const auto& control : dashboard_controls()) {
-            add(control.id, control.window_class, control.title, control.style,
+            add(control.id, control.window_class, control.id == AppTitle ? dashboard_title(live_.release_tap()) : control.title, control.style,
                 control.x, control.y, control.width, control.height);
         }
 
@@ -467,7 +466,7 @@ private:
             icon.hWnd = window_;
             icon.uID = 1;
             icon.uFlags = NIF_TIP;
-            const auto tip = (L"Gamepad Desktop - " + std::wstring{live_.status()}).substr(0, 127);
+            const auto tip = (std::wstring{dashboard_title(live_.release_tap())} + L" - " + std::wstring{live_.status()}).substr(0, 127);
             wcscpy_s(icon.szTip, tip.c_str());
             if (!Shell_NotifyIconW(NIM_MODIFY, &icon)) {
                 tray_update_failed_ = true;
@@ -751,6 +750,7 @@ private:
         desktop_.set_automatic_game_switching(next.automatic_game_switching);
         keyboard_.set_input_mode(next.keyboard_input_mode);
         keyboard_.set_native_mode_enabled(next.keyboard_in_native_mode);
+        keyboard_.set_prediction_enabled(next.word_suggestions);
         configure_voice(next.voice_enabled, next.voice_model_path);
         if (!cursor_.apply()) { cursor_status(); }
         config_summary_ = settings_file_.state == LoadState::Missing ? L"Default settings (not saved yet)." : L"Saved settings loaded; automatic control waits for fresh input.";
@@ -810,6 +810,7 @@ private:
         CheckDlgButton(settings_window_, IDC_NATIVE_KEYBOARD, edit_base_.keyboard_in_native_mode ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(settings_window_, IDC_NAVIGATION_FILTER, edit_base_.experimental_navigation_filter ? BST_CHECKED : BST_UNCHECKED);
         CheckDlgButton(settings_window_, IDC_VOICE_ENABLED, edit_base_.voice_enabled ? BST_CHECKED : BST_UNCHECKED);
+        CheckDlgButton(settings_window_, IDC_WORD_SUGGESTIONS, edit_base_.word_suggestions ? BST_CHECKED : BST_UNCHECKED);
         SetDlgItemTextW(settings_window_, IDC_VOICE_MODEL_PATH, edit_base_.voice_model_path.c_str());
         update_voice_controls();
         SetDlgItemTextW(settings_window_, IDC_EXCLUSIONS, exclusion_text(edit_base_).c_str());
@@ -1106,6 +1107,12 @@ private:
             return;
         }
         editor.voice_enabled = voice == BST_CHECKED;
+        const auto prediction = IsDlgButtonChecked(settings_window_, IDC_WORD_SUGGESTIONS);
+        if (prediction != BST_CHECKED && prediction != BST_UNCHECKED) {
+            settings_result(L"Choose a valid word suggestions option. Previous values unchanged.");
+            return;
+        }
+        editor.word_suggestions = prediction == BST_CHECKED;
         editor.voice_model_path = settings_text(IDC_VOICE_MODEL_PATH);
         if (auto error = parse_settings_fields(fields,
             settings_text(IDC_EXCLUSIONS), editor, next); !error.empty()) {
@@ -1134,6 +1141,7 @@ private:
             desktop_.set_automatic_game_switching(next.automatic_game_switching);
             keyboard_.set_input_mode(next.keyboard_input_mode);
             keyboard_.set_native_mode_enabled(next.keyboard_in_native_mode);
+            keyboard_.set_prediction_enabled(next.word_suggestions);
             configure_voice(next.voice_enabled, next.voice_model_path);
             config_available_ = true;
             const bool cursor_applied = cursor_.apply();
@@ -1384,7 +1392,7 @@ private:
         icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
         icon.uCallbackMessage = tray_message;
         icon.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-        wcscpy_s(icon.szTip, L"Gamepad Desktop - automatic controller input");
+        wcscpy_s(icon.szTip, dashboard_title(live_.release_tap()));
         tray_present_ = Shell_NotifyIconW(NIM_ADD, &icon) != FALSE;
         if (tray_present_) {
             icon.uVersion = NOTIFYICON_VERSION_4;
@@ -1737,26 +1745,22 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     const auto mode = argc == 1 ? LaunchMode::Desktop : argc == 2 ? launch_mode(argument) : LaunchMode::Invalid;
     const bool restore = mode == LaunchMode::RestoreCursor;
     const bool inspection = mode == LaunchMode::Inspect;
-    const bool word_prediction = mode == LaunchMode::WordPrediction;
-    const bool prediction_demo = mode == LaunchMode::PredictionDemo;
-    const bool prediction_preview = prediction_demo || mode == LaunchMode::Prediction
-        || mode == LaunchMode::OneHandedPrediction;
-    const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard || mode == LaunchMode::OneHandedPrediction;
-    const bool keyboard_preview = prediction_preview || one_hand_preview || mode == LaunchMode::Keyboard;
+    const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard;
+    const bool keyboard_preview = one_hand_preview || mode == LaunchMode::Keyboard;
     const bool valid_arguments = mode != LaunchMode::Invalid;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --word-prediction | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\n--word-prediction offers explicit append-only completions where keyboard typing is allowed. Privacy is unverified: enable per session only in non-secret fields. Previews have no external output.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--release-tap | --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nRelease-tap keeps the custom cursor and delays short A clicks until release. Word suggestions are configured in Settings > Typing. Previews have no external output.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
     MapperInstanceGuard singleton;
     if (singleton.already_running()) {
-        if (keyboard_preview || inspection) {
+        if (keyboard_preview || inspection || launch_uses_release_tap(mode)) {
             MessageBoxW(nullptr,
-                L"Exit the running Gamepad Desktop instance before opening a no-output mode.\r\n"
-                L"This prevents preview input from also moving or clicking the desktop. No input was started.",
-                L"Gamepad Desktop - no-output mode", MB_OK | MB_ICONINFORMATION);
+                L"Exit the running Gamepad Desktop instance before opening a no-output mode or changing click timing.\r\n"
+                L"The running instance was not changed. No new input was started.",
+                L"Gamepad Desktop - instance already running", MB_OK | MB_ICONINFORMATION);
             return 1;
         }
         // Never wait for the existing process (or a modal second-instance notice) to exit.
@@ -1803,10 +1807,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         result = restored && released ? 0 : 1;
     } else if (keyboard_preview) {
         result = gamepad::run_keyboard_preview(instance, show,
-            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons,
-            prediction_preview, prediction_demo);
+            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
     } else {
-        Host host(inspection, word_prediction);
+        Host host(inspection, launch_uses_release_tap(mode));
         result = host.create(instance, show) ? host.run() : 1;
     }
     return result;
