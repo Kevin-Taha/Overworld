@@ -32,19 +32,21 @@ test. They cover the 10,000-word frequency vocabulary, case/boundary rules, boun
 and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
 target/context/physical/device changes, queue limits, both controller modes,
 mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
-Native prediction stays default-off and requires explicit field trust. Fakes
-cover two-letter triggering without leading Space, unsupported/protected fields,
-caret revision/freshness/selection, per-character suffix checks, one fixed intent
-deadline, cancellation and partial output. Vocabulary tests assert exact count,
+Native prediction stays default-off and requires explicit per-session consent.
+Opaque generic/browser/RichEdit-like fakes cover two-letter triggering without
+leading Space, preceding/large field contents, known protected/unknown privacy,
+quick hide and one fixed intent deadline, cancellation and partial output.
+No test needs an Edit class or selection/length/caret API to authorize typing.
+Vocabulary tests assert exact count,
 ASCII/uniqueness/ranking, static payload below 300 KB and 1,000 worst-case full
 lookups below two seconds.
 Delayed-application fakes separate transport acceptance from applied text and
-exercise the same `TextDelivery` in both controller modes. Known old caret
-observations defer without duplicate output; 80-ms and exact 100-ms advancement
-complete `here`, while 101-ms or original-intent expiry cancels the remainder.
-Both observation guards retain stale-proof deferral and reject unrelated moves,
-selections, protected/changed targets and rollbacks after confirmed advancement.
-Accepted key-up remains independent and cannot renew the confirmation window.
+exercise the same `TextDelivery` in both controller modes. Literal suffix events
+match ordinary manual insertion regardless of 0/80/101/1500-ms application delay.
+Discarded application input is not retried. Both dispatch guards reject known
+protected/query-failure, physical and changed-target observations. Original
+completion expiry cancels unsent characters; accepted key-up remains an
+independent cleanup obligation and cannot revive the suffix.
 Pure window-message dispatch regressions cover key down/up and system-key
 down/up across both reserved `VK_GAMEPAD` and `VK_NAVIGATION` ranges before and
 after XInput selection/acceptance. They retain ordinary keyboard/mouse takeover
@@ -77,7 +79,8 @@ and hidden chips during inactivity/voice/no-prefix states. No real app text is
 used. `--prediction-demo` is a separate static no-output UI demo; it starts no
 controller poller, mapper, microphone or hook. Preview-only success does not
 validate external-app compatibility or universal password detection. Native-view
-frames cover trusted/unavailable states and never echo practice/app text.
+frames cover consent-on, unverified, protected and unavailable states and never
+echo practice/app text. Full privacy-warning labels must fit without ellipsis.
 Every vocabulary word is measured in lower/title/upper case with DirectWrite
 to reject clipping or ambiguous ellipsis.
 
@@ -102,26 +105,20 @@ Actual assistive-technology and multi-monitor behavior still needs device testin
 
 ## Owned-message probes
 
-`gamepad_prediction_target_tests` is excluded from default builds/CTest. Build
+`gamepad_prediction_privacy_tests` is excluded from default builds/CTest. Build
 it explicitly and run `--allow-owned-metadata` under a bounded watchdog only in
-an authorized session. It creates offscreen, nonactivating owned classic Edit,
-password, single-line, read-only and custom controls. It tests native metadata,
-dynamic styles, timeout, changing length, out-of-bounds selection, actual
-70,000-to-4,464 packed-index wraparound rejection and cancellation generations.
-It records no text values, never calls `SendInput`, and verifies unchanged focus.
+an authorized session. It creates offscreen, nonactivating owned Edit, RichEdit,
+password, single-line, read-only and custom/browser-style controls. It tests
+recognized password-style suppression, unknown privacy for all other classes,
+identity failures and dynamic password changes. An owned subclass verifies the
+privacy helper sends zero target messages (including no text, length or caret
+queries). It never calls `SendInput` and verifies unchanged focus.
 
-For a separately authorized manual controller trial:
-
-```powershell
-cmake --build out\x64 --config Release --target gamepad_prediction_target_tests
-.\out\x64\Release\gamepad_prediction_target_tests.exe --practice-field
-# Separately start GamepadDesktop.exe --word-prediction, click the disposable
-# field, open Daisywheel, hold D-pad Down to trust, then type two letters.
-```
-
-The developer field host performs no automatic typing, microphone work or hooks.
-Do not run the normal mapper as part of deterministic or metadata tests.
-ARM64 metadata/interactive execution still requires an ARM64 device.
+The obsolete classic-Edit developer host and caret worker are removed. For a
+separately authorized manual trial, use a disposable non-secret document or web
+field with normal `--word-prediction`, then consent for that keyboard session.
+Never launch the mapper as part of deterministic or privacy metadata tests.
+ARM64 execution still requires an ARM64 device.
 
 To verify the dataset transformation against explicitly obtained pinned input:
 

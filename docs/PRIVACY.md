@@ -23,28 +23,31 @@ remain authoritative and are not changed by the app.
 ## Opt-in word suggestions
 
 Normal launch and `--inspect` do not collect prediction prefixes. Runtime
-`--word-prediction` permits the scoped native pilot, but each keyboard session
-also requires a deliberate D-pad Down hold to trust the original non-secret
-field before collection. Only system-style classic multiline Edit controls with
-no password/readonly style are eligible. Single-line Edit, RichEdit, browsers,
-modern Notepad and unknown/custom controls are excluded. Internal subclassing
-cannot be universally detected: never trust a field used for secrets. This is
-**not universal password detection**.
+`--word-prediction` permits explicit native suffix completion, but each keyboard
+session also requires a deliberate D-pad Down hold before collection. The UI says
+**Privacy unverified**. A fresh Down press hides suggestions immediately.
+Do not enable in a password or other secret field. Browser, Notepad, RichEdit,
+single-line and custom targets use the same existing keyboard delivery boundaries;
+there is no support allowlist or claim that these targets are verified safe.
 
-The metadata worker requests only scalar selection indices and field length,
-never text contents or text buffers. Stable length below 65,535 code units is
-required to reject actual packed-selection wraparound; all larger fields are
-unavailable. Queries are bounded to 20 ms each and 60 ms for a batch. Metadata
-failure does not disable ordinary typing. Same-length programmatic text changes
-can be unobservable; metadata does not prove receipt, safe application behavior
-or atomic delivery.
+Kernel window/class/style metadata supplies negative evidence only: recognized
+Edit/RichEdit password styles suppress collection, display and completion.
+Failed metadata queries also suppress, with explicit status. Unknown field
+privacy, including custom/browser password fields not exposed by these native
+styles, cannot be verified. Per-session consent is essential, **not universal
+password detection**. The optional feature does not disable ordinary typing.
+No metadata worker, target messages, caret, selection, field-length or text
+reads remain. Programmatic caret/selection changes invisible to the existing
+target checks may affect where an app applies input, just as for manual
+typing/voice; neither transport acceptance nor candidate display guarantees
+receipt, field identity, unchanged contents or atomic insertion.
 
 Only this keyboard's fully transport-completed edits feed a maximum 16-letter
 ephemeral prefix. The fixed 10,000-word frequency list is embedded public
 CC BY-SA 4.0 data, not personal history. There is no learning, personal-word-list
 read, OS dictionary access, global UIA value read, clipboard access, text scraping,
 ML, network service or transcript source. Cancellation, unknown Backspace,
-physical takeover, caret/selection/target/context/device/mode changes and voice
+physical keyboard/mouse navigation, takeover, observed target/context/device/mode changes and voice
 transitions clear or invalidate hints. Nothing is persisted or logged.
 
 `--prediction-preview` remains a separate visible in-memory practice sample. It

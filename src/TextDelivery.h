@@ -20,13 +20,7 @@ struct TextTarget {
     bool operator==(const TextTarget&) const = default;
 };
 
-enum class PredictionSupport { Off, Unsupported, Protected, Unavailable, PlainEdit };
-struct PredictionEvidence {
-    PredictionSupport support = PredictionSupport::Off;
-    std::optional<std::uint32_t> caret;
-    std::uint64_t revision = 0;
-    Tick sampled_at = 0;
-};
+enum class PredictionPrivacy { Unknown, Protected, Unavailable };
 
 struct TextObservation {
     TextTarget target;
@@ -36,15 +30,8 @@ struct TextObservation {
     bool stable = false;
     std::wstring_view reason = L"Text target unavailable";
     bool settling = false;
-    PredictionEvidence prediction;
-    std::uint64_t text_revision = 0;
+    PredictionPrivacy prediction_privacy = PredictionPrivacy::Unknown;
 };
-[[nodiscard]] inline bool prediction_proven(const TextObservation& observation, Tick now)
-{
-    return observation.prediction.support == PredictionSupport::PlainEdit && observation.prediction.caret
-        && observation.prediction.revision == observation.text_revision
-        && observation.prediction.sampled_at <= now && now - observation.prediction.sampled_at <= 100;
-}
 
 enum class TextKeyKind { Unicode, Backspace, Enter };
 struct TextKey {
@@ -72,10 +59,9 @@ public:
     virtual Tick text_now() const = 0;
     // Exactly one Unicode or virtual-key down/up. Only 0 and 1 are valid counts.
     virtual unsigned send_text(TextEvent event) = 0;
-    // Only the in-memory practice sink opts in. Native/unknown/password targets never do.
+    // Practice has no external output. Native availability requires separate runtime opt-in.
     virtual bool prediction_preview() const { return false; }
     virtual bool prediction_enabled() const { return prediction_preview(); }
-    virtual void prediction_closed() {}
     [[nodiscard]] bool native_keyboard_session() const { return native_keyboard_session_; }
 private:
     friend class KeyboardDelivery;
@@ -87,11 +73,11 @@ private:
 [[nodiscard]] bool text_eligible(const TextObservation& observation);
 enum class TextPhase { Idle, Ready, Stopped };
 constexpr std::size_t keyboard_edit_queue_limit = 32;
-constexpr Tick prediction_confirmation_ms = 100;
 
 struct CompletedTextEdits {
     std::array<KeyboardEdit, 4> edits{};
     unsigned count = 0;
+    bool prediction_suppressed = false;
 };
 
 class TextDelivery {
@@ -99,9 +85,8 @@ public:
     explicit TextDelivery(TextBoundary& boundary) : boundary_(boundary) {}
     bool start(const TextTarget& target);
     bool enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
-        std::optional<std::uint32_t> prediction_caret = {});
+        bool suggestion = false);
     CompletedTextEdits pump(unsigned budget = 8);
-    void observe_prediction_caret(const TextObservation& observation, Tick now);
     void stop(std::wstring_view reason);
     void cleanup(bool explicit_retry = false);
     [[nodiscard]] TextPhase phase() const { return phase_; }
@@ -123,7 +108,6 @@ public:
 
 private:
     void fault(std::wstring_view reason);
-    bool prediction_caret_ready(const TextObservation& observation, std::uint32_t expected, Tick now);
     TextBoundary& boundary_;
     TextPhase phase_ = TextPhase::Idle;
     TextTarget target_;
@@ -134,17 +118,12 @@ private:
         unsigned next = 0;
         Tick sampled_at = 0;
         Tick expires = 0;
-        std::optional<std::uint32_t> prediction_caret;
+        bool suggestion = false;
     };
     std::array<PendingEdit, keyboard_edit_queue_limit> queue_{};
     std::size_t head_ = 0;
     std::size_t size_ = 0;
     std::optional<TextKey> down_;
-    struct PendingCaret {
-        std::uint32_t before = 0, after = 0;
-        Tick accepted_at = 0, expires = 0;
-    };
-    std::optional<PendingCaret> pending_caret_;
     std::size_t accepted_events_ = 0;
     std::size_t completed_edits_ = 0;
     Tick last_dispatch_ms_ = 0;

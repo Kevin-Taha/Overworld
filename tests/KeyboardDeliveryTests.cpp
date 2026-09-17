@@ -36,7 +36,6 @@ struct Fake final : TextBoundary {
     std::optional<gamepad::live::Observation> route;
     bool preview = false;
     bool native_prediction = false;
-    bool automatic_caret = true;
     Tick application_delay = 0;
     std::deque<std::pair<Tick, TextEvent>> pending_application;
     bool prediction_preview() const override { return preview; }
@@ -57,9 +56,6 @@ struct Fake final : TextBoundary {
         }
         if (during_observe) { during_observe(); }
         auto result = observation;
-        if (native_prediction && automatic_caret) {
-            result.prediction = {PredictionSupport::PlainEdit, static_cast<std::uint32_t>(field.size()), observation.text_revision, now};
-        }
         if (route) {
             result.allowed = result.allowed && route->available && route->baseline_known
                 && route->mode == gamepad::live::Mode::Pointer && gamepad::live::keyboard_route_allowed(*route, native_keyboard_session());
@@ -81,7 +77,6 @@ struct Fake final : TextBoundary {
         const unsigned count = returns.empty() ? 1 : returns.front();
         if (!returns.empty()) { returns.pop_front(); }
         if (count == 1) {
-            ++observation.text_revision;
             accepted.push_back(event);
             if (!event.up) {
                 if (application_delay) { pending_application.emplace_back(now + application_delay, event); }
@@ -196,8 +191,8 @@ struct CompletionFixture {
         fake.field = L"he";
         fake.application_delay = delay;
         check(delivery.start(fake.observation.target), "start native completion fixture");
-        check(delivery.enqueue(letter(U'r'), fake.now, fake.now + intent_ms, 2)
-            && delivery.enqueue(letter(U'e'), fake.now, fake.now + intent_ms, 3), "queue suffix with fixed caret expectations");
+        check(delivery.enqueue(letter(U'r'), fake.now, fake.now + intent_ms, true)
+            && delivery.enqueue(letter(U'e'), fake.now, fake.now + intent_ms, true), "queue literal suffix with fixed deadline");
     }
     CompletedTextEdits pump(Tick elapsed, unsigned budget = 8)
     {
@@ -266,14 +261,15 @@ int main()
             check(elapsed < 2000, "1000 bounded full-list lookups must complete within two seconds");
             std::cout << "Vocabulary bytes " << bytes << "; 1000 worst-case lookups " << elapsed << " ms\n";
         });
-        test("native prediction requires runtime and per-session plain-field trust, then no leading space", [] {
+        test("generic native prediction requires runtime and per-session consent, then no leading space", [] {
             for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
                 Fixture f; f.fake.native_prediction = true; f.keyboard.set_input_mode(mode);
                 f.tick(); f.tick(); f.button(0x8000); f.button(0); f.type_he();
                 check(!f.keyboard.prediction_view().count && f.fake.field == L"he",
                     "runtime option alone must not collect native prefixes");
                 Fixture g; g.keyboard.set_input_mode(mode); g.trust_prediction();
-                check(g.keyboard.prediction_hint() == L"Local word suggestions on - type two letters", "explicit field trust succeeds");
+                check(g.keyboard.prediction_hint() == L"Suggestions ON - privacy unverified. Down hides",
+                    "session consent never claims verified plain text");
                 g.type_he();
                 check(g.keyboard.prediction_view().count == 3 && g.fake.field == L"he", "two letters show native suggestions without Space");
                 g.tap(0x0001);
@@ -283,50 +279,117 @@ int main()
                 check(!g.keyboard.prediction_view().count, "close revokes native field trust");
             }
         });
-        test("protected unknown readonly and unavailable native fields cannot arm prediction", [] {
-            for (auto support : {PredictionSupport::Off, PredictionSupport::Protected,
-                    PredictionSupport::Unsupported, PredictionSupport::Unavailable}) {
-                Fixture f; f.fake.automatic_caret = false; f.fake.observation.prediction.support = support;
+        test("generic browser and RichEdit-like targets share broad literal completion without class or value APIs", [] {
+            for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+                for (unsigned target = 0; target < 3; ++target) {
+                    Fixture f;
+                    f.keyboard.set_input_mode(mode);
+                    // Only opaque native identities cross the delivery boundary;
+                    // no Edit class, value length, selection or caret capability exists.
+                    f.fake.observation.target.windows[2] = {100 + target, 10 + target, 20 + target};
+                    const auto existing = target == 0 ? std::wstring{} : target == 1
+                        ? std::wstring(L"browser content before this session: ") : std::wstring(70000, L'x');
+                    f.fake.field = existing;
+                    f.trust_prediction(); f.type_he();
+                    check(f.keyboard.prediction_view().words[0] == L"here", "own he fragment is independent of target's preceding content");
+                    const auto before = f.fake.accepted.size();
+                    f.tap(0x0001);
+                    check(f.fake.field == existing + L"here" && f.fake.accepted.size() == before + 4,
+                        "generic, browser and large RichEdit-like field all receive only the requested re suffix");
+                    check(f.keyboard.model().text().empty(), "native keyboard must never retain an app-sized composition or echo sample");
+                }
+            }
+        });
+        test("session consent is deliberate and quick hide neither erases text nor rearms while held", [] {
+            Fixture f; f.fake.native_prediction = true;
+            f.tick(); f.tick(); f.button(0x8000); f.button(0); f.tick();
+            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable", "initial warning never labels unknown fields plain");
+            f.button(0x0002);
+            for (unsigned i = 0; i < 4; ++i) { f.tick(100); }
+            f.tick(99);
+            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable", "499ms cannot grant consent");
+            f.tick(1); f.button(0); f.type_he();
+            check(f.keyboard.prediction_view().count == 3, "500ms consent enables two-own-letter suggestions");
+            f.button(0x0002);
+            check(!f.keyboard.prediction_view().count && f.fake.field == L"he", "fresh Down hides immediately without deleting output");
+            for (unsigned i = 0; i < 8; ++i) { f.tick(100); }
+            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable",
+                "held hide button cannot automatically reenable collection");
+            f.button(0); f.type_he();
+            check(!f.keyboard.prediction_view().count && f.fake.field == L"hehe", "typing remains available with suggestions hidden");
+            Fixture onehand; onehand.keyboard.set_input_mode(KeyboardInputMode::OneHanded);
+            onehand.trust_prediction(); onehand.type_he();
+            onehand.aim(45); onehand.tick(); onehand.center_stick(); onehand.tick();
+            onehand.button(0x0002);
+            check(onehand.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable"
+                && onehand.fake.field == L"he", "quick hide also revokes consent during one-handed character stage without committing a glyph");
+        });
+        test("recognized protection during an ordinary edit revokes hints even if the final observation is unknown", [] {
+            for (unsigned guarded_observation : {2u, 3u}) {
+                Fixture f; f.trust_prediction(); f.type_he();
+                f.aim(45); f.tick();
+                unsigned observations = 0;
+                f.fake.during_observe = [&] {
+                    f.fake.observation.prediction_privacy = ++observations == guarded_observation
+                        ? PredictionPrivacy::Protected : PredictionPrivacy::Unknown;
+                };
+                f.button(0x1000);
+                check(!f.keyboard.prediction_view().count && f.fake.field == L"hee",
+                    "manual typing contract is unchanged but any recognized protection suppresses the whole prediction observation");
+                f.fake.during_observe = {};
+                f.fake.observation.prediction_privacy = PredictionPrivacy::Unknown;
+                f.button(0); f.center_stick(); f.tick(); f.tap(0x0001);
+                check(f.fake.field == L"hee" && !f.keyboard.prediction_view().count, "unknown afterward cannot revive pre-protection consent");
+            }
+        });
+        test("privacy suppression clears suggestions without changing ordinary protected-field typing", [] {
+            Fixture f; f.trust_prediction(); f.type_he();
+            f.fake.observation.prediction_privacy = PredictionPrivacy::Protected;
+            f.tick(); f.type_he();
+            check(f.fake.field == L"hehe" && !f.keyboard.prediction_view().count
+                && f.keyboard.prediction_hint() == L"Word suggestions off: protected field",
+                "recognized password status is visible and ordinary user-requested manual typing remains unchanged");
+            f.fake.observation.prediction_privacy = PredictionPrivacy::Unknown; f.tick();
+            check(f.keyboard.prediction_hint() == L"Privacy unverified. Hold Down to enable",
+                "unmasking requires new explicit consent rather than inheriting secret-field input");
+        });
+        test("protected and unavailable privacy metadata cannot arm prediction", [] {
+            for (auto privacy : {PredictionPrivacy::Protected, PredictionPrivacy::Unavailable}) {
+                Fixture f; f.fake.observation.prediction_privacy = privacy;
                 f.trust_prediction(); f.type_he(); f.tap(0x0001);
                 check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
                     "ineligible fields retain ordinary typing but never collect or append suggestions");
             }
         });
-        test("native caret proof must be fresh collapsed and bound to completed output revision", [] {
-            for (unsigned invalid = 0; invalid < 5; ++invalid) {
+        test("ordinary navigation, focus, context and physical takeover invalidate native suggestions", [] {
+            for (unsigned invalid = 0; invalid < 4; ++invalid) {
                 Fixture f; f.trust_prediction(); f.type_he();
-                f.fake.automatic_caret = false;
-                f.fake.observation.prediction = {PredictionSupport::PlainEdit, 2, f.fake.observation.text_revision, f.fake.now};
                 switch (invalid) {
-                case 0: f.fake.observation.prediction.caret = 1; break;
-                case 1: f.fake.observation.prediction.caret.reset(); break;
-                case 2: f.fake.observation.prediction.sampled_at -= 101; break;
-                case 3: --f.fake.observation.prediction.revision; break;
-                default: f.fake.observation.prediction.sampled_at += 1000; break;
+                case 0: ++f.fake.observation.target.activity; break;
+                case 1: ++f.fake.observation.target.focus_revision; break;
+                case 2: ++f.fake.observation.target.context; break;
+                default: f.fake.observation.physical_held = true; break;
                 }
                 f.button(0x0001);
                 check(f.fake.field == L"he" && !f.keyboard.prediction_view().count,
-                    "caret move, selection, stale, revision-mismatched or future proof blocks suggestions");
+                    "existing navigation, field/context and physical-input boundaries reject stale choices");
             }
         });
-        test("native suffix validates each character's caret and never changes original intent expiry", [] {
+        test("native suffix preserves original target and privacy checks throughout literal delivery", [] {
             for (unsigned failure = 0; failure < 4; ++failure) {
                 Fixture f; f.trust_prediction(); f.type_he();
                 f.fake.during_send = [&](TextEvent event) {
                     if (event.up && f.fake.field == L"her") {
-                        f.fake.automatic_caret = false;
-                        f.fake.observation.prediction = {PredictionSupport::PlainEdit, 3,
-                            f.fake.observation.text_revision, f.fake.now};
-                        if (failure == 0) { f.fake.observation.prediction.caret = 0; }
-                        else if (failure == 1) { f.fake.observation.prediction.support = PredictionSupport::Protected; }
-                        else if (failure == 2) { f.fake.observation.prediction.revision = 0; }
+                        if (failure == 0) { f.fake.observation.physical_held = true; }
+                        else if (failure == 1) { f.fake.observation.prediction_privacy = PredictionPrivacy::Protected; }
+                        else if (failure == 2) { f.fake.observation.prediction_privacy = PredictionPrivacy::Unavailable; }
                         else { ++f.fake.observation.target.focus_revision; }
                     }
                 };
                 f.button(0x0001); f.button(0);
                 for (unsigned i = 0; i < 11; ++i) { f.tick(100); }
                 check(f.fake.field == L"her" && !f.keyboard.prediction_view().count && !f.keyboard.delivery().pending_edits(),
-                    "mid-suffix caret/protection/revision/focus changes cancel unsent text without replay");
+                    "mid-suffix privacy/focus/physical changes cancel unsent text without replay");
             }
         });
         test("native completion tolerates bounded delayed application without replaying accepted text", [] {
@@ -335,16 +398,16 @@ int main()
                 const auto before = f.fake.accepted.size();
                 f.fake.application_delay = 80;
                 f.button(0x0001);
-                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 2
-                    && f.keyboard.delivery().pending_edits() == 1 && f.keyboard.delivery().phase() == TextPhase::Ready,
-                    "transport-completed r with unchanged application caret must defer e, not pause");
+                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 4
+                    && !f.keyboard.delivery().pending_edits() && f.keyboard.delivery().phase() == TextPhase::Ready,
+                    "literal suffix is delivered like manual/voice input without awaiting application receipt");
                 f.button(0);
                 for (unsigned i = 0; i < 3; ++i) { f.tick(); }
-                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 2,
-                    "64ms application lag cannot replay r or dispatch e early");
+                check(f.fake.field == L"he" && f.fake.accepted.size() == before + 4,
+                    "64ms application lag cannot replay either character");
                 f.tick();
-                check(f.fake.field == L"her" && f.fake.accepted.size() == before + 4,
-                    "80ms exact caret advancement releases e once");
+                check(f.fake.field == L"here" && f.fake.accepted.size() == before + 4,
+                    "80ms applied result confirms only test fixture behavior, not a delivery requirement");
                 for (unsigned i = 0; i < 5; ++i) { f.tick(); }
                 f.tap(0x0001);
                 check(f.fake.field == L"here" && f.fake.accepted.size() == before + 4
@@ -352,100 +415,47 @@ int main()
                     "both delayed characters eventually form exact here without duplication or pause");
             }
         });
-        test("TextDelivery waits only for its completed own edit and enforces the original confirmation cap", [] {
-            for (Tick delay : {80u, 100u, 101u}) {
+        test("literal suggestions share manual delivery behavior without caret or receipt requirements", [] {
+            for (Tick delay : {0u, 80u, 101u, 1500u}) {
                 CompletionFixture f(delay);
-                const auto first = f.pump(0, 2);
-                check(first.count == 1 && first.edits[0] == letter(U'r') && f.fake.field == L"he",
-                    "completed transport edit is distinct from application receipt");
-                check(!f.pump(16).count && f.delivery.phase() == TextPhase::Ready && f.fake.accepted.size() == 2,
-                    "fresh current-revision pre-edit caret defers without output");
-                const auto next = f.pump(delay - 16);
-                if (delay <= prediction_confirmation_ms) {
-                    check(next.count == 1 && next.edits[0] == letter(U'e') && f.fake.field == L"her"
-                        && f.fake.accepted.size() == 4 && !f.delivery.pending_edits(), "exact advancement within cap resumes e once");
-                    f.fake.now += delay;
-                    f.fake.observe_text({});
-                    check(f.fake.field == L"here", "delayed application eventually contains exact completion");
-                } else {
-                    check(!next.count && f.delivery.phase() == TextPhase::Stopped && !f.delivery.pending_edits()
-                        && f.delivery.reason().find(L"confirmation expired") != std::wstring::npos
-                        && f.fake.field == L"her" && f.fake.accepted.size() == 2,
-                        "advancement after 100ms cannot revive an expired own-edit confirmation");
-                    f.pump(900);
-                    check(f.fake.field == L"her" && f.fake.accepted.size() == 2, "timed-out partial suffix never replays");
-                }
+                Fake manual; manual.field = L"he"; manual.application_delay = delay;
+                TextDelivery ordinary(manual);
+                check(ordinary.start(manual.observation.target)
+                    && ordinary.enqueue(letter(U'r'), manual.now, manual.now + 1000)
+                    && ordinary.enqueue(letter(U'e'), manual.now, manual.now + 1000), "manual literal baseline");
+                f.pump(0); ordinary.pump();
+                check(f.fake.accepted == manual.accepted && f.fake.field == manual.field
+                    && !f.delivery.pending_edits(), "same literal events independent of delayed app receipt");
+                f.fake.now += delay; manual.now += delay;
+                f.fake.observe_text({}); manual.observe_text({});
+                check(f.fake.field == L"here" && f.fake.field == manual.field, "application owns eventual receipt");
+                f.pump(2000);
+                check(f.fake.accepted.size() == 4, "late application receipt never causes replay");
             }
-            CompletionFixture f(500);
-            f.pump(0, 1);
-            check(f.delivery.owned() && f.fake.accepted.size() == 1, "accepted down retains release ownership");
-            f.pump(101, 1);
-            check(!f.delivery.owned() && f.fake.accepted.size() == 2,
-                "accepted up is not blocked by expired caret confirmation and does not reset its clock");
-            f.pump(0);
-            check(f.delivery.phase() == TextPhase::Stopped && f.fake.accepted.size() == 2,
-                "late accepted up cannot grant a fresh 100ms wait for another down");
-            CompletionFixture bounded(81, 80);
-            bounded.pump(0, 2); bounded.pump(80);
-            check(bounded.delivery.phase() == TextPhase::Ready, "known lag may wait through exact original intent boundary");
+            CompletionFixture ignored;
+            ignored.pump(0);
+            ignored.fake.pending_application.clear(); // Simulate an app that accepts transport but discards its text.
+            ignored.pump(2000);
+            check(ignored.fake.field == L"he" && ignored.fake.accepted.size() == 4,
+                "no app-receipt claim or retry when the application discards accepted input");
+            CompletionFixture bounded(80, 1000);
+            bounded.pump(0, 2);
+            bounded.fake.observation.settling = true;
+            bounded.pump(1000);
+            check(bounded.delivery.phase() == TextPhase::Ready && bounded.fake.accepted.size() == 2,
+                "settling may defer until the exact original completion deadline");
+            bounded.fake.observation.settling = false;
             bounded.pump(1);
-            check(bounded.delivery.phase() == TextPhase::Stopped && bounded.fake.accepted.size() == 2,
-                "shorter original intent deadline wins over remaining confirmation window");
-        });
-        test("both TextDelivery observation guards defer missing proofs and reject fresh caret rollbacks", [] {
-            for (unsigned guarded_observation : {1u, 2u}) {
-                CompletionFixture missing;
-                missing.pump(0, 2);
-                unsigned observations = 0;
-                missing.fake.during_observe = [&] {
-                    if (++observations == guarded_observation) {
-                        missing.fake.automatic_caret = false;
-                        missing.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
-                            missing.fake.observation.text_revision - 1, missing.fake.now};
-                    }
-                };
-                check(!missing.pump(80).count && missing.delivery.phase() == TextPhase::Ready
-                    && missing.fake.accepted.size() == 2, "either guard defers stale revision without output");
-                missing.fake.during_observe = {};
-                missing.fake.automatic_caret = true;
-                check(missing.pump(1).count == 1 && missing.fake.accepted.size() == 4,
-                    "both guards require fresh exact advancement before e");
-                missing.fake.now += 80;
-                missing.fake.observe_text({});
-                check(missing.fake.field == L"here", "guard deferral never duplicates r or e");
-
-                CompletionFixture rollback;
-                rollback.pump(0, 2);
-                rollback.fake.now += 80;
-                const auto advanced = rollback.fake.observe_text({});
-                if (guarded_observation == 1) {
-                    rollback.delivery.observe_prediction_caret(advanced, rollback.fake.now);
-                }
-                observations = 0;
-                rollback.fake.during_observe = [&] {
-                    if (++observations == guarded_observation) {
-                        rollback.fake.automatic_caret = false;
-                        rollback.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
-                            rollback.fake.observation.text_revision, rollback.fake.now};
-                    }
-                };
-                check(!rollback.pump(0).count && rollback.delivery.phase() == TextPhase::Stopped
-                    && rollback.fake.accepted.size() == 2,
-                    "fresh rollback to known old caret rejects after outer/current guard already confirmed advancement");
-            }
+            check(bounded.delivery.phase() == TextPhase::Stopped && !bounded.delivery.pending_edits()
+                && bounded.fake.accepted.size() == 2, "pending suffix expiry is fixed, never restamped");
             CompletionFixture release;
-            release.pump(0, 1);
-            release.pump(80, 1);
-            check(release.fake.field == L"her" && release.fake.accepted.size() == 2 && !release.delivery.owned(),
-                "post-edit caret may be confirmed while releasing the accepted down");
-            release.fake.automatic_caret = false;
-            release.fake.observation.prediction = {PredictionSupport::PlainEdit, 2,
-                release.fake.observation.text_revision, release.fake.now};
-            release.pump(0);
-            check(release.delivery.phase() == TextPhase::Stopped && release.fake.accepted.size() == 2,
-                "up completion must not recreate lag allowance after advancement was already confirmed");
+            release.pump(0, 1); release.pump(1001);
+            check(release.delivery.owned() && release.fake.accepted.size() == 1, "expiry retains accepted down obligation");
+            release.delivery.cleanup();
+            check(!release.delivery.owned() && release.fake.accepted.size() == 2 && release.fake.accepted.back().up,
+                "cleanup releases accepted down independently without replaying characters");
         });
-        test("caret lag does not exempt unrelated moves selections protection or target loss at either guard", [] {
+        test("privacy and original target checks reject changes at both literal dispatch guards", [] {
             for (unsigned guarded_observation : {1u, 2u}) {
                 for (unsigned failure = 0; failure < 5; ++failure) {
                     CompletionFixture f;
@@ -453,39 +463,47 @@ int main()
                     unsigned observations = 0;
                     f.fake.during_observe = [&] {
                         if (++observations != guarded_observation) { return; }
-                        f.fake.automatic_caret = false;
                         auto& value = f.fake.observation;
-                        value.prediction = {PredictionSupport::PlainEdit, 3, value.text_revision, f.fake.now};
                         switch (failure) {
-                        case 0: value.prediction.caret = 1; break;
-                        case 1: value.prediction.caret.reset(); break;
-                        case 2: value.prediction.support = PredictionSupport::Protected; break;
+                        case 0: value.prediction_privacy = PredictionPrivacy::Unavailable; break;
+                        case 1: value.allowed = false; break;
+                        case 2: value.prediction_privacy = PredictionPrivacy::Protected; break;
                         case 3: ++value.target.focus_revision; break;
                         default: value.physical_held = true; break;
                         }
                     };
                     f.pump(guarded_observation == 1 ? 16 : 80);
                     check(f.delivery.phase() == TextPhase::Stopped && f.fake.accepted.size() == 2
-                        && !f.delivery.pending_edits(), "lag grace cannot authorize unrelated changes at either guard");
+                        && !f.delivery.pending_edits(), "explicit suffix still revalidates privacy and original route at either guard");
                 }
             }
-            Fake fake;
-            fake.native_prediction = true; fake.field = L"he";
-            TextDelivery delivery(fake);
-            check(delivery.start(fake.observation.target) && delivery.enqueue(letter(U'e'), fake.now, fake.now + 1000, 3),
-                "isolated guarded edit fixture");
-            delivery.pump();
-            check(delivery.phase() == TextPhase::Stopped && fake.accepted.empty(),
-                "expected-minus-one without our own accepted edit is never lag");
             CompletionFixture restarted;
             restarted.pump(0, 2);
             restarted.delivery.stop(L"Cancelled");
-            check(restarted.delivery.start(restarted.fake.observation.target)
-                && restarted.delivery.enqueue(letter(U'e'), restarted.fake.now, restarted.fake.now + 1000, 3),
-                "restart after cancellation has no down ownership");
+            check(restarted.delivery.start(restarted.fake.observation.target), "restart after cancellation");
             restarted.pump(16);
-            check(restarted.delivery.phase() == TextPhase::Stopped && restarted.fake.accepted.size() == 2,
-                "new session cannot inherit prior accepted-edit lag authorization");
+            check(!restarted.delivery.pending_edits() && restarted.fake.accepted.size() == 2,
+                "new session cannot inherit or replay cancelled suffix");
+        });
+        test("every partially accepted native suffix stops once and retains only independent release obligations", [] {
+            for (unsigned accepted = 0; accepted < 4; ++accepted) {
+                CompletionFixture f(0);
+                for (unsigned i = 0; i < accepted; ++i) { f.fake.returns.push_back(1); }
+                f.fake.returns.push_back(0);
+                f.pump(0);
+                check(f.delivery.phase() == TextPhase::Stopped && !f.delivery.pending_edits()
+                    && f.fake.attempted.size() == accepted + 1, "partial native suffix is stopped explicitly");
+                const auto field = f.fake.field;
+                f.pump(100); f.delivery.cleanup();
+                check(f.fake.field == field && !f.delivery.owned(),
+                    "cleanup can release an accepted key, never repeat any suffix character");
+                check(f.fake.accepted.size() == accepted + (accepted % 2), "only the matching accepted-up obligation survives");
+            }
+            CompletionFixture uncertain;
+            uncertain.fake.returns = {2};
+            uncertain.pump(0); uncertain.delivery.cleanup();
+            check(uncertain.delivery.uncertain() && uncertain.fake.attempted.size() == 1,
+                "ambiguous acceptance remains explicit and cannot be retried");
         });
         test("native ordinary partial edits, voice intent and metadata loss revoke predictions", [] {
             Fixture f; f.trust_prediction(); f.type_he();
@@ -494,20 +512,19 @@ int main()
             Fixture g; g.trust_prediction(); g.type_he(); g.tap(0x0080); g.tap(0x0001);
             check(g.fake.field == L"he" && !g.keyboard.prediction_view().count, "voice intent revokes per-field trust even without backend");
             Fixture h; h.trust_prediction(); h.type_he();
-            h.fake.automatic_caret = false; h.fake.observation.prediction = {PredictionSupport::Unavailable};
-            h.tick(); h.fake.automatic_caret = true; h.tick(); h.tap(0x0001);
+            h.fake.observation.prediction_privacy = PredictionPrivacy::Unavailable;
+            h.tick(); h.fake.observation.prediction_privacy = PredictionPrivacy::Unknown; h.tick(); h.tap(0x0001);
             check(h.fake.field == L"he" && !h.keyboard.prediction_view().count, "restored metadata requires a new deliberate trust action");
         });
         test("native pending suffix cancels stick activity even while acceptance Up remains held", [] {
             Fixture f; f.trust_prediction(); f.type_he();
             f.fake.during_send = [&](TextEvent event) {
                 if (event.up) {
-                    f.fake.automatic_caret = false;
-                    f.fake.observation.prediction = {PredictionSupport::PlainEdit};
+                    f.fake.observation.settling = true;
                 }
             };
             f.button(0x0001);
-            check(f.fake.field == L"her" && f.keyboard.delivery().pending_edits() == 1, "one suffix character awaits metadata");
+            check(f.fake.field == L"her" && f.keyboard.delivery().pending_edits() == 1, "one suffix character awaits ordinary input settling");
             f.aim(90); f.tick();
             check(f.fake.field == L"her" && !f.keyboard.delivery().pending_edits() && !f.keyboard.prediction_view().count,
                 "held Up cannot mask other controller activity or authorize remaining suffix");

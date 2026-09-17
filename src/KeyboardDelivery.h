@@ -58,8 +58,9 @@ private:
     bool voice_step(const Snapshot& snapshot, Tick now);
     void cancel_voice();
     bool prediction_step(const Snapshot& snapshot);
-    void prediction_observe(const TextObservation& observation, Tick now);
-    void prediction_complete(KeyboardEdit edit, Tick now);
+    void prediction_observe(const TextObservation& observation);
+    void prediction_complete(KeyboardEdit edit);
+    void revoke_prediction();
     TextBoundary& boundary_;
     TextDelivery delivery_;
     Daisywheel keyboard_;
@@ -92,11 +93,7 @@ private:
     bool prediction_neutral_ = false;
     bool prediction_appending_ = false;
     bool prediction_trusted_ = false;
-    bool prediction_ready_ = false;
-    PredictionSupport prediction_support_ = PredictionSupport::Off;
+    PredictionPrivacy prediction_privacy_ = PredictionPrivacy::Unknown;
     std::optional<Tick> prediction_trust_started_;
-    std::optional<Tick> prediction_caret_wait_;
-    std::optional<std::uint32_t> prediction_caret_;
-    Tick prediction_proof_time_ = 0;
 };
 } // namespace gamepad

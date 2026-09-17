@@ -335,7 +335,7 @@ void prediction_frames(const std::filesystem::path& directory)
     state.prediction = practice.keyboard().prediction_view();
     state.preview = state.prediction_preview = false;
     state.word_suggestions = true;
-    state.prediction_hint = L"Local word suggestions on - type two letters";
+    state.prediction_hint = L"Suggestions ON - privacy unverified. Down hides";
     state.practice_sample = L"NEVER DRAW PRIVATE APP TEXT";
     render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
     const auto native_raster = visual.frame().rasterizations;
@@ -343,14 +343,13 @@ void prediction_frames(const std::filesystem::path& directory)
     render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
     check(visual.frame().rasterizations == native_raster, "native suggestion view cannot echo a practice sample or app text");
     inspect(visual.frame(), source.theme.high_contrast);
-    if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-trusted"); }
+    if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-on"); }
     state.prediction = {};
-    for (auto hint : {L"Hold D-pad Down: trust this plain-text field",
-            L"Word suggestions off: protected field", L"Word suggestions: classic multiline Edit only",
-            L"Word suggestions: waiting for caret confirmation"}) {
+    for (auto hint : {L"Privacy unverified. Hold Down to enable",
+            L"Word suggestions off: protected field", L"Word suggestions: privacy metadata unavailable"}) {
         state.prediction_hint = hint;
         render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
-        check(visual.frame().pixels[365 * keyboard_visual_width + 196] == 0, "native eligibility/trust/wait state never exposes candidate chips");
+        check(visual.frame().pixels[365 * keyboard_visual_width + 196] == 0, "native consent/protection/query-failure state never exposes candidate chips");
     }
     if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-unavailable"); }
     std::cout << "PASS " << count << " prediction mode/theme/DPI frames; label fit/contrast, hidden chips, ownership and idle reuse\n";

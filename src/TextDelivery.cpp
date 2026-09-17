@@ -55,19 +55,18 @@ bool TextDelivery::start(const TextTarget& target)
     head_ = size_ = accepted_events_ = completed_edits_ = 0;
     last_dispatch_ms_ = maximum_dispatch_ms_ = 0;
     cleanup_attempts_ = 0;
-    pending_caret_.reset();
     return true;
 }
 
 bool TextDelivery::enqueue(KeyboardEdit edit, Tick sampled_at, Tick expires,
-    std::optional<std::uint32_t> prediction_caret)
+    bool suggestion)
 {
     if (phase_ != TextPhase::Ready) { return false; }
     if (in_flight_) { fault(L"Reentrant edit request"); return false; }
     const auto input = edit_events(edit);
     if (!input || sampled_at > expires) { fault(L"Invalid keyboard edit"); return false; }
     if (size_ == queue_.size()) { fault(L"Typing queue full; pending edits cancelled"); return false; }
-    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires, prediction_caret};
+    queue_[(head_ + size_) % queue_.size()] = {*input, edit, 0, sampled_at, expires, suggestion};
     ++size_;
     return true;
 }
@@ -79,47 +78,12 @@ void TextDelivery::stop(std::wstring_view reason)
     reason_ = reason;
     size_ = 0; // Never replay queued edits after any interrupted session.
     queue_ = {};
-    pending_caret_.reset();
 }
 
 void TextDelivery::fault(std::wstring_view reason)
 {
     ++fault_generation_;
     stop(reason);
-}
-
-void TextDelivery::observe_prediction_caret(const TextObservation& observation, Tick now)
-{
-    if (pending_caret_ && phase_ == TextPhase::Ready && text_context_eligible(observation)
-        && observation.target == target_ && prediction_proven(observation, now)
-        && now >= pending_caret_->accepted_at && now <= pending_caret_->expires
-        && observation.prediction.caret == pending_caret_->after) {
-        // Once advancement was observed, returning to the old position is a
-        // rollback, not delayed application of our accepted edit.
-        pending_caret_.reset();
-    }
-}
-
-bool TextDelivery::prediction_caret_ready(const TextObservation& observation, std::uint32_t expected, Tick now)
-{
-    if (pending_caret_ && (now < pending_caret_->accepted_at || now > pending_caret_->expires)) {
-        stop(L"Word completion caret confirmation expired; remaining suffix cancelled");
-        return false;
-    }
-    if (observation.prediction.sampled_at && observation.prediction.revision == observation.text_revision
-        && !observation.prediction.caret) {
-        stop(L"Text selection changed; remaining suffix cancelled");
-        return false;
-    }
-    if (!prediction_proven(observation, now)) { return false; }
-    observe_prediction_caret(observation, now);
-    if (observation.prediction.caret == expected) { return true; }
-    if (pending_caret_ && pending_caret_->after == expected
-        && observation.prediction.caret == pending_caret_->before) {
-        return false;
-    }
-    stop(L"Caret changed during suggestion validation; remaining suffix cancelled");
-    return false;
 }
 
 CompletedTextEdits TextDelivery::pump(unsigned budget)
@@ -138,15 +102,12 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
             stop(L"Focus, physical input or controller freshness changed");
             break;
         }
-        if (current.settling) { break; }
-        if (pending.prediction_caret) {
-            if (!boundary_.prediction_enabled() || current.prediction.support != PredictionSupport::PlainEdit) {
-                stop(L"Word suggestion field eligibility changed; remaining suffix cancelled");
-                break;
-            }
-            if (!pending.next && !prediction_caret_ready(current, *pending.prediction_caret, current_time)) { break; }
-            if (pending.next) { observe_prediction_caret(current, current_time); }
+        completed.prediction_suppressed |= current.prediction_privacy != PredictionPrivacy::Unknown;
+        if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
+            stop(L"Word suggestion privacy changed; remaining suffix cancelled");
+            break;
         }
+        if (current.settling) { break; }
         const auto final = boundary_.observe_text(down_);
         if (phase_ != TextPhase::Ready) { break; }
         const auto final_time = boundary_.text_now();
@@ -156,15 +117,12 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
             stop(L"Target changed during validation");
             break;
         }
-        if (final.settling) { break; }
-        if (pending.prediction_caret) {
-            if (!boundary_.prediction_enabled() || final.prediction.support != PredictionSupport::PlainEdit) {
-                stop(L"Word suggestion field eligibility changed; remaining suffix cancelled");
-                break;
-            }
-            if (!pending.next && !prediction_caret_ready(final, *pending.prediction_caret, final_time)) { break; }
-            if (pending.next) { observe_prediction_caret(final, final_time); }
+        completed.prediction_suppressed |= final.prediction_privacy != PredictionPrivacy::Unknown;
+        if (pending.suggestion && (!boundary_.prediction_enabled() || completed.prediction_suppressed)) {
+            stop(L"Word suggestion privacy changed during validation; remaining suffix cancelled");
+            break;
         }
+        if (final.settling) { break; }
         const auto event = pending.input.events[pending.next];
         if (event.up != owned() || (event.up && event.key != *down_)) {
             fault(L"Keyboard output ownership mismatch");
@@ -189,22 +147,11 @@ CompletedTextEdits TextDelivery::pump(unsigned budget)
         }
         if (pending.next + 1 == pending.input.count) { ++completed_edits_; }
         if (phase_ != TextPhase::Ready) { break; }
-        if (!pending.next) {
-            pending_caret_.reset();
-            if (pending.prediction_caret && pending.edit.kind == KeyboardEditKind::Character) {
-                const unsigned units = pending.edit.character > 0xffff ? 2 : 1;
-                if (*pending.prediction_caret <= 65534 - units) {
-                    pending_caret_ = PendingCaret{*pending.prediction_caret, *pending.prediction_caret + units,
-                        final_time, std::min(pending.expires, final_time + prediction_confirmation_ms)};
-                }
-            }
-        }
         if (++queue_[head_].next == pending.input.count) {
             completed.edits[completed.count++] = pending.edit;
             queue_[head_] = {};
             head_ = (head_ + 1) % queue_.size();
             --size_;
-            if (!size_) { pending_caret_.reset(); }
         }
     }
     in_flight_ = false;

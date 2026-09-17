@@ -85,39 +85,48 @@ contexts stop typing. Pending edits never move to a new target or replay
 automatically. A browser or custom control may change its internal field without
 changing native HWND identity, so exact targeting cannot be guaranteed for all apps.
 
-## Local word suggestions: scoped native pilot
+## Local word suggestions
 
-Word suggestions are **off by default**. Start `GamepadDesktop.exe
---word-prediction` to make them available for this run; no setting/schema is
+Word suggestions are **off by default**. Start `GamepadDesktop.exe --word-prediction`
+to make them available for this run; no setting/schema is
 changed. This still launches the normal full mapper, not inspection mode.
-In an eligible plain-text field, open Daisywheel, center/release the controls,
-then **hold D-pad Down for half a second** to explicitly trust this field for this
-keyboard session. Do not trust a field used for passwords or other secrets.
+In a non-secret field where ordinary Daisywheel typing works, open the keyboard,
+center/release the controls, then **hold D-pad Down for half a second** to opt in
+for this keyboard session. The footer says **Privacy unverified**, not that the
+field is verified safe. Do not enable suggestions in passwords or other secrets.
 After two letters entered by this keyboard, up to three frequency-ranked
-suggestions appear. No leading Space is required.
+suggestions appear. No leading Space is required. **Press D-pad Down again to
+hide suggestions immediately**; text already typed is not changed.
 
 **D-pad Left/Right** chooses; **D-pad Up** appends only the remaining suffix once.
 Return to neutral between presses and finish an in-progress one-handed flick
 before choosing. No automatic Space, Enter, replacement or inferred Backspace is
 performed. Existing face-button, one-handed, LB/RB/Menu/View mappings are unchanged.
-A fixed one-second completion deadline and fresh per-character caret/target
-checks cancel unsent characters on uncertainty; partial output is never replayed.
+A selected completion is an explicit request to type its literal suffix, like
+ordinary manual text or dictation. It uses the same original-target validation,
+bounded output queue and accepted-key release ledger, with one fixed one-second
+deadline. Unsent characters are cancelled on known interruptions; partial output
+is never replayed. No caret or application-receipt synchronization is attempted.
 
-**Supported:** visible, enabled, writable classic Windows **multiline Edit**
-controls, collapsed selection, total field length below 65,535 UTF-16 code units.
-**Unsupported:** browsers, modern Notepad, RichEdit, custom/superclass controls,
-single-line fields, password/readonly fields, large fields, and unavailable
-or timed-out metadata. The footer states availability/trust status; ordinary
-Daisywheel typing remains available when suggestions are unavailable.
-This is not universal password detection: a classic Edit can be subclassed by its
-app, which is why explicit non-secret field trust is also required.
+**Coverage follows existing keyboard typing**, including browser, Notepad,
+RichEdit, single-line and custom targets; there is no application/class allowlist,
+field-length limit or Edit-specific message requirement. The existing mapper
+security, focus, session/integrity and exclusion checks still apply.
+Recognized native Edit/RichEdit password styles suppress suggestions, and failed
+privacy metadata queries are reported explicitly. Unknown/custom field privacy
+cannot be verified: browser password fields can be unknown, so per-session
+non-secret-field consent is essential. This is **not universal password detection**.
+Ordinary typing is unchanged when suggestions are off or suppressed.
 
 Only this session's transport-completed keyboard edits feed a maximum 16-letter
-ephemeral prefix, not field contents. Space/punctuation reset it; unexpected
-caret/selection changes, physical takeover, target/context/device/mode changes,
+ephemeral word fragment, not field contents. Space/punctuation reset it; observed
+physical keyboard/mouse navigation, takeover, target/context/device/mode changes,
 unknown Backspace, close and voice transitions clear or invalidate hints.
-Close and reopen (or cancel voice) requires a new field trust action.
-Receipt and application behavior are not guaranteed by `SendInput` acceptance.
+Close/reopen or a voice transition requires new consent. Programmatic caret or
+selection changes and internal field changes invisible to the existing target
+checks remain limitations, just as for manual text/dictation. The app may discard
+input or apply it at its current caret/selection; transport acceptance is not
+proof of receipt or atomic insertion. Check your target before accepting.
 
 The embedded 10,000-word English frequency list is derived from the pinned
 HermitDave/FrequencyWords OpenSubtitles2018 data under **CC BY-SA 4.0**; see
@@ -126,11 +135,6 @@ It can contain names, slang and offensive language; it is not child-safe.
 No ML, cloud, OS dictionary, personal word list, clipboard, field-text read,
 learning or history is used. Full data attribution and license must accompany
 the EXE; the data license does not grant an application-code license.
-
-For a disposable classic Edit field, build the opt-in developer target
-`gamepad_prediction_target_tests` and manually run it with `--practice-field`.
-That host never injects input or opens the microphone. Click its field before
-opening the normal mapper keyboard. This trial host is not a required app file.
 
 ### No-output practice modes
 
@@ -162,8 +166,8 @@ guessing. Clear/reset, focus loss, physical input received by the preview,
 controller interruption, mode changes and voice transitions invalidate hints.
 Accepted completions are never autocorrected, backed out, learned or replayed.
 
-The practice label distinguishes this in-memory mode from the scoped native
-pilot; transport acceptance alone never proves that an application received text.
+The practice label distinguishes this in-memory mode from native completion;
+transport acceptance alone never proves that an application received text.
 The preview has no native text sink, microphone, hook or cursor-hiding path.
 
 ## Offline voice

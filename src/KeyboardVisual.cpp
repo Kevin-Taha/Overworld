@@ -646,7 +646,7 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         hr = r.label(state.prediction_preview ? L"LOCAL PRACTICE - no external output"
             : state.word_suggestions ? prediction_hint
             : L"LT  Shift       RT  Symbols       View  Close",
-            {43, 318, 349, 337}, color(colors.secondary), 11);
+            {43, 318, 349, 337}, color(colors.secondary), 11, DWRITE_FONT_WEIGHT_NORMAL, state.word_suggestions);
     }
     if (SUCCEEDED(hr) && prediction_surface) {
         if (prediction.count) {

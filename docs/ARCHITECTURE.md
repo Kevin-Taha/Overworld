@@ -15,7 +15,7 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Cursor | `CursorPresentation.*`, `CursorRing.*`, `NativeCursor*` | Layered pixels and ownership-safe native hiding |
 | Keyboard | `Keyboard.*`, `KeyboardDelivery.*`, `TextDelivery.*` | Selection, explicit edits, original-target delivery and recovery |
 | Keyboard visuals | `KeyboardVisual.*`, `KeyboardPopup.*`, `KeyboardPreview.*` | Nonactivating alpha popup and no-output previews |
-| Word suggestions | `WordPrediction.*`, `PredictionTarget.*`, `PredictionPractice.h` | Bounded frequency-ranked hints, opt-in native metadata proof and in-memory practice |
+| Word suggestions | `WordPrediction.*`, `PredictionTarget.*`, `PredictionPractice.h` | Bounded frequency-ranked fragments, explicit suffix append, negative password metadata and practice |
 | Voice | `Voice.*`, `NativeVoice.*`, `Audio*`, `VoiceModel.*`, `VoiceRecognizer.*` | Bounded capture, validation, local inference, cancellation |
 | Voice view | `VoicePresentation.h`, `VoiceViewAdapter.h` | Backend-independent phase/level/hint snapshots |
 | App UI | `Host.*`, `AppUi.*`, `Resources.h` | Native dashboard, modeless settings, status, tray, lifecycle |
@@ -87,69 +87,59 @@ deduplicated; real field changes and foreground excursions still invalidate the
 target. Caret blinking is not routing identity. HWND identity cannot establish
 internal field identity in every browser or custom control.
 
-### Scoped native word suggestions
+### Explicit append-only word suggestions
 
 `TextBoundary::prediction_enabled()` is off by default. Runtime
 `--word-prediction` enables native availability, but collection still requires
-an isolated neutral-then-500-ms D-pad Down hold in an eligible original field for
-each keyboard session. `PredictionPractice` remains a separate no-output sink.
+an isolated neutral-then-500-ms D-pad Down hold in an eligible original target for
+each keyboard session. Unknown privacy is explicitly shown as unverified.
+A fresh Down press hides suggestions without erasing typed text; its held tail
+cannot reenable collection. `PredictionPractice` remains a separate no-output sink.
 Both use `KeyboardDelivery` and `TextDelivery` rather than a second output path.
 
-The native first slice accepts only visible/enabled/writable child windows for
-which both class name and real class are exactly system `Edit`, with
-`ES_MULTILINE` and without `ES_PASSWORD` or `ES_READONLY`. System multiline Edit
-does not support password characters; single-line Edit, RichEdit, browsers,
-modern Notepad and unknown/custom classes are excluded. These metadata checks
-cannot prove that an app has not internally subclassed an Edit. Explicit
-non-secret field trust is required and there is no universal password guarantee.
-
-A single latest-request worker reads only scalar `WM_GETTEXTLENGTH`, `EM_GETSEL`,
-and scalar length again. Each cross-thread message has a maximum 20-ms timeout;
-the entire batch has one 60-ms deadline and stop checks. No text buffer or
-cross-process caller-owned pointer is sent. Lengths must be equal and below
-65,535 code units; selection must be collapsed and within that length. The length
-guard is necessary: actual classic Edit controls can wrap a 70,000 index to
-4,464 in the packed `EM_GETSEL` result instead of returning the documented -1.
-Large fields therefore fail closed, even with the caret near the beginning.
-
-Results carry the original native target, output revision, close generation and
-original monotonic sample time. Stale/replaced results never authorize hints.
-The input thread only reads the mailbox and window metadata; the worker never
-calls stateful `Desktop::observe` or performs input. After accepted events, a
-16-ms settling interval precedes a new query so sent metadata messages do not
-immediately overtake queued input. This is not proof of application receipt.
+The completion path accepts the same otherwise-eligible `TextBoundary` targets
+as manual typing/voice. There is no support allowlist, classic-Edit restriction,
+caret/length RPC, selection-index limit, metadata worker or application receipt
+protocol. `PredictionTarget` now supplies only negative privacy evidence from
+kernel window identity/class/style metadata: recognized Edit/RichEdit password
+styles suppress suggestions; metadata query failure suppresses with a distinct
+status. Everything else is `Unknown`, never positive proof of a plain-text field.
+Browsers/custom controls can hide password state or semantic-field transitions
+inside one HWND. Deliberate per-session non-secret-field consent is required.
 
 `TextDelivery::pump` returns at most four fully completed edits per eight-event
 budget. A partial edit or stopped/reentered delivery is not a prefix update.
 The predictor stores at most 16 ASCII letters and three candidates from the
-separately licensed, embedded 10,000-word frequency list. Native trust starts an
-empty known stream immediately: two own letters suffice without leading Space,
+separately licensed, embedded 10,000-word frequency list. Session consent starts an
+empty fragment immediately: two own letters suffice without leading Space,
 without claiming knowledge of preceding field content. Space/punctuation reset
 the prefix; overflow, unknown Backspace and non-ASCII boundaries suppress it.
 Lowercase, title case and uppercase are preserved. There is no native draft,
-inferred Backspace, text-value read, learning or Unicode segmentation framework.
+inferred Backspace, text/length/caret read, learning or Unicode segmentation framework.
 
 D-pad selection/acceptance requires a fresh neutral sample, no other controls,
 the one-handed Group stage and an empty delivery queue. Acceptance consumes a
 generation and enqueues only the validated remaining suffix. Native completions
-have one fixed one-second deadline from acceptance; each new character down
-requires a fresh proof of its expected caret and original target, while accepted
-ups retain independent ownership accounting. Preview completions retain the
+have one fixed one-second deadline from acceptance. Each event uses the same
+original-target, physical-input, context and deadline guards as ordinary text,
+plus known-protected/unavailable privacy suppression. Accepted ups retain
+independent cleanup ownership accounting. Preview completions retain the
 original 100-ms deadline. Pending suffix work never feeds itself back into
 prediction. No Space, Enter or replacement is implicit.
 Cancellation, target/context/activity/device changes and voice transitions clear
-the hint and revoke acceptance/trust; dictation is not a prediction source.
-Unexplained caret/selection changes hide and clear hints rather than reconstruct
-field text. Pending own edits have at most 100 ms to obtain a matching caret.
-For suffix delivery, both dispatch guards share an explicit record of the caret
-before an accepted own down and its expected advancement. Only that known old
-caret can defer the next down, for at most 100 ms from the accepted down and
-never beyond the original completion deadline. Key-up cannot renew this wait.
-A fresh advanced-caret observation consumes the allowance, including observations
-during key-up or in the keyboard's outer validation; a later rollback is rejected.
-Timeout cancels the unsent suffix explicitly and never replays accepted events.
-Length/caret stability is not proof of unchanged content or atomic insertion;
-unobservable same-length programmatic replacements remain a documented limit.
+the fragment and revoke consent; dictation is not a prediction source. Ordinary
+observed keyboard/mouse navigation invalidates through the existing physical
+activity boundary. Reserved controller/navigation key messages are not confused
+with physical takeover. Any protected/unavailable observation during an ordinary
+edit suppresses the prediction batch even if privacy becomes unknown afterward;
+manual typing itself is not disabled by the optional privacy feature.
+
+User-selected completion is a literal append request, not an editor synchronizer:
+the app owns its current caret/selection and may apply or discard the input.
+The utility never intentionally replaces text or issues inferred Backspace.
+Unobserved programmatic caret/selection changes remain the same targeting
+limitation as manual typing/voice. Delayed or absent application receipt cannot
+cause retries, and neither prefix hints nor accepted input prove field contents.
 
 The optional 66-DIP suggestion strip is outside the original wheel/footer. Its
 owning view/cache is bounded, validates actual label fit, and hides chips when

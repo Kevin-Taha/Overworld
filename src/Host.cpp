@@ -1745,7 +1745,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     const bool valid_arguments = argc == 1 || restore || inspection || keyboard_preview || word_prediction;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --word-prediction | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\n--word-prediction enables optional suggestions in trusted classic multiline Edit fields. Previews have no external output.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --word-prediction | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\n--word-prediction offers explicit append-only completions where keyboard typing is allowed. Privacy is unverified: enable per session only in non-secret fields. Previews have no external output.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
@@ -1806,14 +1806,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons,
             prediction_preview, prediction_demo);
     } else {
-        try {
-            Host host(inspection, word_prediction);
-            result = host.create(instance, show) ? host.run() : 1;
-        } catch (const std::system_error&) {
-            MessageBoxW(nullptr, L"Could not start the word-suggestion metadata worker. No mapper was started.",
-                L"Gamepad Desktop", MB_OK | MB_ICONERROR);
-            result = 1;
-        }
+        Host host(inspection, word_prediction);
+        result = host.create(instance, show) ? host.run() : 1;
     }
     ReleaseMutex(singleton);
     CloseHandle(singleton);
