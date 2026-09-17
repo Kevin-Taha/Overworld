@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include "VoicePresentation.h"
+#include "WordPrediction.h"
 
 #include <cstdint>
 #include <memory>
@@ -15,6 +16,7 @@ class Daisywheel;
 
 inline constexpr int keyboard_visual_width = 392;
 inline constexpr int keyboard_visual_height = 350;
+inline constexpr int keyboard_prediction_height = 416;
 
 struct KeyboardVisualState {
     bool active = false;
@@ -22,6 +24,9 @@ struct KeyboardVisualState {
     std::wstring_view message;
     std::wstring_view target;
     VoicePresentation voice{};
+    bool prediction_preview = false;
+    PredictionView prediction{};
+    std::wstring_view practice_sample;
 };
 
 struct KeyboardGlyphBounds {

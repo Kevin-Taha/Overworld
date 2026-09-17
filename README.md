@@ -83,6 +83,43 @@ contexts stop typing. Pending edits never move to a new target or replay
 automatically. A browser or custom control may change its internal field without
 changing native HWND identity, so exact targeting cannot be guaranteed for all apps.
 
+## Word suggestions: local practice experiment
+
+Word prediction is **default-off and preview-only**, not enabled for external
+applications. `--prediction-preview` opens a controller-driven in-memory practice
+field; `--prediction-preview-one-handed` uses the same one-handed gestures as the
+normal keyboard. The regular application and `--inspect` do not collect prediction
+prefixes. No setting is loaded or saved by these previews.
+
+Close any running mapper first. In the preview, center the controls and press Y
+(or left-stick click in one-handed mode) to open the keyboard. Press **RB Space**
+to establish a new word boundary, then type at least two letters, for example
+`he`. Three small suggestions appear below the unchanged wheel. With both sticks
+centered and other buttons released, **D-pad Left/Right** chooses a word and
+**D-pad Up** appends its remaining suffix once. Release to neutral between actions.
+No space is added: RB remains the explicit Space control. One-handed selection
+must finish its current character/action gesture before choosing a suggestion.
+
+A/B/X/Y, LB Backspace, RB Space, Menu Enter and View Cancel are unchanged.
+View clears the practice session; Escape exits the preview. The local sample is
+limited to 256 characters; reaching capacity stops delivery explicitly.
+`--prediction-demo` shows the synthetic `he` example without polling a controller
+or producing external input. It is a static visual demo, not an active mapper.
+
+Suggestions use a small authored English word table, not ML, an OS dictionary,
+personal words, clipboard contents or application text. Prefix hints come only
+from this keyboard's completed edits. Unknown word boundaries, punctuation,
+mixed capitalization and excessive prefixes suppress suggestions rather than
+guessing. Clear/reset, focus loss, physical input received by the preview,
+controller interruption, mode changes and voice transitions invalidate hints.
+Accepted completions are never autocorrected, backed out, learned or replayed.
+
+The practice label is intentional: there is **no universal password detector**.
+Native, password and unknown/protected external fields are all ineligible for
+prediction. A real-app feature would need a separate reviewed eligibility design;
+transport acceptance alone never proves that an application received text.
+The preview has no native text sink, microphone, hook or cursor-hiding path.
+
 ## Offline voice
 
 In **Settings > Typing**, enable **Local voice input** in a voice-enabled build.

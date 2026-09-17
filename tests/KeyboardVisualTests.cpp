@@ -1,5 +1,6 @@
 #include "KeyboardVisual.h"
 #include "Keyboard.h"
+#include "PredictionPractice.h"
 
 #include <algorithm>
 #include <cmath>
@@ -203,6 +204,108 @@ void inspect(const KeyboardVisualFrame& frame, bool high_contrast = false, bool 
 
 void export_frame(KeyboardVisual& visual, const std::filesystem::path& directory, const std::wstring& name);
 
+void prediction_frames(const std::filesystem::path& directory)
+{
+    FakeTheme source;
+    KeyboardVisual visual(&source);
+    unsigned count = 0;
+    for (unsigned theme = 0; theme < 4; ++theme) {
+        source.theme = {};
+        source.theme.dark = theme == 1;
+        source.theme.high_contrast = theme >= 2;
+        if (theme == 3) {
+            source.theme.window = 0; source.theme.window_text = 0xFFFFFF;
+            source.theme.highlight = 0xFFFF00; source.theme.highlight_text = 0;
+        }
+        visual.system_theme_changed(WM_THEMECHANGED);
+        for (auto mode : {KeyboardInputMode::FaceButtons, KeyboardInputMode::OneHanded}) {
+            PredictionPractice practice; seed_prediction_demo(practice, mode);
+            check(practice.sample() == L" he" && practice.keyboard().prediction_view().count == 3,
+                "visual fixture must use actual keyboard-completed edits");
+            KeyboardVisualState state{true, true, {}, {}};
+            state.prediction_preview = true;
+            state.prediction = practice.keyboard().prediction_view();
+            state.practice_sample = practice.sample();
+            for (int percent : {100, 150, 200}) {
+                const int width = keyboard_visual_width * percent / 100;
+                const int height = keyboard_prediction_height * percent / 100;
+                const float scale = percent / 100.0f;
+                render(visual, width, height, practice.keyboard().model(), state);
+                inspect(visual.frame(), source.theme.high_contrast);
+                const auto pixel = [&](float x, float y) {
+                    return visual.frame().pixels[static_cast<std::size_t>(y * scale) * width
+                        + static_cast<std::size_t>(x * scale)];
+                };
+                for (unsigned i = 0; i < 3; ++i) {
+                    const float x = 30 + i * 112.0f;
+                    const auto backing = pixel(x + 10, 365);
+                    check((backing >> 24) >= 240, "suggestion must have opaque enough theme backing");
+                    double strongest = 0;
+                    for (int y = 355; y < 378; ++y) {
+                        for (int ink_x = static_cast<int>(x + 18); ink_x < x + 90; ++ink_x) {
+                            strongest = std::max(strongest, std::min(
+                                contrast(pixel(static_cast<float>(ink_x), static_cast<float>(y)), backing, 0),
+                                contrast(pixel(static_cast<float>(ink_x), static_cast<float>(y)), backing, 0xFFFFFF)));
+                        }
+                    }
+                    check(strongest >= 4.5, "each actual suggestion label has 4.5:1 visible ink");
+                }
+                const auto before = visual.frame();
+                const std::vector<std::uint32_t> original(before.pixels.begin(), before.pixels.end());
+                for (unsigned i = 0; i < 30; ++i) { render(visual, width, height, practice.keyboard().model(), state); }
+                check(before.rasterizations == visual.frame().rasterizations
+                    && before.surface_allocations == visual.frame().surface_allocations, "idle suggestion frames reuse surfaces and pixels");
+                auto selected = state; selected.prediction.selected = 1;
+                render(visual, width, height, practice.keyboard().model(), selected);
+                check(visual.frame().rasterizations == before.rasterizations + 1, "selected word visibly updates");
+                for (int y = 0; y < static_cast<int>(350 * scale); ++y) {
+                    for (int x = 0; x < width; ++x) {
+                        const auto index = static_cast<std::size_t>(y) * width + x;
+                        check(original[index] == visual.frame().pixels[index], "selection never changes wheel, voice center or footer pixels");
+                    }
+                }
+                render(visual, width, height, practice.keyboard().model(), state);
+                if (!directory.empty() && percent != 200) {
+                    export_frame(visual, directory, L"prediction-" + std::to_wstring(theme) + L"-"
+                        + std::to_wstring(static_cast<unsigned>(mode)) + L"-" + std::to_wstring(percent));
+                }
+                for (unsigned hidden = 0; hidden < 3; ++hidden) {
+                    auto muted = state;
+                    if (hidden == 0) { muted.active = false; }
+                    else if (hidden == 1) { muted.voice = {VoicePhase::Listening, 0.5f, {}}; }
+                    else { muted.prediction = {}; }
+                    render(visual, width, height, practice.keyboard().model(), muted);
+                    check(pixel(80, 365) == 0 && pixel(196, 365) == 0 && pixel(306, 365) == 0 && pixel(196, 399) == 0,
+                        "suggestion chips truly disappear when inactive, voice-active or without prefix");
+                }
+                ++count;
+            }
+        }
+    }
+    PredictionPractice practice; seed_prediction_demo(practice, KeyboardInputMode::FaceButtons);
+    KeyboardVisualState state{true, true, {}, {}};
+    state.prediction_preview = true;
+    state.prediction = practice.keyboard().prediction_view();
+    render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
+    auto raster = visual.frame().rasterizations;
+    state.prediction.words[0] = L"help";
+    render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
+    check(visual.frame().rasterizations == raster + 1, "renderer owns cached suggestion text, not an alias");
+    state.prediction.count = 4;
+    check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
+        "oversized suggestion list explicitly rejected");
+    state.prediction.count = 3; state.prediction.words[0] = std::wstring(prediction_prefix_limit + 1, L'a');
+    check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
+        "oversized suggestion text explicitly rejected");
+    state.prediction.words[0] = L"bad\ntext";
+    check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
+        "multiline/control suggestion text explicitly rejected");
+    state.prediction.words[0] = L"WWWWWWWWWWWWWWWW";
+    check(!visual.render(keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state),
+        "actual ink that cannot fit must not silently truncate a completion");
+    std::cout << "PASS " << count << " prediction mode/theme/DPI frames; label fit/contrast, hidden chips, ownership and idle reuse\n";
+}
+
 void voice_frames(const std::filesystem::path& directory)
 {
     FakeTheme theme;
@@ -374,6 +477,7 @@ int wmain(int argc, wchar_t** argv)
             std::filesystem::create_directories(directory);
         }
         voice_frames(directory);
+        prediction_frames(directory);
         FakeTheme source;
         KeyboardVisual visual(&source);
         unsigned inspected = 0;

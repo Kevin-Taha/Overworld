@@ -354,7 +354,7 @@ public:
     }
 
     HRESULT label(std::wstring_view value, D2D1_RECT_F rect, D2D1_COLOR_F ink,
-        float size = 12, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL)
+        float size = 12, DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL, bool require_fit = false)
     {
         ComPtr<IDWriteTextLayout> layout;
         HRESULT hr = write->CreateTextLayout(value.data(), static_cast<UINT32>(value.size()), labels.Get(),
@@ -364,6 +364,15 @@ public:
         if (SUCCEEDED(hr)) { hr = layout->SetFontWeight(weight, all); }
         if (SUCCEEDED(hr)) { hr = layout->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER); }
         if (SUCCEEDED(hr)) { hr = layout->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER); }
+        if (SUCCEEDED(hr) && require_fit) {
+            DWRITE_TEXT_METRICS metrics{};
+            DWRITE_OVERHANG_METRICS overhang{};
+            hr = layout->GetMetrics(&metrics);
+            if (SUCCEEDED(hr)) { hr = layout->GetOverhangMetrics(&overhang); }
+            if (SUCCEEDED(hr) && (metrics.widthIncludingTrailingWhitespace > rect.right - rect.left
+                || metrics.height > rect.bottom - rect.top || overhang.left > 0 || overhang.right > 0
+                || overhang.top > 0 || overhang.bottom > 0)) { return E_INVALIDARG; }
+        }
         ComPtr<IDWriteInlineObject> ellipsis;
         if (SUCCEEDED(hr)) { hr = write->CreateEllipsisTrimmingSign(labels.Get(), ellipsis.GetAddressOf()); }
         const DWRITE_TRIMMING trimming{DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
@@ -408,6 +417,8 @@ public:
     VoicePhase voice_phase = VoicePhase::Idle;
     unsigned voice_level = 0;
     std::wstring voice_hint;
+    bool prediction_preview = false;
+    PredictionView prediction;
     WindowsThemeSource windows_theme;
     KeyboardThemeSource* theme_source;
     KeyboardTheme theme;
@@ -446,6 +457,25 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
     const unsigned voice_level = state.voice.phase == VoicePhase::Listening && std::isfinite(state.voice.level)
         ? static_cast<unsigned>(std::lround(std::clamp(state.voice.level, 0.0f, 1.0f) * 16)) : 0;
     const auto voice_hint = voice_active ? state.voice.hint.substr(0, 120) : std::wstring_view{};
+    PredictionView prediction;
+    if (state.prediction_preview && state.active && !voice_active && model.phase() == KeyboardPhase::Typing) {
+        if (state.prediction.count > prediction_choice_limit
+            || (state.prediction.count && state.prediction.selected >= state.prediction.count)) {
+            return fail(L"Invalid suggestion selection", E_INVALIDARG);
+        }
+        for (std::size_t i = 0; i < state.prediction.count; ++i) {
+            const auto& word = state.prediction.words[i];
+            if (word.empty() || word.size() > prediction_prefix_limit
+                || !std::all_of(word.begin(), word.end(), [](wchar_t c) {
+                    return (c >= L'a' && c <= L'z') || (c >= L'A' && c <= L'Z');
+                })) { return fail(L"Invalid suggestion text", E_INVALIDARG); }
+            prediction.words[i] = word;
+        }
+        prediction.count = state.prediction.count;
+        prediction.selected = state.prediction.count ? state.prediction.selected : 0;
+    }
+    prediction.generation = 0;
+    for (std::size_t i = prediction.count; i < prediction.words.size(); ++i) { prediction.words[i].clear(); }
     HRESULT hr = r.initialize();
     if (FAILED(hr)) { return fail(L"Keyboard graphics initialization failed", hr); }
     hr = r.resize(width, height);
@@ -458,12 +488,14 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         r.theme = theme;
         r.theme_dirty = false;
     }
-    const std::wstring_view sample = state.preview ? std::wstring_view(model.text()).substr(
-        model.text().size() > 44 ? model.text().size() - 44 : 0) : std::wstring_view{};
+    auto sample = state.prediction_preview ? (state.active ? state.practice_sample : std::wstring_view{})
+        : state.preview ? std::wstring_view(model.text()) : std::wstring_view{};
+    sample = sample.substr(sample.size() > 44 ? sample.size() - 44 : 0);
     if (r.valid && r.page == model.page() && r.selected == model.selected_petal()
         && r.highlighted == model.highlighted_petal()
         && r.mode == model.input_mode() && r.stage == model.flick_stage() && r.face == model.selected_face()
         && r.voice_phase == state.voice.phase && r.voice_level == voice_level && r.voice_hint == voice_hint
+        && r.prediction_preview == state.prediction_preview && r.prediction == prediction
         && r.active == state.active && r.preview == state.preview && r.message == state.message && r.sample == sample) {
         error_.clear();
         return true;
@@ -477,10 +509,11 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         || (character_stage && !model.selected_petal())) {
         return fail(L"Invalid keyboard selection", E_INVALIDARG);
     }
+    const int logical_height = state.prediction_preview ? keyboard_prediction_height : keyboard_visual_height;
     const float scale = std::min(static_cast<float>(width) / keyboard_visual_width,
-        static_cast<float>(height) / keyboard_visual_height);
+        static_cast<float>(height) / logical_height);
     const float left = (width - keyboard_visual_width * scale) / 2;
-    const float top = (height - keyboard_visual_height * scale) / 2;
+    const float top = (height - logical_height * scale) / 2;
     const auto colors = palette(r.theme);
     const auto contour = character_stage ? r.character_contour.Get() : r.contour.Get();
     const auto transform = D2D1::Matrix3x2F::Scale(scale, scale)
@@ -593,7 +626,8 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
                 : L"Voice unavailable. Release the stick to dismiss.";
             hr = r.label(hint, {43, 295, 349, 318}, color(colors.secondary), 12);
         } else if (state.preview) {
-            hr = r.label(sample.empty() ? L"Preview only - no text is sent" : sample,
+            hr = r.label(sample.empty() ? (state.prediction_preview ? L"RB Space, then type two letters"
+                    : L"Preview only - no text is sent") : sample,
                 {43, 295, 349, 318}, color(colors.ink), sample.empty() ? 12.0f : 17.0f);
         } else if (one_handed) {
             hr = r.label(character_stage ? L"Flick a character, then center" : L"Flick a group, then center",
@@ -604,8 +638,29 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         }
     }
     if (SUCCEEDED(hr)) {
-        hr = r.label(L"LT  Shift       RT  Symbols       View  Close",
+        hr = r.label(state.prediction_preview ? L"LOCAL PRACTICE - no external output"
+            : L"LT  Shift       RT  Symbols       View  Close",
             {43, 318, 349, 337}, color(colors.secondary), 11);
+    }
+    if (SUCCEEDED(hr) && state.prediction_preview) {
+        if (prediction.count) {
+            for (std::size_t i = 0; SUCCEEDED(hr) && i < prediction.count; ++i) {
+                const float x = 30 + static_cast<float>(i) * 112;
+                const bool selected = i == prediction.selected;
+                const D2D1_RECT_F chip{x, 352, x + 108, 381};
+                r.fill(chip, 10, color(selected ? colors.selected : colors.surface, colors.alpha));
+                r.brush->SetColor(color(selected ? colors.selected_ink : colors.outline,
+                    r.theme.high_contrast ? 1.0f : 0.65f));
+                r.target->DrawRoundedRectangle(D2D1::RoundedRect(chip, 10, 10), r.brush.Get(), 1);
+                hr = r.label(prediction.words[i], {x + 5, 353, x + 103, 380},
+                    color(selected ? colors.selected_ink : colors.ink), 14, DWRITE_FONT_WEIGHT_SEMI_BOLD, true);
+            }
+        }
+        if (SUCCEEDED(hr) && prediction.count) {
+            r.fill({30, 388, 362, 410}, 10, color(colors.surface, colors.alpha));
+            hr = r.label(L"D-pad Left / Right: choose     Up: append suffix",
+                {34, 389, 358, 409}, color(colors.secondary), 11);
+        }
     }
     const HRESULT draw = r.target->EndDraw();
     if (FAILED(draw)) {
@@ -629,6 +684,8 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
     r.voice_phase = state.voice.phase;
     r.voice_level = voice_level;
     r.voice_hint = voice_hint;
+    r.prediction_preview = state.prediction_preview;
+    r.prediction = std::move(prediction);
     r.valid = true;
     ++r.rasterizations;
     error_.clear();

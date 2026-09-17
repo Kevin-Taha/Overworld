@@ -15,6 +15,7 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Cursor | `CursorPresentation.*`, `CursorRing.*`, `NativeCursor*` | Layered pixels and ownership-safe native hiding |
 | Keyboard | `Keyboard.*`, `KeyboardDelivery.*`, `TextDelivery.*` | Selection, explicit edits, original-target delivery and recovery |
 | Keyboard visuals | `KeyboardVisual.*`, `KeyboardPopup.*`, `KeyboardPreview.*` | Nonactivating alpha popup and no-output previews |
+| Prediction experiment | `WordPrediction.*`, `PredictionPractice.h` | Bounded authored suggestions, in-memory practice sink only |
 | Voice | `Voice.*`, `NativeVoice.*`, `Audio*`, `VoiceModel.*`, `VoiceRecognizer.*` | Bounded capture, validation, local inference, cancellation |
 | Voice view | `VoicePresentation.h`, `VoiceViewAdapter.h` | Backend-independent phase/level/hint snapshots |
 | App UI | `Host.*`, `AppUi.*`, `Resources.h` | Native dashboard, modeless settings, status, tray, lifecycle |
@@ -85,6 +86,36 @@ its target or deadline. Focus notifications are filtered for relevance and
 deduplicated; real field changes and foreground excursions still invalidate the
 target. Caret blinking is not routing identity. HWND identity cannot establish
 internal field identity in every browser or custom control.
+
+### Preview-only word prediction boundary
+
+`TextBoundary::prediction_preview()` defaults to false. The production `Desktop`
+does not override it: live native typing never feeds the predictor. Only
+`PredictionPractice`, a bounded in-memory sink with no native-output dependency,
+opts in. It reuses `KeyboardDelivery` and the real `TextDelivery` queue, event
+ledger, original target checks, cancellation and deadlines rather than bypassing
+delivery for completions.
+
+`TextDelivery::pump` returns at most four fully completed edits per eight-event
+budget. A partial edit or stopped/reentered delivery is not a prefix update.
+The predictor stores at most 16 ASCII letters and three authored candidates;
+an explicit Space/Enter starts a known boundary, and overflow invalidates the
+whole token. Lowercase, title case and uppercase are preserved; no inferred
+Backspace, target value reads or Unicode word-segmentation guesses occur.
+
+D-pad selection/acceptance requires a fresh neutral sample, no other controls,
+the one-handed Group stage and an empty delivery queue. Acceptance consumes a
+generation and enqueues only the validated remaining suffix, using the accepting
+sample's original 100 ms deadline for every character. Pending suffix work never
+feeds itself back into prediction. No space, Enter or replacement is implicit.
+Cancellation, target/context/activity/device changes and voice transitions clear
+the hint and revoke acceptance; dictation is not a prediction source.
+
+The optional 66-DIP practice strip is outside the original wheel/footer. Its
+owning view/cache is bounded, validates actual label fit, and hides chips when
+inactive, voice-active or without a candidate. Normal keyboard dimensions and
+pixels are unchanged. `--prediction-demo` seeds only synthetic keyboard snapshots
+and does not start controller polling.
 
 ## Local voice
 

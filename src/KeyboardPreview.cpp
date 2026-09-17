@@ -2,6 +2,7 @@
 
 #include "Keyboard.h"
 #include "KeyboardVisual.h"
+#include "PredictionPractice.h"
 #include "XInputReader.h"
 
 #include <algorithm>
@@ -54,25 +55,29 @@ public:
         poller_.stop();
     }
 
-    bool create(HINSTANCE instance, int show, KeyboardInputMode mode) {
+    bool create(HINSTANCE instance, int show, KeyboardInputMode mode, bool prediction, bool demo) {
+        prediction_ = prediction;
+        demo_ = demo;
+        const int height = prediction_ ? keyboard_prediction_height : keyboard_visual_height;
         RECT work{};
         if (!work_area(MonitorFromWindow(GetForegroundWindow(), MONITOR_DEFAULTTOPRIMARY), work)) {
             fail(L"Could not read the monitor work area.");
             return false;
         }
         RECT bounds{};
-        if (!window_bounds(GetDpiForSystem(), keyboard_visual_width, keyboard_visual_height, bounds)) {
+        if (!window_bounds(GetDpiForSystem(), keyboard_visual_width, height, bounds)) {
             fail(L"Could not calculate the keyboard preview window size.");
             return false;
         }
         bounds = centered(bounds, work);
-        if (CreateWindowExW(window_ex_style, window_class, window_title, window_style,
+        if (CreateWindowExW(window_ex_style, window_class, prediction_
+                ? L"Word prediction - local practice only; no app text read" : window_title, window_style,
                 bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top,
                 nullptr, nullptr, instance, this) == nullptr) {
             fail(L"Could not create the keyboard preview window.");
             return false;
         }
-        if (!window_bounds(GetDpiForWindow(window_), keyboard_visual_width, keyboard_visual_height, bounds)) {
+        if (!window_bounds(GetDpiForWindow(window_), keyboard_visual_width, height, bounds)) {
             fail(L"Could not calculate the keyboard preview DPI layout.");
             return false;
         }
@@ -84,7 +89,9 @@ public:
         }
         model_.reset();
         model_.set_input_mode(mode);
-        poller_.start();
+        practice_.set_input_mode(mode);
+        if (demo_) { seed_prediction_demo(practice_, mode); }
+        else { poller_.start(); }
         if (SetTimer(window_, refresh_timer, 16, nullptr) == 0) {
             fail(L"Could not start the keyboard preview refresh timer.");
             return false;
@@ -142,6 +149,7 @@ private:
 
     void suspend() {
         model_.suspend();
+        if (prediction_ && !demo_) { practice_.clear(); }
         active_ = false;
         InvalidateRect(window_, nullptr, FALSE);
     }
@@ -159,6 +167,18 @@ private:
                 }
                 const bool activated = !active_;
                 active_ = true;
+                if (prediction_) {
+                    if (!demo_) {
+                        practice_.activate();
+                        const bool was_visible = practice_.keyboard().visible();
+                        practice_.step(poller_.latest(), monotonic_now());
+                        if (was_visible && !practice_.keyboard().visible()) {
+                            practice_.clear();
+                        }
+                    }
+                    InvalidateRect(window, nullptr, FALSE);
+                    return 0;
+                }
                 const KeyboardAction action = model_.step(poller_.latest(), monotonic_now());
                 if (action == KeyboardAction::Cancel) {
                     DestroyWindow(window);
@@ -178,6 +198,18 @@ private:
                 DestroyWindow(window);
                 return 0;
             }
+            if (prediction_ && !demo_) { suspend(); }
+            break;
+        case WM_SYSKEYDOWN:
+        case WM_LBUTTONDOWN:
+        case WM_RBUTTONDOWN:
+        case WM_MBUTTONDOWN:
+        case WM_MOUSEWHEEL:
+            if (prediction_ && !demo_) { suspend(); }
+            break;
+        case WM_MOUSEMOVE:
+            if (prediction_ && !demo_ && mouse_position_ && *mouse_position_ != lparam) { suspend(); }
+            mouse_position_ = lparam;
             break;
         case WM_ERASEBKGND:
             return 1;
@@ -199,7 +231,8 @@ private:
         case WM_GETMINMAXINFO: {
             RECT minimum{};
             RECT work{};
-            if (window_bounds(GetDpiForWindow(window), minimum_width, minimum_height, minimum)
+            if (window_bounds(GetDpiForWindow(window), minimum_width,
+                    prediction_ ? keyboard_prediction_height : minimum_height, minimum)
                 && work_area(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), work)) {
                 auto* limits = reinterpret_cast<MINMAXINFO*>(lparam);
                 limits->ptMinTrackSize.x = std::min(minimum.right - minimum.left, work.right - work.left);
@@ -249,6 +282,19 @@ private:
     }
 
     void paint(HWND window) {
+        if (prediction_) {
+            KeyboardVisualState state{active_, true, {}, {}};
+            state.prediction_preview = true;
+            state.prediction = practice_.keyboard().prediction_view();
+            state.practice_sample = practice_.sample();
+            const auto status = practice_.keyboard().status();
+            if (!practice_.keyboard().accepts_typing()) {
+                state.message = practice_.keyboard().phase() == DesktopKeyboardPhase::Paused
+                    ? std::wstring_view(status) : L"Practice only: Y opens; no app text is read";
+            }
+            if (!visual_.paint(window, practice_.keyboard().model(), state)) { fail(visual_.error().c_str()); }
+            return;
+        }
         const KeyboardVisualState state{active_, true,
             model_.phase() == KeyboardPhase::Complete ? L"Preview complete - Menu restarts" : L"", {}};
         if (!visual_.paint(window, model_, state)) {
@@ -258,14 +304,18 @@ private:
 
     HWND window_ = nullptr;
     Daisywheel model_;
+    PredictionPractice practice_;
     ControllerPoller poller_;
     KeyboardVisual visual_;
     std::wstring error_;
     bool active_ = false;
+    bool prediction_ = false;
+    bool demo_ = false;
+    std::optional<LPARAM> mouse_position_;
 };
 } // namespace
 
-int run_keyboard_preview(HINSTANCE instance, int show, KeyboardInputMode mode) {
+int run_keyboard_preview(HINSTANCE instance, int show, KeyboardInputMode mode, bool prediction, bool demo) {
     WNDCLASSEXW type{};
     type.cbSize = sizeof(type);
     type.style = CS_HREDRAW | CS_VREDRAW;
@@ -283,7 +333,7 @@ int run_keyboard_preview(HINSTANCE instance, int show, KeyboardInputMode mode) {
     std::wstring error;
     try {
         Preview preview;
-        if (preview.create(instance, show, mode)) {
+        if (preview.create(instance, show, mode, prediction, demo)) {
             MSG message{};
             int status = 0;
             while ((status = static_cast<int>(GetMessageW(&message, nullptr, 0, 0))) > 0) {

@@ -27,6 +27,13 @@ Retain regressions for accepted-down/up accounting, cancellation, stale samples,
 focus excursions, same-HWND field changes, expired capture leases, invalid model
 bytes, strict migration, and ambiguous injected-source handling.
 
+Prediction regressions are part of `gamepad_delivery_tests`, not a native-input
+test. They cover the authored vocabulary, case/boundary rules, bounded prefixes
+and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
+target/context/physical/device changes, queue limits, both controller modes,
+mixed D-pad/action gestures, voice transitions, and the in-memory practice sink.
+Native boundary prediction stays default-off and never receives prefix hints.
+
 ## Render-only checks
 
 These targets are opt-in and excluded from default CTest because they create
@@ -43,6 +50,15 @@ Keyboard tests verify actual DirectWrite ink bounds, alpha/premultiplication,
 contrast, transparent space, idle equivalence, and resource reuse. App tests check
 native control geometry, tab order, DPI layout, and capability feedback.
 Rendered artifacts are local review evidence, not repository content.
+
+The keyboard visual suite also exports synthetic `prediction-*` frames from the
+actual no-output practice model. It checks light/dark and both high-contrast
+palettes at 100/150/200%, actual DirectWrite label fit, 4.5:1 suggestion ink,
+unchanged wheel pixels, premultiplied alpha, owning cached strings, idle reuse,
+and hidden chips during inactivity/voice/no-prefix states. No real app text is
+used. `--prediction-demo` is a separate static no-output UI demo; it starts no
+controller poller, mapper, microphone or hook. Preview-only success does not
+validate external-app prediction or universal password detection.
 
 Do not use `PrintWindow` success alone as visibility evidence for layered windows.
 Inspect exact renderer frames at native and scaled DPI over light/dark backdrops.

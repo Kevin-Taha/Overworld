@@ -1731,12 +1731,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     }
     const bool restore = argc == 2 && std::wstring_view{argv[1]} == L"--restore-cursor";
     const bool inspection = argc == 2 && std::wstring_view{argv[1]} == L"--inspect";
-    const bool one_hand_preview = argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview-one-handed";
-    const bool keyboard_preview = one_hand_preview || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview");
+    const bool prediction_demo = argc == 2 && std::wstring_view{argv[1]} == L"--prediction-demo";
+    const bool prediction_onehand = argc == 2 && std::wstring_view{argv[1]} == L"--prediction-preview-one-handed";
+    const bool prediction_preview = prediction_demo || prediction_onehand
+        || (argc == 2 && std::wstring_view{argv[1]} == L"--prediction-preview");
+    const bool one_hand_preview = prediction_onehand
+        || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview-one-handed");
+    const bool keyboard_preview = prediction_preview || one_hand_preview
+        || (argc == 2 && std::wstring_view{argv[1]} == L"--keyboard-preview");
     const bool valid_arguments = argc == 1 || restore || inspection || keyboard_preview;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nBoth keyboard previews are local only; inspect disables input; recovery shows the Windows pointer.",
+        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--inspect | --keyboard-preview | --keyboard-preview-one-handed | --prediction-preview | --prediction-preview-one-handed | --prediction-demo | --restore-cursor]\r\nPreviews are local only; prediction is an in-memory practice experiment, never external output. The prediction demo uses synthetic input only.",
             L"Gamepad Desktop", MB_OK | MB_ICONERROR);
         return 2;
     }
@@ -1794,7 +1800,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         result = restored && released ? 0 : 1;
     } else if (keyboard_preview) {
         result = gamepad::run_keyboard_preview(instance, show,
-            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
+            one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons,
+            prediction_preview, prediction_demo);
     } else {
         Host host(inspection);
         result = host.create(instance, show) ? host.run() : 1;
