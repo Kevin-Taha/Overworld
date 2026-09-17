@@ -17,6 +17,35 @@ the native hook. Settings tests write only to their owned test-scratch directory
 ARM64 tests can be built by cross-compilation, but must be executed on an
 appropriate ARM64 environment.
 
+`gamepad_launch_tests` verifies separate shipping/development argument parsers,
+including invalid `--practice` and malformed flags never activating the mapper.
+`gamepad_practice_isolation_tests` checks the shared instance guard, separate
+development entry, actual CMake shared-library dependency contracts, no shipping
+or default-ALL practice linkage, and forbidden native boundaries. Neither starts
+the app.
+
+For a focused shipping change:
+
+```powershell
+ctest --test-dir out\x64 -C Release -R '^gamepad_(keyboard|delivery)_tests$' --output-on-failure
+```
+
+Retain regressions for accepted-down/up accounting, cancellation, stale samples,
+focus excursions, same-HWND field changes, expired capture leases, invalid model
+bytes, strict migration, and ambiguous injected-source handling.
+
+## Explicit deterministic development harness tests
+
+These targets and the practice libraries are excluded from `ALL_BUILD` and
+default CTest so no development implementation is a transitive default build
+dependency. Build/run them deliberately without any live controller backend:
+
+```powershell
+cmake --build out\x64 --config Release --target gamepad_practice_tests gamepad_practice_reader_tests --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\gamepad_practice_tests.exe
+.\out\x64\Release\gamepad_practice_reader_tests.exe
+```
+
 `gamepad_practice_tests` exercises five-skill progress, local typing and
 one-handed selection, real pointer precision/scaling, release-only clicks,
 drag cancellation, focus/physical takeover, stale/rollback samples, reconnects,
@@ -31,19 +60,9 @@ the same message pretranslator to verify hold cancellation and matching release.
 slot zero followed by revocation, focus loss, or lease expiry must not query
 slots 1-3 or publish a partial batch. It also tests the final publication gate,
 terminal stop, 250 ms shutdown failure, and retained state after destruction.
-It has no XInput backend linked and is bounded by a ten-second CTest timeout.
-`gamepad_practice_isolation_tests` checks the shared-guard/pre-Host launch branch
-and forbidden native boundaries in practice sources. Neither starts the app.
-
-For a focused change:
-
-```powershell
-ctest --test-dir out\x64 -C Release -R '^gamepad_(keyboard|delivery)_tests$' --output-on-failure
-```
-
-Retain regressions for accepted-down/up accounting, cancellation, stale samples,
-focus excursions, same-HWND field changes, expired capture leases, invalid model
-bytes, strict migration, and ambiguous injected-source handling.
+It has no XInput backend linked; all fake waits and stop operations are bounded.
+Exact Pointer response and production-layout typing contracts ensure
+the harness does not develop private motion/character behavior.
 
 ## Render-only checks
 
@@ -81,7 +100,7 @@ Do not use `PrintWindow` success alone as visibility evidence for layered window
 Inspect exact renderer frames at native and scaled DPI over light/dark backdrops.
 Actual assistive-technology and multi-monitor behavior still needs device testing.
 
-### Practice frames
+### Development harness frames
 
 The separate practice helper has no XInput, desktop-output, cursor-hiding,
 microphone, or hook adapter linked. It creates only hidden owned windows and
@@ -105,14 +124,21 @@ used as evidence of visibility. All PNGs
 are produced from the real renderer; inspect them rather than treating a paint
 return value as visibility evidence. Existing keyboard visual tests separately
 cover the reused keyboard's glyph geometry and alpha.
+The helper and development executable link the same `gamepad_practice_view`;
+the shipping executable and harness link the same keyboard, cursor-pixel, and
+app appearance libraries. Harness keyboard/cursor buffers are compared exactly
+with production component pixels, not with copied expected artwork.
 
-Morning device trials must be deliberate: close all other instances, launch
-`GamepadDesktop.exe --practice`, select its window, center the controller, and
+Development device trials must be deliberate: explicitly build
+`GamepadDesktopPractice`, close all other instances, launch
+`GamepadDesktopPractice.exe`, select its window, center the controller, and
 try the five skills. Point and tap A on Retry/Help/Reset, close the keyboard with
 View before navigating, and leave/return to the window during a drag to confirm
 neutral reacquisition. Practice itself never starts microphone capture or
 desktop mapping. Render/model tests do not establish controller hardware,
 screen-reader, multi-monitor, or actual live-application compatibility.
+This is not a product feature or release asset; see the
+[development harness map](PRACTICE-HARNESS.md) for real versus unexercised surfaces.
 
 ## Owned-message probes
 

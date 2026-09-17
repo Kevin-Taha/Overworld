@@ -11,6 +11,9 @@ whether it is a standalone checkout or nested in another repository.
 - Keep one native Windows application. Preserve existing controller mappings,
   pointer defaults, one-handed selection, and accessible native settings controls
   unless a task explicitly changes them.
+- Practice is a development-only component harness, not a product mode. Keep
+  `GamepadDesktopPractice` excluded from the default build and release assets.
+  Never add its launch route or modules to the shipping `GamepadDesktop` target.
 - Mouse and keyboard takeover, session/integrity checks, exclusions, original text
   target identity, and pending-output recovery are safety boundaries, not
   compatibility obstacles to bypass.
@@ -33,6 +36,16 @@ whether it is a standalone checkout or nested in another repository.
 
 - Make focused changes, reuse existing boundaries, and retain meaningful safety
   regressions. Read local instructions before editing; preserve unrelated work.
+- Product model/rendering changes must flow into the development harness through
+  the same compiled libraries, not copied widgets, alphabets, motion curves, or
+  cursor artwork. For relevant new features, update the harness scenario,
+  component contract tests, and `docs/PRACTICE-HARNESS.md` in the same change.
+  If a feature cannot run there safely, document it as not exercised and add a
+  bounded fake fixture where appropriate; never imply external delivery, voice,
+  or native safety checks were simulated successfully.
+- Preserve the harness's shared mapper guard, reader's per-slot/original-lease
+  checks and terminal bounded shutdown, takeover timestamp fences, matching
+  Space-release cleanup, and one-handed local page retention.
 - Application code uses MSVC C++20 with `/W4 /WX`. Keep clang-cl isolated to the
   pinned Whisper/ggml dependency build, with compatible architecture and static
   CRT. Requested but unavailable voice dependencies must fail explicitly.

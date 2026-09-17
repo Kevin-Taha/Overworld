@@ -12,8 +12,8 @@ namespace gamepad {
 
 struct Settings {
     live::PointerSettings pointer;
-    int ring_diameter = 28; // DIPs, nominal cursor size; existing saved sizes are preserved.
-    CursorStyle cursor_style = CursorStyle::Arrow;
+    int ring_diameter = default_cursor_size; // DIPs, nominal cursor size; existing saved sizes are preserved.
+    CursorStyle cursor_style = default_cursor_style;
     live::ExecutableExclusions exclusions;
     bool automatic_game_switching = true;
     // Opt-in stick-only two-flick keyboard selection; existing files default to FaceButtons.

@@ -1,6 +1,6 @@
 #include "Practice.h"
-#include "LaunchMode.h"
 
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 
@@ -298,20 +298,55 @@ void launch()
     check(!reader_lease_current(1050, 1050) && !reader_lease_current(1050, 1051)
         && !reader_lease_current(1050, 999) && !reader_lease_current(0, 0),
         "expired, future-clock, and absent reader leases fail closed");
-    check(launch_mode({}) == LaunchMode::Desktop, "normal default unchanged");
-    for (const auto flag : {L"--practice", L"--inspect", L"--keyboard-preview", L"--keyboard-preview-one-handed"}) {
-        const std::array<std::wstring_view, 1> args{flag};
-        check(launch_mode(args) != LaunchMode::Desktop && launch_mode(args) != LaunchMode::Invalid, "explicit no-output mode recognized");
-        const std::array<std::wstring_view, 2> mixed{flag, L"--restore-cursor"};
-        check(launch_mode(mixed) == LaunchMode::Invalid, "mixed flags never activate output or cursor recovery");
+}
+void production_component_contracts()
+{
+    for (const double scale : {1.0, 1.5, 2.0}) {
+        Fixture f;
+        f.model.select(Lesson::Scroll); f.tick();
+        check(f.model.display_scale(scale), "contract scale accepted");
+        f.model.move_local({300, 180});
+        f.pad().left_x = 16000; f.tick();
+        live::Pointer reference;
+        reference.reset(f.now);
+        live::PointerSettings defaults;
+        defaults.speed /= scale;
+        const live::Rect bounds{-scene_left + 15, -scene_top + 15,
+            canvas_width - scene_left - 16, canvas_height - scene_top - 16};
+        for (const std::int16_t axis : {std::int16_t{6000}, std::int16_t{9000}, std::int16_t{16000},
+            std::int16_t{32767}, std::int16_t{-17000}, std::int16_t{0}}) {
+            for (unsigned sample = 0; sample < 8; ++sample) {
+                f.pad().left_x = axis;
+                f.pad().right_y = -16000;
+                f.pad().buttons = sample < 4 ? 0x0100 : 0;
+                const auto expected = reference.step(f.pad(), f.model.pointer(), bounds, f.now + 16, true, defaults);
+                const int scroll = live::contains(scroll_area, expected.point)
+                    ? std::clamp(f.model.scroll_offset() - expected.wheel, 0, 480) : f.model.scroll_offset();
+                f.tick();
+                check(f.model.pointer() == expected.point && f.model.scroll_offset() == scroll,
+                    "harness motion and scrolling must exactly follow production Pointer defaults/hysteresis/precision");
+            }
+        }
     }
-    const std::array<std::wstring_view, 1> invalid{L"--Practice"};
-    check(launch_mode(invalid) == LaunchMode::Invalid, "typos fail closed");
+    for (unsigned page = 0; page < 4; ++page) {
+        for (unsigned group = 0; group < 7; ++group) {
+            for (unsigned face = 0; face < 4; ++face) {
+                Model model;
+                model.one_handed(true);
+                model.open_keyboard();
+                for (unsigned cycle = 0; cycle < page; ++cycle) { model.keyboard_local(7, 2, 1000); }
+                model.keyboard_local(group, face, 1000);
+                const wchar_t expected = keyboard_layout(static_cast<KeyboardPage>(page), KeyboardInputMode::OneHanded)[group][face];
+                check(model.keyboard().text() == std::wstring(1, expected),
+                    "fallback uses production Daisywheel page/group/face layout, never a private alphabet");
+            }
+        }
+    }
 }
 }
 int main()
 {
-    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); }
+    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); production_component_contracts(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Practice: launch isolation, five skills, real models, reconnect, takeover, reset passed.\n";
 }

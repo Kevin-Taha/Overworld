@@ -4,7 +4,7 @@
 #include <string_view>
 
 namespace gamepad {
-enum class LaunchMode { Desktop, Inspect, Keyboard, OneHandedKeyboard, RestoreCursor, Practice, Invalid };
+enum class LaunchMode { Desktop, Inspect, Keyboard, OneHandedKeyboard, RestoreCursor, Invalid };
 
 // Arguments exclude the executable name. Never fall back to live mode on an unrecognized flag.
 constexpr LaunchMode launch_mode(std::span<const std::wstring_view> arguments)
@@ -16,7 +16,6 @@ constexpr LaunchMode launch_mode(std::span<const std::wstring_view> arguments)
     if (value == L"--keyboard-preview") { return LaunchMode::Keyboard; }
     if (value == L"--keyboard-preview-one-handed") { return LaunchMode::OneHandedKeyboard; }
     if (value == L"--restore-cursor") { return LaunchMode::RestoreCursor; }
-    if (value == L"--practice") { return LaunchMode::Practice; }
     return LaunchMode::Invalid;
 }
 } // namespace gamepad

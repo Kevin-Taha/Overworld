@@ -1,4 +1,5 @@
 #include "PracticeWindow.h"
+#include "PracticeLaunch.h"
 
 #include <windowsx.h>
 #include <algorithm>
@@ -8,7 +9,7 @@
 namespace gamepad::practice {
 namespace {
 constexpr wchar_t window_class[] = L"GamepadDesktop.Practice";
-constexpr wchar_t title[] = L"Practice - no desktop input";
+constexpr auto title = window_title;
 constexpr DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
 Tick clock_now()
 {

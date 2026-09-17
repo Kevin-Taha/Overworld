@@ -32,6 +32,25 @@ Use `-A ARM64` and a separate `out\arm64` directory for ARM64.
 The generated executable is `out\<build>\Release\GamepadDesktop.exe`.
 Default tests do not launch the live application or microphone.
 
+## Development-only component harness
+
+Practice is not a shipping mode. The interactive development target and its
+render-only helper must be built explicitly:
+
+```powershell
+cmake --build out\x64 --config Release --target GamepadDesktopPractice gamepad_practice_visual_tests --parallel 1 -- /nodeReuse:false
+# Deliberate, separately authorized interactive demo only:
+.\out\x64\Release\GamepadDesktopPractice.exe
+```
+
+Use the matching ARM64 build directory to cross-compile both targets. The
+harness links shared production Pointer, Daisywheel, keyboard/cursor rendering,
+app appearance, and XInput libraries, but not the voice backend or model.
+It can be built with voice OFF and `BUILD_TESTING=OFF` (omit the test target).
+The shipping `GamepadDesktop` target never links practice modules and rejects
+`--practice` instead of starting the mapper. See the
+[harness component map](PRACTICE-HARNESS.md) before interpreting demo results.
+
 ## x64 local voice
 
 The default x64 voice route downloads a hash-pinned whisper.cpp source archive
@@ -103,6 +122,8 @@ Include `voice-licenses\whisper.cpp-LICENSE.txt` from the build and
 named third-party code/model, not a new license for this application's source.
 LLVM, SDK, MSVC, static libraries, headers, PDBs, compiler logs, fixture audio, and
 model caches are not application release assets.
+`GamepadDesktopPractice.exe` and all probe/test executables are development-only
+and must never be included in product release assets or added as product modes.
 
 ## Build identity
 

@@ -3,6 +3,7 @@
 #include "AppUi.h"
 #include "KeyboardVisual.h"
 #include "Practice.h"
+#include "RingPixels.h"
 
 namespace gamepad::practice {
 enum ControlId {
@@ -42,6 +43,8 @@ public:
     bool render(int width, int height, const Model& model, const AppPalette& palette, bool help, unsigned group);
     bool save_png(const wchar_t* path);
     [[nodiscard]] Frame frame() const;
+    [[nodiscard]] KeyboardVisualFrame keyboard_frame() const;
+    [[nodiscard]] std::span<const std::uint32_t> cursor_frame() const;
     [[nodiscard]] const std::wstring& error() const { return error_; }
 private:
     class Resources;

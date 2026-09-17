@@ -1,0 +1,40 @@
+#include "LaunchMode.h"
+#include "PracticeLaunch.h"
+
+#include <array>
+#include <iostream>
+#include <stdexcept>
+
+using namespace gamepad;
+namespace {
+void check(bool value, const char* message)
+{
+    if (!value) { throw std::runtime_error(message); }
+}
+}
+int main()
+{
+    try {
+        check(launch_mode({}) == LaunchMode::Desktop, "shipping default remains desktop");
+        check(practice::launch({}) == practice::Launch::Run, "separate development exe opens only its harness");
+        for (const auto [flag, expected] : std::array{
+            std::pair{L"--inspect", LaunchMode::Inspect},
+            std::pair{L"--keyboard-preview", LaunchMode::Keyboard},
+            std::pair{L"--keyboard-preview-one-handed", LaunchMode::OneHandedKeyboard},
+            std::pair{L"--restore-cursor", LaunchMode::RestoreCursor}}) {
+            const std::array<std::wstring_view, 1> argument{flag};
+            check(launch_mode(argument) == expected, "supported production mode unchanged");
+            check(practice::launch(argument) == practice::Launch::Invalid, "development exe rejects production flags");
+        }
+        for (const auto flag : {L"--practice", L"--Practice", L"--dev", L"--render-only", L"--help", L"--inspect=1", L""}) {
+            const std::array<std::wstring_view, 1> argument{flag};
+            check(launch_mode(argument) == LaunchMode::Invalid, "unknown/development flags never activate shipping mapper");
+            check(practice::launch(argument) == (argument[0] == L"--help" ? practice::Launch::Help : practice::Launch::Invalid),
+                "development arguments fail closed except explicit help");
+            const std::array<std::wstring_view, 2> mixed{flag, L"--inspect"};
+            check(launch_mode(mixed) == LaunchMode::Invalid && practice::launch(mixed) == practice::Launch::Invalid,
+                "mixed arguments cannot start either host");
+        }
+    } catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
+    std::cout << "PASS separate shipping/development parsers; obsolete practice and malformed flags fail closed.\n";
+}

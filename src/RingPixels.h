@@ -10,6 +10,8 @@
 
 namespace gamepad {
 enum class CursorStyle { Ring, Dot, Brackets, Arrow };
+inline constexpr int default_cursor_size = 28;
+inline constexpr CursorStyle default_cursor_style = CursorStyle::Arrow;
 struct CursorStyleChoice {
     CursorStyle style;
     std::wstring_view key;

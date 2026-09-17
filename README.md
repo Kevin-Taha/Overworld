@@ -29,36 +29,6 @@ other copy before launching `GamepadDesktop.exe`. **Details** and Windows file
 properties identify the version, source fingerprint, architecture, and voice
 flavor. Source builds are described in [Building](docs/BUILDING.md).
 
-### Learn safely with Practice
-
-Run `GamepadDesktop.exe --practice`, then select its **Practice - no desktop
-input** window. Close other copies first. This deliberate, nonpersistent mode
-does not start the desktop mapper, change the Windows cursor, install a hook,
-record audio, inspect text fields, or save settings.
-
-Five short skills cover aiming (including LB precision), A versus X clicks,
-holding A to drag, right-stick scrolling, and Y to open the actual controller
-keyboard with a bounded local typing sample. The ring and all clicks stay inside
-Practice. Move it onto any practice button and tap A to activate that button.
-Menu advances to the next skill; View closes the keyboard/help first, or exits
-Practice. **Retry skill**, **Reset all progress**, and **Controls / Help** are
-always available. Skills can be skipped; only demonstrated actions earn progress.
-
-Tab through the native controls for a mouse/keyboard fallback. With the scene
-focused, arrows move the ring, Enter clicks, Space holds a drag, X right-clicks,
-Page Up/Down scroll, and Y opens the keyboard. The local group and A/B/X/Y buttons
-also exercise character selection. F1 opens help; Escape closes keyboard/help/options
-first, or exits. **Mode: face buttons** toggles the existing one-handed flicks
-model for this session only. Close the keyboard with View to point at other
-practice buttons.
-
-Leaving the window, local physical takeover, stale input, or a controller change
-cancels in-progress gestures; center and release the controller before resuming.
-No XInput sampling occurs while Practice is backgrounded. Voice help explains
-right-stick click and **Listening**, but never records or reports a microphone
-success. Progress describes only this local exercise, not real-device or
-application compatibility. Normal launch without `--practice` is unchanged.
-
 ### Pointer and mode controls
 
 | Input | Action |
@@ -168,6 +138,12 @@ changes. Defaults affect the editor until saved. Back up settings before returni
 to an older executable, which may not understand the current schema.
 
 ## Development
+
+The [Practice component harness](docs/PRACTICE-HARNESS.md) is a separately built
+development/demo tool, **not a product feature or release asset**. It links the
+same production models and rendering libraries, with an owned scene instead of
+external input delivery. `GamepadDesktop.exe --practice` is not supported; it
+exits as an invalid command rather than starting desktop control.
 
 - [Building and release files](docs/BUILDING.md)
 - [Testing and interactive-test safety](docs/TESTING.md)

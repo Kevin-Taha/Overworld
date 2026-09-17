@@ -51,12 +51,51 @@ void inspect(const Frame& frame)
         check(varied, "glyph rectangle must contain visible pixels, not just successful paint calls");
     }
 }
+class SharedTheme final : public KeyboardThemeSource {
+public:
+    KeyboardTheme theme;
+    HRESULT read(KeyboardTheme& result) override { result = theme; return S_OK; }
+};
+void shared_pixels(Visual& visual, int width, int height, const Model& model, const AppPalette& palette, bool help)
+{
+    const float scale = layout(width, height).scale;
+    if (model.keyboard_open() && !help) {
+        const auto rgb = [](COLORREF value) {
+            return (static_cast<std::uint32_t>(GetRValue(value)) << 16) | (GetGValue(value) << 8) | GetBValue(value);
+        };
+        SharedTheme theme;
+        theme.theme = {palette.dark, palette.high_contrast, rgb(palette.surface), rgb(palette.text),
+            rgb(palette.accent), rgb(palette.accent_text)};
+        KeyboardVisual production(&theme);
+        check(production.render(static_cast<int>(std::lround(keyboard_visual_width * scale)),
+            static_cast<int>(std::lround(keyboard_visual_height * scale)), model.keyboard(),
+            {model.input() == InputState::Ready, true, {}, {}}), "production keyboard reference renders");
+        const auto actual = visual.keyboard_frame(), expected = production.frame();
+        check(actual.width == expected.width && actual.height == expected.height
+            && std::equal(actual.pixels.begin(), actual.pixels.end(), expected.pixels.begin(), expected.pixels.end()),
+            "harness keyboard backing pixels must exactly match the shared production renderer");
+        check(actual.glyphs.size() == expected.glyphs.size(), "harness uses the production glyph layout");
+        for (std::size_t i = 0; i < actual.glyphs.size(); ++i) {
+            const auto& a = actual.glyphs[i]; const auto& b = expected.glyphs[i];
+            check(a.left == b.left && a.right == b.right && a.top == b.top && a.bottom == b.bottom
+                && a.character == b.character && a.face == b.face && a.petal == b.petal,
+                "harness must preserve production character identity and exact ink geometry");
+        }
+    } else {
+        const auto dpi = static_cast<unsigned>(std::max(96l, std::lround(96 * scale)));
+        const auto expected = cursor_pixels(dpi, default_cursor_size, default_cursor_style);
+        const auto actual = visual.cursor_frame();
+        check(!actual.empty() && std::equal(actual.begin(), actual.end(), expected.begin(), expected.end()),
+            "harness cursor uses actual production cursor pixels/defaults, not independent artwork");
+    }
+}
 void render(Visual& visual, int width, int height, const Model& model, const AppPalette& palette, bool help = false)
 {
     if (!visual.render(width, height, model, palette, help, 0)) {
         std::wcerr << visual.error() << L'\n'; throw std::runtime_error("render failed");
     }
     inspect(visual.frame());
+    shared_pixels(visual, width, height, model, palette, help);
 }
 void progress(Model& model, Lesson lesson)
 {

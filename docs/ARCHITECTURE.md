@@ -24,13 +24,24 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Simulator | `Core.*` | Shared snapshot types and retained dry-run model; not a second output boundary |
 | Practice | `Practice.*`, `PracticeWindow.*`, `PracticeVisual.*`, `PracticeReader.*` | Pure lesson state, owned native scene, scoped observation worker; no desktop output |
 
-## Deliberate practice
+## Development-only practice harness
 
-`LaunchMode.h` parses explicit modes strictly. `--practice` branches after the
-same single-mapper mutex and before any `Host` construction. Practice and all
-other no-output invocations refuse an existing instance rather than forwarding
-an activation to a live mapper. Starting the normal app while Practice owns the
-guard cannot start another mapper.
+Practice is not a product mode. `GamepadDesktopPractice` is an explicit
+`EXCLUDE_FROM_ALL` target with a separate `PracticeHost.cpp` entry point.
+The shipping `GamepadDesktop` target contains no practice modules and its
+strict `LaunchMode.h` parser rejects `--practice` and other unsupported flags
+before acquiring any instance guard or constructing the live Host.
+Both executables use `MapperInstanceGuard` with the existing single-mapper
+mutex name; the harness cannot coexist with another live mapper.
+
+The [harness component map](PRACTICE-HARNESS.md) is the coverage contract.
+Pointer/Daisywheel, keyboard rendering, cursor pixels/defaults, app appearance,
+and XInput each have one shared-library compilation owner linked by both
+targets. `PracticeVisual` composes actual keyboard/cursor renderer pixels rather
+than reimplementing their widgets or artwork. Configure-time target contracts,
+default tests, and opt-in pixel comparisons guard that relationship.
+Practice implementation libraries and their deterministic/render test executables
+are also excluded: no default target may transitively pull them into `ALL_BUILD`.
 
 Practice owns only scene state and native child controls. `PracticeWindow` receives
 an observation-only source. A reader thread is authorized by a 50 ms lease only

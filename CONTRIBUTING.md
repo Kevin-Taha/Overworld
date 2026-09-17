@@ -17,6 +17,27 @@ existing third-party notices.
 5. Describe the behavior changed, commands run, and remaining device/runtime
    limitations. Do not claim microphone or application compatibility from a build.
 
+## Development component harness
+
+`GamepadDesktopPractice` is an explicitly built development/demo target, not part
+of the shipping app or release packaging. See the
+[component map and launch instructions](docs/PRACTICE-HARNESS.md).
+
+When changing a component demonstrated there, link the same production library
+and update its harness scenario, deterministic contracts, and render checks in
+the same change. Do not maintain parallel keyboard widgets, character layouts,
+pointer response curves, or cursor artwork. Shared component edits must appear
+in both executables after rebuilding. The test world and its local input sink
+are fixtures, not a second implementation of desktop delivery or a product
+onboarding flow.
+
+For new product features, explicitly state whether the harness exercises the
+real component, a bounded fake boundary, or neither. Add a relevant fixture and
+update its component map where safe; document unsupported external delivery,
+capture, or OS interactions rather than adding them to the harness. Preserve
+its reader shutdown, handoff, local hold/page, and no-output contracts. Do not
+add the development executable to the default build, product CLI, or releases.
+
 ## Safety and privacy
 
 Do not automatically launch the live mapper, install its optional hook, record a

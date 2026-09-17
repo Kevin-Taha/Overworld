@@ -111,7 +111,7 @@ private:
     Daisywheel keyboard_;
     KeyboardPage local_page_ = KeyboardPage::Letters;
     bool local_keyboard_ = false;
-    std::wstring_view feedback_ = L"Move the ring onto each numbered target.";
+    std::wstring_view feedback_ = L"Move the pointer onto each numbered target.";
 };
 
 // Own-window keyboard messages only; never a global hook or asynchronous key observer.

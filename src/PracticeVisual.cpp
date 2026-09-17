@@ -1,4 +1,5 @@
 #include "PracticeVisual.h"
+#include "PracticeLaunch.h"
 
 #include <d2d1.h>
 #include <dwrite.h>
@@ -75,7 +76,7 @@ std::vector<Control> controls(const Model& model, bool help, unsigned group)
             + L". Use the group and A, B, X, Y buttons below, or keys 1 to 4. View closes the keyboard."
         : std::wstring(L"Practice scene. Arrow keys move; Enter clicks; hold Space to drag; X right clicks; Page Down scrolls; Y opens keyboard.");
     std::vector<Control> result{
-        {Title, {30, 10, 969, 51}, L"Practice - no desktop input"},
+        {Title, {30, 10, 969, 51}, window_title},
         {InputStatus, {30, 54, 969, 80}, std::wstring(input_text(model.input()))},
         {Guidance, {678, 150, 969, help ? 529 : 443}, std::move(guide)},
         {Feedback, {30, 594, 969, 648}, std::wstring(model.feedback())},
@@ -131,7 +132,7 @@ public:
     ~Resources()
     {
         wheel.reset();
-        wheel_bitmap.Reset(); brush.Reset(); target.Reset(); bitmap.Reset(); format.Reset();
+        cursor_bitmap.Reset(); wheel_bitmap.Reset(); brush.Reset(); target.Reset(); bitmap.Reset(); format.Reset();
         wic.Reset(); write.Reset(); factory.Reset();
         if (uninitialize) { CoUninitialize(); }
     }
@@ -153,7 +154,7 @@ public:
             wheel = std::make_unique<KeyboardVisual>(&theme);
         }
         if (width == w && height == h && target) { return S_OK; }
-        wheel_bitmap.Reset(); brush.Reset(); target.Reset(); bitmap.Reset();
+        cursor_bitmap.Reset(); wheel_bitmap.Reset(); brush.Reset(); target.Reset(); bitmap.Reset();
         hr = wic->CreateBitmap(static_cast<UINT>(w), static_cast<UINT>(h), GUID_WICPixelFormat32bppPBGRA,
             WICBitmapCacheOnLoad, bitmap.GetAddressOf());
         if (SUCCEEDED(hr)) { hr = factory->CreateWicBitmapRenderTarget(bitmap.Get(),
@@ -204,6 +205,9 @@ public:
     ComPtr<ID2D1RenderTarget> target;
     ComPtr<ID2D1SolidColorBrush> brush;
     ComPtr<ID2D1Bitmap> wheel_bitmap;
+    ComPtr<ID2D1Bitmap> cursor_bitmap;
+    RingGeometry cursor_geometry{};
+    std::vector<std::uint32_t> cursor_pixels;
     std::uint64_t wheel_rasterizations = 0;
     std::optional<RenderKey> key;
     Theme theme;
@@ -221,6 +225,11 @@ Frame Visual::frame() const
     const auto& r = *resources_;
     return {r.width, r.height, r.pixels, r.geometry, r.allocations, r.rasterizations};
 }
+KeyboardVisualFrame Visual::keyboard_frame() const
+{
+    return resources_->wheel ? resources_->wheel->frame() : KeyboardVisualFrame{};
+}
+std::span<const std::uint32_t> Visual::cursor_frame() const { return resources_->cursor_pixels; }
 bool Visual::render(int width, int height, const Model& model, const AppPalette& p, bool help, unsigned group)
 {
     if (width < 400 || height < 296 || width > 4000 || height > 2960) {
@@ -416,12 +425,24 @@ bool Visual::render(int width, int height, const Model& model, const AppPalette&
     r.target->PopAxisAlignedClip();
     if (!model.keyboard_open() || help) {
         const auto point = model.pointer();
-        const D2D1_POINT_2F center{static_cast<float>(point.x), static_cast<float>(point.y)};
-        r.brush->SetColor(color(p.surface));
-        r.target->DrawEllipse(D2D1::Ellipse(center, 12, 12), r.brush.Get(), 6);
-        r.brush->SetColor(color(p.accent));
-        r.target->DrawEllipse(D2D1::Ellipse(center, 12, 12), r.brush.Get(), 3);
-        r.target->FillEllipse(D2D1::Ellipse(center, 2, 2), r.brush.Get());
+        if (!r.cursor_bitmap && SUCCEEDED(hr)) {
+            const auto dpi = static_cast<unsigned>(std::max(96l, std::lround(96 * view.scale)));
+            const auto geometry = gamepad::cursor_geometry({}, dpi, default_cursor_size, default_cursor_style);
+            r.cursor_pixels = gamepad::cursor_pixels(dpi, default_cursor_size, default_cursor_style);
+            if (!geometry || r.cursor_pixels.empty()) { hr = E_INVALIDARG; }
+            else {
+                r.cursor_geometry = *geometry;
+                hr = r.target->CreateBitmap(D2D1::SizeU(geometry->side, geometry->side), r.cursor_pixels.data(),
+                    static_cast<UINT32>(geometry->side * 4),
+                    D2D1::BitmapProperties(D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED)),
+                    r.cursor_bitmap.GetAddressOf());
+            }
+        }
+        if (SUCCEEDED(hr)) {
+            const auto& g = r.cursor_geometry;
+            const float left = point.x - g.hotspot_x / view.scale, top = point.y - g.hotspot_y / view.scale;
+            r.target->DrawBitmap(r.cursor_bitmap.Get(), D2D1::RectF(left, top, left + g.side / view.scale, top + g.side / view.scale));
+        }
     }
     const auto draw = r.target->EndDraw();
     if (SUCCEEDED(hr)) { hr = draw; }
