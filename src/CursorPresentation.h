@@ -62,6 +62,19 @@ struct CursorSurfaceRoot {
     std::optional<bool> cloaked;
 };
 
+class CursorImageQuerySchedule {
+public:
+    bool take(bool image_known, Tick now)
+    {
+        if (image_known || (attempted_at_ && now >= *attempted_at_ && now - *attempted_at_ < 1000)) { return false; }
+        attempted_at_ = now;
+        return true;
+    }
+    void reset() { attempted_at_.reset(); }
+private:
+    std::optional<Tick> attempted_at_;
+};
+
 [[nodiscard]] CursorSurfaceObservation classify_cursor_surface(const CursorSurfaceRoot& root);
 [[nodiscard]] CursorSurfaceObservation combine_cursor_surfaces(CursorSurfaceObservation foreground,
     CursorSurfaceObservation hit);

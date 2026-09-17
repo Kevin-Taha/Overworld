@@ -1,4 +1,5 @@
 #include "NativeCursorSurface.h"
+#include "XInputReader.h"
 
 #include <dwmapi.h>
 
@@ -11,7 +12,7 @@ void NativeCursorSurface::RootCache::clear()
     process = nullptr;
     window = nullptr;
     process_id = thread_id = 0;
-    attempted = false;
+    image_query.reset();
     executable.clear();
 }
 
@@ -43,8 +44,8 @@ CursorSurfaceObservation NativeCursorSurface::observe_root(HWND window, RootCach
         if (SUCCEEDED(DwmGetWindowAttribute(root, DWMWA_CLOAKED, &cloaked, sizeof(cloaked)))) {
             observation.cloaked = cloaked != 0;
         }
-        if (observation.cloaked && !*observation.cloaked && !cache.attempted) {
-            cache.attempted = true;
+        if (observation.cloaked && !*observation.cloaked && cache.image_query.take(!cache.executable.empty(), monotonic_now())) {
+            if (cache.process) { CloseHandle(cache.process); cache.process = nullptr; }
             cache.process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, process_id);
             if (cache.process) {
                 std::array<wchar_t, 32768> path{};
