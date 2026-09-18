@@ -43,6 +43,20 @@ may ignore or reinterpret Unicode input even if Windows accepts it.
 The default-off native-mode keyboard does not suppress the game's own controller
 handling and may not appear over exclusive fullscreen surfaces.
 
+The floating keyboard requests a nonactivating topmost window. Documented
+[`HWND_TOPMOST`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos)
+ordering places it above non-topmost windows; this is not proof of visibility
+above Windows Start or every system surface. The app does not use privileged
+window bands or move focus to force visibility. If it is obscured, close it with
+View before continuing; do not type blindly into the still-focused target.
+
+Windows may independently display its touch keyboard in a search field. The
+optional navigation filter does not own that behavior and cannot guarantee that
+it will prevent it. The app does not close the Windows keyboard, change its
+settings, or claim exclusive controller input. First-launch Start/companion
+activation and late native-navigation bridge events remain unverified limits;
+`--release-tap` changes click timing, not these guarantees.
+
 ## Voice unavailable
 
 - Confirm a `voice-portable` or compatible `voice-avx2` build, not `voice-off`.

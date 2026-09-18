@@ -162,6 +162,14 @@ deduplicated; real field changes and foreground excursions still invalidate the
 target. Caret blinking is not routing identity. HWND identity cannot establish
 internal field identity in every browser or custom control.
 
+`KeyboardRouting.h` limits the native-mode opener's mouse-route observation to a
+closed keyboard. `Desktop::observe` is stateful: a blocked mouse recipient can
+advance the shared unsafe-context generation. A visible desktop or native
+keyboard therefore keeps its existing mode and validates its original text
+target through `KeyboardDelivery`, not an unrelated potential mouse recipient.
+Actual text-target, session, integrity, exclusion, physical-input and host
+prerequisite failures still cancel typing and retain accepted-up recovery.
+
 ### Explicit append-only word suggestions
 
 `TextBoundary::prediction_enabled()` is on by default, controlled by the one
