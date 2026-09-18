@@ -9,6 +9,7 @@
 #include "XInputReader.h"
 #include "KeyboardPreview.h"
 #include "KeyboardPopup.h"
+#include "KeyboardRouting.h"
 #include "NativeNavigationFilter.h"
 #include "NativeVoice.h"
 #include "VoiceRecognizer.h"
@@ -541,19 +542,8 @@ private:
         const bool prerequisites = !inspection_ && config_available_ && reader_started_
             && hotkey_registered_ && desktop_.available() && !core_.enabled() && !cursor_.recovery_pending();
         const bool keyboard_safe = prerequisites && !live_.owned() && !live_.faulted();
-        bool native_keyboard = false;
-        if (keyboard_safe && settings_.keyboard_in_native_mode && !keyboard_.recovery_required()) {
-            native_keyboard = keyboard_.native_session();
-            if (!native_keyboard) {
-                const auto observation = desktop_.observe(0);
-                native_keyboard = observation.available && observation.baseline_known && observation.routing_stable
-                    && !observation.physical_held && observation.mode == live::Mode::Pointer
-                    && live::keyboard_route_allowed(observation, true)
-                    && (live_.automatically_paused() || observation.block == live::BlockReason::Auto);
-            }
-        }
-        keyboard_.step(snapshot_, now, {keyboard_safe && !live_.automatically_paused() && !native_keyboard,
-            live_.preferred_slot(), native_keyboard});
+        keyboard_.step(snapshot_, now, observe_keyboard_eligibility(desktop_, keyboard_, keyboard_safe,
+            settings_.keyboard_in_native_mode, live_.automatically_paused(), live_.preferred_slot()));
         live_.observe_text_fault(keyboard_.delivery().fault_generation(), monotonic_now());
         live_.hold_for_keyboard(keyboard_.blocks_pointer(), now);
         live_.automatic_step(snapshot_, now, prerequisites && !keyboard_.recovery_required());

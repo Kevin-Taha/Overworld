@@ -40,6 +40,14 @@ Retain regressions for accepted-down/up accounting, cancellation, stale samples,
 focus excursions, same-HWND field changes, expired capture leases, invalid model
 bytes, strict migration, and ambiguous injected-source handling.
 
+`gamepad_delivery_tests` also runs the Host's keyboard-eligibility helper against
+a stateful fake mouse boundary. A blocked mouse recipient must not be observed
+while a desktop or native keyboard is already visible, including paused sessions.
+Closed native openers still require ordinary route validation; genuine text
+target/context/physical/Auto changes and host failures still cancel, and accepted
+key-up recovery is retained. This reproduces the redundant-probe context bug,
+not Windows Start ordering or the source of touch-keyboard activation.
+
 `gamepad_release_tap_tests` exercises the default immediate path and opt-in
 release-aware path with fake output and navigation events: 249/250-ms hold,
 drag-before-motion, both original-target dispatch pins, resolved/expired routing

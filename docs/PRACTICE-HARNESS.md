@@ -68,6 +68,12 @@ Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`
 dispatcher; the latter has separate fake `gamepad_release_tap_tests`.
 
+The live Host's desktop/native keyboard eligibility orchestration is not a
+practice scene. `gamepad_delivery_tests` exercises its shared
+`KeyboardRouting.h` helper with a bounded stateful fake route and the real
+`KeyboardDelivery` model. Neither that fixture nor practice establishes shell
+overlay ordering, native navigation exclusivity, or touch-keyboard behavior.
+
 ## Try a component change
 
 Five scenes exercise aiming, A/X clicks, hold-and-drag, scrolling, and local

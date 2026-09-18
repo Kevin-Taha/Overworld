@@ -2,6 +2,7 @@
 #include "Desktop.h"
 #include "PredictionPractice.h"
 #include "KeyboardPreviewInput.h"
+#include "KeyboardRouting.h"
 
 #include <cmath>
 #include <algorithm>
@@ -196,6 +197,8 @@ struct CompletionFixture {
 struct PointerFake final : gamepad::live::OutputBoundary {
     gamepad::live::Observation observation;
     Tick time = 1000;
+    unsigned observations = 0;
+    std::function<void()> during_observe;
     std::vector<gamepad::live::Output> events;
     PointerFake()
     {
@@ -206,6 +209,8 @@ struct PointerFake final : gamepad::live::OutputBoundary {
     }
     gamepad::live::Observation observe(unsigned, const gamepad::live::Output* = nullptr) override
     {
+        ++observations;
+        if (during_observe) { during_observe(); }
         auto result = observation;
         result.app = observe_activation({10, 100});
         apply_auto_policy(result);
@@ -870,6 +875,140 @@ int main()
                 Fixture g; g.keyboard.set_input_mode(mode); g.native_context(); g.tick(); g.tick();
                 g.button(0x8000); g.tick(100); g.button(0); g.tick(); g.button(0x0040);
                 check(!g.keyboard.visible() && g.fake.accepted.empty(), "native Y/LS alone must remain gameplay input");
+            }
+        });
+        test("visible desktop keyboard never probes an unrelated mouse recipient for a native opener", [] {
+            using namespace gamepad::live;
+            for (const auto block : {BlockReason::Recipient, BlockReason::Exclusion, BlockReason::Surface}) {
+                Fixture f; f.keyboard.set_native_mode_enabled(true); f.open();
+                PointerFake pointer;
+                pointer.observation.allowed = false;
+                pointer.observation.block = block;
+                // Desktop::observe_route's hard mouse-route failure changes its shared context.
+                pointer.during_observe = [&] { ++f.fake.observation.target.context; };
+                const auto original = f.fake.observation.target;
+                f.eligibility = observe_keyboard_eligibility(pointer, f.keyboard, true, true, false, 0);
+                f.tap(0x1000);
+                check(f.keyboard.accepts_typing() && f.fake.field == L"a",
+                    "native-mode opt-in must not dismiss valid desktop typing because of the mouse recipient");
+                check(pointer.observations == 0 && f.fake.observation.target == original && pointer.events.empty(),
+                    "visible keyboard must not mutate native routing, context or emit pointer input");
+                check(f.eligibility.desktop && !f.eligibility.native && f.eligibility.preferred == 0u,
+                    "desktop keyboard retains its mode and controller preference");
+                ++f.fake.observation.target.context;
+                f.button(0x1000);
+                check(!f.keyboard.visible() && f.fake.field == L"a",
+                    "an actual text-context invalidation must still cancel without replay");
+            }
+        });
+        test("visible native and paused keyboards do not acquire a new mouse route", [] {
+            for (const bool native : {false, true}) {
+                Fixture f;
+                if (native) { f.native_context(); f.hold_native(); f.button(0); }
+                else { f.keyboard.set_native_mode_enabled(true); f.open(); }
+                PointerFake pointer;
+                for (const bool paused : {false, true}) {
+                    if (paused) { f.keyboard.block(L"Explicit paused fixture"); }
+                    const auto eligibility = observe_keyboard_eligibility(pointer, f.keyboard, true, true, native, {});
+                    check(eligibility.native == native && eligibility.desktop != native && pointer.observations == 0,
+                        "visible session keeps its original mode without a mouse observation even while paused");
+                }
+                const auto unsafe = observe_keyboard_eligibility(pointer, f.keyboard, false, true, native, {});
+                check(!unsafe.desktop && !unsafe.native && pointer.observations == 0,
+                    "lost host prerequisites never authorize either keyboard mode");
+            }
+        });
+        test("closed keyboard native opener still checks the ordinary desktop safety boundary", [] {
+            using namespace gamepad::live;
+            for (unsigned kind = 0; kind < 11; ++kind) {
+                Fixture f; PointerFake pointer;
+                auto& route = pointer.observation;
+                if (kind == 1) { route.available = false; }
+                if (kind == 2) { route.baseline_known = false; }
+                if (kind == 3) { route.routing_stable = false; }
+                if (kind == 4) { route.physical_held = Other; }
+                if (kind == 5) { route.mode = Mode::Menu; }
+                if (kind >= 6) {
+                    route.allowed = false;
+                    constexpr BlockReason blocks[]{BlockReason::Recipient, BlockReason::Exclusion,
+                        BlockReason::DesktopSession, BlockReason::AutoUnavailable, BlockReason::Auto};
+                    route.block = blocks[kind - 6];
+                    route.automatic = AutoReason::Confinement;
+                }
+                const auto eligibility = observe_keyboard_eligibility(pointer, f.keyboard, true, true, true, {});
+                check(!eligibility.desktop && eligibility.native == (kind == 0 || kind == 10)
+                    && pointer.observations == 1 && pointer.events.empty(),
+                    "only a fully validated closed-keyboard route or recognized Auto permits native invocation");
+            }
+            Fixture f; PointerFake pointer;
+            const auto option_off = observe_keyboard_eligibility(pointer, f.keyboard, true, false, true, {});
+            const auto unsafe = observe_keyboard_eligibility(pointer, f.keyboard, false, true, true, {});
+            check(!option_off.native && !unsafe.native && pointer.observations == 0,
+                "disabled option and host prerequisites must not query routing");
+        });
+        test("visible desktop keyboard still cancels on genuine text-route and host failures", [] {
+            using namespace gamepad::live;
+            for (unsigned kind = 0; kind < 7; ++kind) {
+                Fixture f; f.keyboard.set_native_mode_enabled(true); f.open();
+                PointerFake pointer;
+                if (kind == 0) { ++f.fake.observation.target.focus_revision; }
+                if (kind == 1) { f.fake.observation.physical_held = true; }
+                if (kind == 2) { f.fake.observation.stable = false; }
+                if (kind == 3) { f.fake.observation.target.windows[2].window = 99; }
+                if (kind == 4 || kind == 5) {
+                    f.fake.route = pointer.observation;
+                    f.fake.route->allowed = false;
+                    f.fake.route->block = kind == 4 ? BlockReason::Exclusion : BlockReason::Auto;
+                    f.fake.route->automatic = AutoReason::Confinement;
+                }
+                f.eligibility = observe_keyboard_eligibility(pointer, f.keyboard, kind != 6, true, false, {});
+                f.button(0x1000);
+                check(!f.keyboard.visible() && f.fake.attempted.empty() && pointer.observations == 0,
+                    "text focus, physical input, route, exclusion, Auto and host failures still cancel without output");
+            }
+            Fixture f; f.keyboard.set_native_mode_enabled(true); f.open();
+            f.fake.returns = {1, 0}; f.button(0x1000);
+            check(f.keyboard.recovery_required() && f.fake.accepted.size() == 1,
+                "partially accepted typing retains its own release");
+            PointerFake pointer;
+            f.eligibility = observe_keyboard_eligibility(pointer, f.keyboard, false, true, false, {});
+            check(!f.eligibility.desktop && !f.eligibility.native && pointer.observations == 0
+                && f.keyboard.recovery_required(), "routing helper cannot clear accepted-up recovery");
+            f.keyboard.dismiss();
+            f.keyboard.recover();
+            check(!f.keyboard.recovery_required() && f.fake.accepted.size() == 2 && f.fake.accepted.back().up,
+                "explicit recovery releases only the accepted key without replaying the edit");
+        });
+        test("Host eligibility retains native open type close flow for manual and heuristic native modes", [] {
+            using namespace gamepad::live;
+            for (const bool manual : {false, true}) {
+                Fixture f; f.keyboard.set_native_mode_enabled(true);
+                PointerFake pointer;
+                if (!manual) {
+                    pointer.observation.allowed = false;
+                    pointer.observation.block = BlockReason::Auto;
+                    pointer.observation.automatic = AutoReason::Confinement;
+                    f.fake.route = pointer.observation;
+                }
+                const auto step = [&](std::uint16_t buttons, Tick elapsed = 16) {
+                    f.pad().buttons = buttons;
+                    f.eligibility = observe_keyboard_eligibility(pointer, f.keyboard, true, true, manual, {});
+                    f.tick(elapsed);
+                };
+                step(0); step(0); step(0x8020);
+                for (unsigned i = 0; i < 5; ++i) { step(0x8020, 100); }
+                check(f.keyboard.visible() && f.keyboard.native_session() && f.fake.accepted.empty(),
+                    "closed native opener still requires its full hold and never types the chord");
+                const auto opening_queries = pointer.observations;
+                step(0); f.pad().left_y = 28000; step(0); step(0x1000); step(0);
+                check(f.fake.field == L"a" && pointer.observations == opening_queries && pointer.events.empty(),
+                    "active native typing must use only the original text route without pointer output");
+                step(0x0020);
+                check(!f.keyboard.visible() && !f.fake.native_keyboard_session(),
+                    "fresh View closes native session through unchanged delivery logic");
+                f.pad().left_y = 0; step(0);
+                check(pointer.observations == opening_queries + 1 && f.fake.field == L"a",
+                    "only after closing may the next opener observe mouse routing again, without replay");
             }
         });
         test("native hold threshold consumes opening chord and supports both input modes", [] {
