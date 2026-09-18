@@ -6,6 +6,11 @@ Build and test commands are in [docs/BUILDING.md](docs/BUILDING.md) and
 [docs/TESTING.md](docs/TESTING.md). Run commands from this application's root,
 whether it is a standalone checkout or nested in another repository.
 
+For a new machine or session, inspect Git state, host architecture, and installed
+build inputs. Recreate the default deterministic baseline before changing behavior.
+Read [docs/PLAN.md](docs/PLAN.md) for declined and parked experiment decisions;
+select one small reviewable next step rather than resuming experiments implicitly.
+
 ## Product boundaries
 
 - Keep one native Windows application. Preserve existing controller mappings,

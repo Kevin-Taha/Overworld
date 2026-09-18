@@ -203,6 +203,12 @@ to an older executable, which may not understand the current schema.
 
 ## Development
 
+Starting on another machine or in a fresh agent session? Read the
+[agent instructions](AGENTS.md), inspect local build inputs with
+[Building](docs/BUILDING.md), and recreate the default deterministic baseline.
+The [roadmap](docs/PLAN.md) records declined and parked experiments; they are not
+an automatically scheduled work queue.
+
 The [Practice component harness](docs/PRACTICE-HARNESS.md) is a separately built
 development/demo tool, **not a product feature or release asset**. It links the
 same production models and rendering libraries, with an owned scene instead of
