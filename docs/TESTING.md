@@ -59,6 +59,19 @@ fragment persistence, physical-keystroke collection and per-field consent UI.
 Settings tests cover schema 1-11 no-write loading and schema 12 strict opt-out;
 native UI checks measure the checkbox on Typing and both product title labels.
 
+`gamepad_controller_tests` is part of default CTest. It uses the shared configurable
+decoder, lifecycle and slot arbitration with fake backends only. It checks
+physical-position buttons, independent digital triggers, stick direction/ranges,
+hat diagonals/neutral, bounded parsing, name-CRC selection, opposing-half rejection,
+discovery throttling, failure/reacquisition, identity replacement, distinct multi-device
+assignment, clock rollback, original read-scope revocation, and source epochs.
+It neither enumerates nor samples native devices. The explicit Practice model
+tests also feed normalized mapped snapshots through real pointer/keyboard models.
+Compilation and these fixtures are not a Bluetooth or real-control mapping test.
+The reader's message service runs without sampling authorization, but performs
+no controller reads. Fake teardown stalls verify that native cleanup remains
+inside the Practice worker's 250-ms terminal shutdown bound.
+
 ## Explicit deterministic development harness tests
 
 These targets and the practice libraries are excluded from `ALL_BUILD` and

@@ -38,7 +38,8 @@ the controller.
 | `gamepad_keyboard_visual` / `KeyboardVisual.cpp` | The same compiled renderer, glyph layout, theme, alpha, cache, and keyboard pixels used by the production popup | Nonactivating popup placement over other apps, compositor visibility in other app surfaces |
 | `gamepad_cursor_pixels` / `RingPixels.cpp` | Exact production default cursor artwork and geometry, with shared size/style defaults also used by `Settings` | Native cursor visibility ownership, layered cursor window, surface fallback |
 | `gamepad_app_ui` / `AppUi.cpp` | Production palette/theme reads and native appearance support | A duplicate Settings editor; the training cards/buttons are owned test fixtures |
-| `gamepad_xinput` / `XInputReader.cpp` | The same one-slot decoder and connection epochs, behind the harness's scoped reader | Production poller timing; the normal four-slot `read()` remains unchanged |
+| `gamepad_xinput` / `XInputReader.cpp`, `NativeControllers.cpp` | The same one-slot XInput/DirectInput reader and source epochs, behind the harness's scoped reader | Production poller timing; actual Bluetooth/device compatibility requires a separately authorized trial |
+| `gamepad_controller_model` / `ControllerMapping.cpp` | Shared configurable normalization; a deterministic harness scenario exercises pointer/keyboard actions and reconnect handoff | Native DirectInput acquisition, hardware reports, and radio/reconnection timing are not simulated successfully |
 | `InputClassification.h` / `Live.cpp` | Existing reserved controller/navigation key classification for own-window takeover | A global hook, native navigation filter, or physical-input observer |
 | `InstanceGuard.h` | The same mapper-instance exclusion | Native output permission or a bypass of an already-running mapper |
 
@@ -101,7 +102,11 @@ unread neutrals from before a transition. The reader checks stop, original
 50 ms batch lease, scope generation, and actual foreground/minimized state
 before **each slot and publication**. A renewed lease cannot revive an old batch.
 Shutdown waits at most 250 ms and reports failure instead of restarting.
-XInput offers no cancellation for an in-flight call: retained worker-owned state
+The same original batch scope is rechecked between discovery/acquisition and
+native polling/state reads. A slow setup cannot turn an expired lease into a new
+read. The worker services its hidden cooperative-level window without authorizing
+sampling, and destroys native controller resources before signaling completion.
+Native controller calls offer no hard cancellation: retained worker-owned state
 survives a timeout, terminal stop forbids later slots/publication, and the
 harness process exits. This is not a hard API-cancellation guarantee.
 
@@ -128,7 +133,8 @@ cmake --build out\x64 --config Release --target gamepad_practice_tests gamepad_p
 ```
 
 They cover exact Pointer response equivalence, production-layout local typing,
-lifecycle/input regressions, and fake delayed reader shutdown. They never query
+normalized mapped input and reconnect neutral fences, lifecycle/input regressions,
+and fake delayed reader shutdown. They never query
 a controller, open a microphone, or emit external input.
 
 The explicit `gamepad_practice_visual_tests --render-only <owned-directory>`

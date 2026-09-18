@@ -1,10 +1,19 @@
 #include "XInputReader.h"
+#include "NativeControllers.h"
 
 #include <Windows.h>
 #include <Xinput.h>
 #include <chrono>
+#include <new>
 
 namespace gamepad {
+struct ControllerReader::Hid {
+    NativeControllers backend;
+    ControllerDevicesReader reader{backend};
+};
+ControllerReader::ControllerReader() = default;
+ControllerReader::~ControllerReader() = default;
+void ControllerReader::service_messages() { if (hid_) { hid_->backend.service_messages(); } }
 
 Tick monotonic_now()
 {
@@ -12,7 +21,7 @@ Tick monotonic_now()
         std::chrono::steady_clock::now().time_since_epoch()).count());
 }
 
-Snapshot XInputReader::read()
+Snapshot ControllerReader::read()
 {
     Snapshot snapshot;
     snapshot.sequence = ++sequence_;
@@ -25,21 +34,19 @@ Snapshot XInputReader::read()
     return snapshot;
 }
 
-Controller XInputReader::read_slot(unsigned index)
+Controller ControllerReader::read_slot(unsigned index, ControllerReadScope scope)
 {
     Controller slot;
     if (index >= slot_count) {
         slot.connection = Connection::Error; slot.error = ERROR_INVALID_PARAMETER; return slot;
     }
+    if (!scope.allowed()) {
+        slot.connection = Connection::Error; slot.error = ERROR_CANCELLED; return slot;
+    }
     XINPUT_STATE state{};
     slot.error = XInputGetState(index, &state);
     slot.connection = slot.error == ERROR_SUCCESS ? Connection::Connected
         : slot.error == ERROR_DEVICE_NOT_CONNECTED ? Connection::Disconnected : Connection::Error;
-    if (connections_[index] != slot.connection) {
-        connections_[index] = slot.connection;
-        ++epochs_[index];
-    }
-    slot.connection_epoch = epochs_[index];
     if (slot.connection == Connection::Connected) {
         slot.packet = state.dwPacketNumber;
         slot.buttons = state.Gamepad.wButtons & standard_buttons;
@@ -50,16 +57,29 @@ Controller XInputReader::read_slot(unsigned index)
         slot.right_x = state.Gamepad.sThumbRX;
         slot.right_y = state.Gamepad.sThumbRY;
     }
-    return slot;
+    if (slot.connection == Connection::Disconnected) {
+        try {
+            if (!hid_) { hid_ = std::make_unique<Hid>(); }
+            return epochs_[index].update(hid_->reader.read(index, monotonic_now(), scope), ControllerApi::DirectInput);
+        } catch (const std::bad_alloc&) {
+            if (hid_) { hid_->reader.suspend(index); }
+            slot.connection = Connection::Error;
+            slot.error = ERROR_NOT_ENOUGH_MEMORY;
+        }
+    } else if (hid_) {
+        hid_->reader.suspend(index);
+    }
+    return epochs_[index].update(slot, ControllerApi::XInput);
 }
 
 void ControllerPoller::start()
 {
     thread_ = std::jthread([this](std::stop_token stop) {
-        XInputReader reader;
+        ControllerReader reader;
         std::mutex wait_mutex;
         std::unique_lock wait_lock(wait_mutex);
         while (!stop.stop_requested()) {
+            reader.service_messages();
             const auto next = reader.read();
             {
                 std::lock_guard lock(mutex_);

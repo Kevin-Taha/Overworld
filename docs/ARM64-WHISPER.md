@@ -15,7 +15,9 @@ Whisper and installing LLVM are not necessary just to link those packages.
 ## Run a voice-enabled release
 
 Place `GamepadDesktop.exe`, `models\ggml-tiny.en.bin`, and the supplied `licenses`
-directory together. Releases use individual files, not ZIP archives.
+directory together, along with the supplied `controllers` mapping-data folder.
+Releases use individual files, not ZIP archives. Custom controller layouts are
+documented in [Controller mappings](CONTROLLERS.md).
 In **Settings > Typing**, enable Local voice and Save. A blank model path uses
 the default model beside the executable; a selected file must contain the exact
 verified tiny.en bytes.

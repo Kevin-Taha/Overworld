@@ -9,7 +9,7 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 
 | Area | Implementation | Responsibility |
 | --- | --- | --- |
-| Controller sampling | `XInputReader.*`, `ControllerPoller` | Latest timestamped XInput snapshot; no input output |
+| Controller sampling | `XInputReader.*`, `NativeControllers.*`, `ControllerMapping.*` | Shared XInput and mapped DirectInput reader; no desktop output |
 | Pointer model | `Pointer.*`, `Live.*` | Movement, buttons, handoff, mode state, accepted-output ownership |
 | Native boundary | `Desktop.*` | Session, integrity, focus, routing, physical-input checks and tagged `SendInput` |
 | Cursor | `CursorPresentation.*`, `CursorRing.*`, `NativeCursor*` | Layered pixels and ownership-safe native hiding |
@@ -25,6 +25,20 @@ input delivery and its ownership ledger remain serialized on the UI thread.
 | Simulator | `Core.*` | Shared snapshot types and retained dry-run model; not a second output boundary |
 | Practice | `Practice.*`, `PracticeWindow.*`, `PracticeVisual.*`, `PracticeReader.*` | Pure lesson state, owned native scene, scoped observation worker; no desktop output |
 
+## Controller compatibility boundary
+
+The four-slot snapshot and existing XInput mappings are unchanged. XInput has
+priority in its original slots. A disconnected slot can host a mapped DirectInput
+controller; an XInput error cannot authorize fallback. Device-specific layouts
+come from SDL-format mapping data, never a vendor/product allowlist in application
+code. Unmapped devices report an explicit error and GUID for configuration.
+
+Enumeration, mapping, and acquisition failures discard input. Device replacement,
+source changes and reacquisition advance connection epochs so old neutral samples
+cannot authorize a new device. Batch timestamps precede native reads. Production
+and Practice use the same compiled reader and mapping; Practice retains per-slot
+authorization and terminal bounded shutdown, including native teardown.
+
 ## Development-only practice harness
 
 Practice is not a product mode. `GamepadDesktopPractice` is an explicit
@@ -37,7 +51,7 @@ mutex name; the harness cannot coexist with another live mapper.
 
 The [harness component map](PRACTICE-HARNESS.md) is the coverage contract.
 Pointer/Daisywheel, keyboard rendering, cursor pixels/defaults, app appearance,
-and XInput each have one shared-library compilation owner linked by both
+and controller reading each have one shared-library compilation owner linked by both
 targets. `PracticeVisual` composes actual keyboard/cursor renderer pixels rather
 than reimplementing their widgets or artwork. Configure-time target contracts,
 default tests, and opt-in pixel comparisons guard that relationship.
@@ -48,7 +62,7 @@ Practice owns only scene state and native child controls. `PracticeWindow` recei
 an observation-only source. A reader thread is authorized by a 50 ms lease only
 while its own window is active, foreground, non-iconic, and not processing a held
 local mouse/key gesture. The reader independently checks foreground identity and
-minimization before XInput sampling; it does not sample in the background. The UI
+minimization before controller sampling; it does not sample in the background. The UI
 consumes only the latest timestamped snapshot and rechecks its own focus. This
 keeps device reads independent of rendering. There is no settings load/save,
 native output adapter, global physical-input
@@ -61,7 +75,7 @@ a held gesture after a handoff merely because it is less than 100 ms old.
 The reader rechecks stop, scope generation, actual focus, and the original batch
 lease before every slot and before publication. Renewal cannot revive an expired
 batch. Shutdown waits at most 250 ms; failure is reported and the practice process
-exits instead of restarting. XInput has no API cancellation: on timeout, the
+exits instead of restarting. Native controller calls have no hard cancellation: on timeout, the
 in-flight call retains worker-owned state until it returns or the process exits.
 Terminal stop prevents every subsequent slot, batch, and publication.
 Reserved `VK_GAMEPAD` and `VK_NAVIGATION` messages from controller gestures never

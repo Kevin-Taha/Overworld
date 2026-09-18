@@ -406,7 +406,7 @@ private:
             reader_started_ = true;
         } catch (const std::system_error& error) {
             reader_error_ = error.code().value();
-            add_event(L"XInput worker could not start: system error " + std::to_wstring(reader_error_));
+            add_event(L"Controller worker could not start: system error " + std::to_wstring(reader_error_));
         }
         if (!SetTimer(window_, timer_id, 16, nullptr)) {
             initialization_error_ = GetLastError();
@@ -578,6 +578,12 @@ private:
                 SendMessageW(child(SlotChoice), CB_INSERTSTRING, index + 1, reinterpret_cast<LPARAM>(label.c_str()));
                 SendMessageW(child(SlotChoice), CB_SETCURSEL, selection, 0);
                 slot_labels_[index] = connection;
+                if (snapshot_.slots[index].description[0]) {
+                    add_event(L"Controller slot " + std::to_wstring(index) + L": " + snapshot_.slots[index].description.data());
+                    if (snapshot_.slots[index].error == ERROR_NOT_SUPPORTED) {
+                        add_event(L"Controller mapping needed: configure controllers\\user-mappings.txt beside the EXE, then restart.");
+                    }
+                }
             }
         }
         if (diagnostics_) {

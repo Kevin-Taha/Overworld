@@ -4,6 +4,20 @@ Start with the build identity in **Details** or the EXE's file properties.
 Record architecture, voice flavor, affected action, and a redacted failure
 category. Do not include private text, recordings, paths, or unrelated screenshots.
 
+## Controller is paired but not recognized
+
+XInput and mapped DirectInput/HID controllers are supported. Windows recognizing
+a HID device does not establish its button layout. Keep the bundled `controllers`
+folder beside the EXE and use Automatic preference. Details shows a mapping GUID
+and control counts for DirectInput devices. Unrecognized layouts stay disabled
+until configured; see [Controller mappings](CONTROLLERS.md).
+
+Release buttons and center the sticks after connecting or changing controllers.
+XInput has priority in its original slots. With all four XInput slots occupied,
+no DirectInput slot is available. A reader error discards old input; it does not
+replay buttons after a recovery. Virtual-controller remappers can expose duplicate
+physical and virtual controllers; do not run both paths together.
+
 ## Pointer or clicking stops
 
 1. Release the controller and physical buttons, center both sticks, then move

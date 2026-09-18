@@ -1,6 +1,6 @@
 # Gamepad Desktop
 
-A native Windows utility for using an XInput controller on the desktop: pointer
+A native Windows utility for using a supported controller on the desktop: pointer
 movement, clicking and scrolling, a floating controller keyboard, and optional
 offline push-to-talk dictation.
 
@@ -9,6 +9,25 @@ deliberate input. Physical mouse or keyboard activity takes over immediately.
 Automatic game switching is best-effort; manual mode switching and application
 exclusions remain available. The application does not install a driver, service,
 startup entry, or replacement shell.
+
+## Controller compatibility
+
+Xbox-compatible **XInput** controllers and Windows **DirectInput/HID game
+controllers** use the same pointer and keyboard controls. Known layouts use the
+bundled SDL-format community mapping database; unknown layouts require an explicit
+mapping rather than guessed click/type buttons. No virtual Xbox controller,
+driver installation, or external remapper is required.
+
+Use Automatic controller preference, release all controls, then move a stick
+deliberately. Up to four controllers share app slots; XInput retains its slot
+priority. Reconnection or a slot-source change requires fresh neutral input.
+Face-button actions follow physical Xbox-style positions (bottom/right/left/top),
+not necessarily the lettering printed on a controller.
+
+Keep the `controllers` folder alongside the executable. To add or override a
+layout, place SDL-format Windows mapping lines in
+`controllers\user-mappings.txt` and restart the app. See
+[controller mappings](docs/CONTROLLERS.md) for instructions and limitations.
 
 ## Get started
 
@@ -19,7 +38,10 @@ the verified model and license files alongside the executable:
 GamepadDesktop.exe
 models\
   ggml-tiny.en.bin
+controllers\
+  gamecontrollerdb.txt
 licenses\
+  SDL_GameControllerDB-LICENSE.txt
   whisper.cpp-LICENSE.txt
   voice-notices.txt
   prediction-notices.txt

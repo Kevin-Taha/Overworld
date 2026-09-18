@@ -57,15 +57,26 @@ $notice = Join-Path $PSScriptRoot 'third_party\voice-notices.txt'
 $predictionNotice = Join-Path $PSScriptRoot 'third_party\prediction-notices.txt'
 $predictionLicense = Join-Path $PSScriptRoot 'third_party\prediction-CC-BY-SA-4.0.txt'
 $readme = Join-Path $PSScriptRoot 'docs\ARM64-WHISPER.md'
-foreach ($path in @($license, $notice, $predictionNotice, $predictionLicense, $readme)) {
+$controllerDatabase = Join-Path $build 'Release\controllers\gamecontrollerdb.txt'
+$controllerLicense = Join-Path $build 'controller-licenses\SDL_GameControllerDB-LICENSE.txt'
+$controllerGuide = Join-Path $PSScriptRoot 'docs\CONTROLLERS.md'
+foreach ($path in @($license, $notice, $predictionNotice, $predictionLicense, $readme, $controllerDatabase, $controllerLicense, $controllerGuide)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing package input: $path" }
+}
+if ((Get-FileHash -LiteralPath $controllerDatabase -Algorithm SHA256).Hash -ine
+    '07ec5b753e685c4829987919b27905cc3c45c8e18c11b3046e275fcf38b0f3cb' -or
+    (Get-FileHash -LiteralPath $controllerLicense -Algorithm SHA256).Hash -ine
+    '97f35b302b361680ec1e891e95d2d52097bb95abff361434916d99dc1305f127') {
+    throw 'Controller mapping release inputs do not match their pins.'
 }
 $bundle = Join-Path $build "packages\GamepadDesktop-ARM64-Whisper-$revision-$(Get-Date -Format yyyyMMdd-HHmmss)"
 if (Test-Path -LiteralPath $bundle) { throw 'Refusing to overwrite an existing package.' }
-New-Item -ItemType Directory -Path "$bundle\models", "$bundle\licenses" | Out-Null
+New-Item -ItemType Directory -Path "$bundle\models", "$bundle\licenses", "$bundle\controllers" | Out-Null
 Copy-Item -LiteralPath $exe.FullName -Destination "$bundle\GamepadDesktop.exe"
 Copy-Item -LiteralPath $model.FullName -Destination "$bundle\models\ggml-tiny.en.bin"
-Copy-Item -LiteralPath $license, $notice, $predictionNotice, $predictionLicense -Destination "$bundle\licenses"
+Copy-Item -LiteralPath $license, $notice, $predictionNotice, $predictionLicense, $controllerLicense -Destination "$bundle\licenses"
+Copy-Item -LiteralPath $controllerDatabase -Destination "$bundle\controllers\gamecontrollerdb.txt"
+Copy-Item -LiteralPath $controllerGuide -Destination "$bundle\CONTROLLERS.md"
 Copy-Item -LiteralPath $readme -Destination "$bundle\README.md"
 $files = @(Get-ChildItem -LiteralPath $bundle -Recurse -File | ForEach-Object {
     [ordered]@{

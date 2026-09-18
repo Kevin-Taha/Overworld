@@ -425,7 +425,7 @@ void Live::enable(Tick now)
 {
     enabled_ = false;
     disarm(now, L"PAUSED - release physical controls, then center controller on an eligible desktop");
-    if (!slot_) { reason_ = L"PAUSED - explicitly reconfirm a connected XInput slot"; return; }
+    if (!slot_) { reason_ = L"PAUSED - explicitly reconfirm a connected controller slot"; return; }
     if (output_.faulted() || output_.owned()) { return; }
     if (!boundary_.observe(0).available) { reason_ = L"PAUSED - required live observers/emergency path unavailable"; return; }
     enabled_ = true;

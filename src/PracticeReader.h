@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PracticeWindow.h"
+#include "ControllerReadScope.h"
 
 namespace gamepad::practice {
 class ReaderBackend {
@@ -9,6 +10,9 @@ public:
     virtual Tick now() = 0;
     virtual bool focused(HWND window) = 0;
     virtual Controller slot(unsigned index) = 0;
+    virtual Controller slot(unsigned index, ControllerReadScope) { return slot(index); }
+    virtual void shutdown() {}
+    virtual void service_messages() {}
 };
 
 // The worker retains its backend/state on a native-call timeout, but stop is terminal:

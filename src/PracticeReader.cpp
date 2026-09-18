@@ -97,6 +97,7 @@ DWORD WINAPI Reader::worker(void* context)
     const auto state = std::move(*transfer);
     transfer.reset();
     while (!state->stop.load()) {
+        state->backend->service_messages();
         const auto target = state->window.load();
         const auto epoch = state->generation.load();
         const auto expires = state->deadline.load();
@@ -105,9 +106,19 @@ DWORD WINAPI Reader::worker(void* context)
             next.sequence = state->sequence.fetch_add(1) + 1;
             next.sampled_at = state->backend->now();
             bool complete = true;
+            struct Scope {
+                State* state;
+                HWND target;
+                std::uint64_t epoch;
+                Tick expires;
+            } scope{state.get(), target, epoch, expires};
+            const ControllerReadScope permission{&scope, [](void* context) {
+                const auto& value = *static_cast<Scope*>(context);
+                return value.state->allowed(value.target, value.epoch, value.expires);
+            }};
             for (unsigned index = 0; index < slot_count; ++index) {
                 if (!state->allowed(target, epoch, expires)) { complete = false; break; }
-                next.slots[index] = state->backend->slot(index);
+                next.slots[index] = state->backend->slot(index, permission);
             }
             if (complete && state->allowed(target, epoch, expires)) {
                 std::lock_guard lock(state->mutex);
@@ -122,6 +133,7 @@ DWORD WINAPI Reader::worker(void* context)
         const auto wait = WaitForSingleObject(state->wake, 16);
         if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT) { state->failed.store(true); break; }
     }
+    state->backend->shutdown();
     return state->failed.load() ? 1 : 0;
 }
 } // namespace gamepad::practice

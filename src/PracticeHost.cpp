@@ -5,6 +5,7 @@
 
 #include <Shellapi.h>
 #include <new>
+#include <optional>
 #include <system_error>
 
 namespace {
@@ -12,9 +13,12 @@ class PracticeBackend final : public gamepad::practice::ReaderBackend {
 public:
     gamepad::Tick now() override { return gamepad::monotonic_now(); }
     bool focused(HWND window) override { return GetForegroundWindow() == window && !IsIconic(window); }
-    gamepad::Controller slot(unsigned index) override { return reader_.read_slot(index); }
+    gamepad::Controller slot(unsigned index) override { return reader_->read_slot(index); }
+    gamepad::Controller slot(unsigned index, gamepad::ControllerReadScope scope) override { return reader_->read_slot(index, scope); }
+    void shutdown() override { reader_.reset(); }
+    void service_messages() override { reader_->service_messages(); }
 private:
-    gamepad::XInputReader reader_;
+    std::optional<gamepad::ControllerReader> reader_{std::in_place};
 };
 }
 

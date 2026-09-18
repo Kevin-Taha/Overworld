@@ -1,5 +1,6 @@
 #include "Practice.h"
 #include "PredictionPractice.h"
+#include "ControllerMapping.h"
 
 #include <algorithm>
 #include <iostream>
@@ -363,9 +364,62 @@ void prediction_component_contracts()
             "local handoff clears the bounded field and current prediction");
     }
 }
+void mapped_controller_contract()
+{
+    ControllerMapping mapping;
+    check(parse_controller_mapping("03000000341200007856000000000000,Synthetic,"
+        "a:b2,y:b4,back:b6,leftx:a1,lefty:a0,platform:Windows,", mapping).empty(), "generic remapped fixture parses");
+    Model model;
+    model.focus(true);
+    RawController raw;
+    Snapshot snapshot;
+    Tick now = 1000;
+    std::uint64_t epoch = 1;
+    const auto tick = [&] {
+        now += 16;
+        snapshot.sampled_at = now;
+        ++snapshot.sequence;
+        snapshot.slots[2] = mapped_controller(mapping, raw);
+        snapshot.slots[2].connection_epoch = epoch;
+        model.step(snapshot, now);
+    };
+    tick();
+    const auto origin = model.pointer();
+    raw.axes[1] = 32767; tick(); tick();
+    check(model.pointer().x > origin.x, "generic mapped axes drive shared pointer");
+    ++epoch; tick();
+    const auto held = model.pointer(); tick();
+    check(model.pointer() == held, "reconnected held input cannot reuse neutral authorization");
+    raw = {}; tick();
+    raw.axes[1] = 32767; tick(); tick();
+    check(model.pointer().x > held.x, "fresh neutral permits intentional movement");
+    raw = {}; tick();
+    raw.buttons[4] = true; tick();
+    raw.buttons[4] = false; tick(); tick();
+    check(model.keyboard_open(), "mapped physical top action opens actual Daisywheel");
+    raw.axes[0] = -32768; tick();
+    raw.buttons[2] = true; tick();
+    raw.buttons[2] = false; tick();
+    check(model.keyboard().text() == L"a", "remapped face selects production keyboard character");
+    raw = {}; tick();
+    raw.buttons[6] = true; tick(); raw.buttons[6] = false; tick();
+    check(!model.keyboard_open() && !model.exit_requested(), "mapped Back preserves one-handed/local close semantics");
+
+    check(parse_controller_mapping("03000000341200007856000000000000,Synthetic,"
+        "a:b0,+leftx:b1,-leftx:b2,lefty:a0,", mapping).empty(), "digital pointer fixture parses");
+    model.reset();
+    raw = {}; raw.buttons[1] = raw.buttons[2] = true; tick();
+    const auto conflict_origin = model.pointer();
+    check(model.input() == InputState::ReaderError, "conflicting held mapped directions do not count as neutral");
+    raw.buttons[2] = false; tick(); tick();
+    check(model.pointer() == conflict_origin, "releasing one conflicting direction cannot activate pointer output");
+    raw.buttons[1] = false; tick();
+    raw.buttons[1] = true; tick(); tick();
+    check(model.pointer().x > conflict_origin.x, "all controls released then deliberate press reacquires mapped digital pointer");
+}
 int main()
 {
-    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); production_component_contracts(); prediction_component_contracts(); }
+    try { launch(); lessons(); controller(); safety(); typing(); local_actions(); controller_window_keys(); unread_samples(); local_mode_and_pages(); production_component_contracts(); prediction_component_contracts(); mapped_controller_contract(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "Practice: launch isolation, five skills, real models, reconnect, takeover, reset passed.\n";
 }

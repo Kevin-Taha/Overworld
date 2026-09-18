@@ -51,11 +51,24 @@ public:
         return result;
     }
     void wait_entered() { check(WaitForSingleObject(entered, 1000) == WAIT_OBJECT_0, "fake slot zero started"); }
+    void shutdown() override
+    {
+        shutdown_thread.store(GetCurrentThreadId());
+        if (block_shutdown.load()) {
+            SetEvent(entered);
+            if (WaitForSingleObject(release, 2000) != WAIT_OBJECT_0) { expired.store(true); }
+        }
+        shutdown_finished.store(true);
+    }
+    void service_messages() override { services.fetch_add(1); }
     void unblock() { SetEvent(release); }
     HANDLE entered = nullptr, release = nullptr, returned = nullptr, rejected = nullptr;
     std::atomic<Tick> time{1000};
     std::atomic<bool> foreground{true}, block{true}, expired{false}, repeat{false}, revoke_last{false};
     std::atomic<bool> expire_publication{false}, last_slot{false};
+    std::atomic<bool> block_shutdown{false}, shutdown_finished{false};
+    std::atomic<DWORD> shutdown_thread{0};
+    std::atomic<unsigned> services{0};
     std::atomic<unsigned> post_last_clocks{0};
     std::array<std::atomic<unsigned>, slot_count> calls{};
 };
@@ -72,12 +85,15 @@ void fresh_batch()
     Reader reader(backend);
     check(reader.start(), "fresh fake reader starts");
     settle();
+    check(backend->services.load() > 0, "worker services native messages even without sampling authorization");
     for (const auto& calls : backend->calls) { check(calls.load() == 0, "no slot is read without explicit authorization"); }
     reader.authorize(owned_identity());
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     Snapshot snapshot;
     while (!(snapshot = reader.read()).sequence && std::chrono::steady_clock::now() < deadline) { Sleep(1); }
     check(reader.stop(), "fresh fake reader stops");
+    check(backend->shutdown_finished.load() && backend->shutdown_thread.load() != GetCurrentThreadId(),
+        "native teardown completes on the worker before successful stop");
     check(snapshot.sequence != 0 && snapshot.sampled_at == 1000, "complete fresh batch is published with original timestamp");
     for (unsigned i = 0; i < slot_count; ++i) {
         check(snapshot.slots[i].connection == Connection::Connected && snapshot.slots[i].connection_epoch == i + 1,
@@ -181,9 +197,30 @@ void retained_lifetime()
     for (unsigned i = 1; i < slot_count; ++i) { check(backend->calls[i].load() == 0, "destruction forbids new slots after retained call returns"); }
 }
 }
+void teardown_timeout()
+{
+    auto backend = std::make_shared<Fake>();
+    backend->block_shutdown.store(true);
+    {
+        Reader reader(backend);
+        check(reader.start(), "teardown fake starts");
+        const auto begin = std::chrono::steady_clock::now();
+        check(!reader.stop(), "blocked teardown is covered by bounded stop");
+        check(std::chrono::steady_clock::now() - begin < std::chrono::seconds(1)
+            && !reader.error().empty(), "teardown timeout is bounded and explicit");
+        check(WaitForSingleObject(backend->entered, 1000) == WAIT_OBJECT_0, "worker owns native cleanup");
+        check(!reader.start() && !reader.read().sequence, "timeout remains terminal");
+    }
+    check(!backend->shutdown_finished.load(), "UI destruction does not repeat native cleanup");
+    backend->unblock();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (!backend->shutdown_finished.load() && std::chrono::steady_clock::now() < deadline) { Sleep(1); }
+    check(backend->shutdown_finished.load() && !backend->expired.load(), "retained worker finishes late teardown");
+    for (const auto& calls : backend->calls) { check(calls.load() == 0, "teardown does not sample controllers"); }
+}
 int main()
 {
-    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); publication_expiry(); stopped_timeout(); retained_lifetime(); }
+    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); publication_expiry(); stopped_timeout(); retained_lifetime(); teardown_timeout(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS fake per-slot revocation, focus loss, deadlines, bounded stop, and retained-state lifetime; no XInput backend linked.\n";
 }

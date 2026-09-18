@@ -31,7 +31,7 @@ foreach(target IN LISTS shipping_targets)
         endif()
     endforeach()
 endforeach()
-foreach(target gamepad_core gamepad_keyboard gamepad_keyboard_visual gamepad_app_ui gamepad_cursor_pixels gamepad_xinput)
+foreach(target gamepad_core gamepad_keyboard gamepad_keyboard_visual gamepad_app_ui gamepad_cursor_pixels gamepad_xinput gamepad_controller_model)
     if(NOT target IN_LIST shipping_targets OR NOT target IN_LIST harness_targets)
         message(FATAL_ERROR "Shipping app and development harness must share ${target}.")
     endif()
@@ -60,7 +60,8 @@ foreach(target IN LISTS local_targets)
 endforeach()
 foreach(spec "Pointer.cpp|gamepad_core" "Keyboard.cpp|gamepad_keyboard" "WordPrediction.cpp|gamepad_keyboard"
     "KeyboardVisual.cpp|gamepad_keyboard_visual" "KeyboardPopup.cpp|gamepad_keyboard_popup" "AppUi.cpp|gamepad_app_ui"
-    "RingPixels.cpp|gamepad_cursor_pixels" "XInputReader.cpp|gamepad_xinput")
+    "RingPixels.cpp|gamepad_cursor_pixels" "XInputReader.cpp|gamepad_xinput" "NativeControllers.cpp|gamepad_xinput"
+    "ControllerMapping.cpp|gamepad_controller_model" "ControllerDevices.cpp|gamepad_controller_model")
     string(REPLACE "|" ";" pair "${spec}")
     list(GET pair 0 file)
     list(GET pair 1 owner)

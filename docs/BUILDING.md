@@ -90,6 +90,14 @@ Complete both before offline work is expected.
 
 ## Pointer and keyboard without speech
 
+Controller support uses native XInput/DirectInput plus hash-pinned
+[SDL-format mapping data](CONTROLLERS.md), not the SDL runtime. Configure downloads
+the public database/license once into its build directory. For offline builds,
+set `GAMEPAD_CONTROLLER_DATABASE_ROOT` to a directory containing the exact pinned
+`gamecontrollerdb.txt` and `LICENSE`; missing or mismatched bytes fail explicitly.
+Both app targets copy the database to `controllers` beside their EXE.
+No runtime downloads or virtual-controller drivers are used.
+
 This route needs no speech dependency or model download:
 
 ```powershell
@@ -194,6 +202,11 @@ inference and microphone use do; these are distinct evidence levels. A normal
 app launch enables live controller handling, so it is not a build smoke test.
 
 ## Release files
+
+Every flavor needs `controllers\gamecontrollerdb.txt` beside the EXE and
+`controller-licenses\SDL_GameControllerDB-LICENSE.txt` from the build staged as
+`licenses\SDL_GameControllerDB-LICENSE.txt`. The ARM64 packager includes both.
+Never distribute a developer's `controllers\user-mappings.txt` as defaults.
 
 Distribute the matching architecture's EXE, the exact `models\ggml-tiny.en.bin`
 for voice-enabled builds, and dependency licenses/notices. Keep the model as a

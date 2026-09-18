@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(GamepadDesktop VERSION 0.2.0 LANGUAGES CXX)
 include(cmake/WhisperBackend.cmake)
+include(cmake/ControllerMappings.cmake)
 
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_SIZEOF_VOID_P EQUAL 8
    OR NOT CMAKE_GENERATOR_PLATFORM MATCHES "^(x64|ARM64)$")
@@ -59,8 +60,12 @@ add_library(gamepad_ring src/CursorRing.cpp)
 target_link_libraries(gamepad_ring PUBLIC gamepad_settings User32 Gdi32 Shcore)
 target_compile_definitions(gamepad_ring PUBLIC UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 
-add_library(gamepad_xinput src/XInputReader.cpp)
-target_link_libraries(gamepad_xinput PUBLIC gamepad_core PRIVATE Xinput)
+add_library(gamepad_controller_model src/ControllerMapping.cpp src/ControllerDevices.cpp)
+target_include_directories(gamepad_controller_model PUBLIC src)
+target_compile_features(gamepad_controller_model PUBLIC cxx_std_20)
+target_compile_definitions(gamepad_controller_model PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+add_library(gamepad_xinput src/XInputReader.cpp src/NativeControllers.cpp)
+target_link_libraries(gamepad_xinput PUBLIC gamepad_core gamepad_controller_model PRIVATE Xinput Dinput8 Dxguid User32)
 target_compile_definitions(gamepad_xinput PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 add_library(gamepad_keyboard_visual src/KeyboardVisual.cpp)
 target_link_libraries(gamepad_keyboard_visual PUBLIC gamepad_keyboard PRIVATE
@@ -86,6 +91,7 @@ target_link_libraries(GamepadDesktopPractice PRIVATE gamepad_practice_view gamep
 target_compile_definitions(GamepadDesktopPractice PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(GamepadDesktopPractice PRIVATE /W4 /WX /permissive- /utf-8)
 target_link_options(GamepadDesktopPractice PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
+gamepad_stage_controller_data(GamepadDesktopPractice)
 
 add_executable(GamepadDesktop WIN32 src/Host.cpp src/Desktop.cpp src/NativeCursorVisibility.cpp
     src/KeyboardPreview.cpp src/NativeNavigationFilter.cpp src/NativeCursorSurface.cpp src/Host.rc)
@@ -96,6 +102,7 @@ target_link_libraries(GamepadDesktop PRIVATE Uxtheme)
 target_link_libraries(GamepadDesktop PRIVATE Comdlg32)
 target_compile_definitions(GamepadDesktop PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_options(GamepadDesktop PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
+gamepad_stage_controller_data(GamepadDesktop)
 
 # Build identity is refreshed for every build, including local commits/source edits
 # that do not rerun CMake. Each configuration owns its copy-if-different header.
@@ -124,6 +131,12 @@ target_include_directories(GamepadDesktop PRIVATE "${gamepad_build_info_dir}")
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(gamepad_controller_tests tests/ControllerTests.cpp)
+    target_link_libraries(gamepad_controller_tests PRIVATE gamepad_controller_model gamepad_core)
+    target_compile_definitions(gamepad_controller_tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(gamepad_controller_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    add_test(NAME gamepad_controller_tests COMMAND gamepad_controller_tests "${controller_database_root}/gamecontrollerdb.txt")
+    set_tests_properties(gamepad_controller_tests PROPERTIES TIMEOUT 10)
     add_executable(gamepad_instance_guard_tests tests/InstanceGuardTests.cpp)
     target_include_directories(gamepad_instance_guard_tests PRIVATE src)
     target_compile_features(gamepad_instance_guard_tests PRIVATE cxx_std_20)
@@ -137,7 +150,7 @@ if(BUILD_TESTING)
     target_compile_options(gamepad_launch_tests PRIVATE /W4 /WX /permissive- /utf-8)
     add_test(NAME gamepad_launch_tests COMMAND gamepad_launch_tests)
     add_executable(gamepad_practice_tests EXCLUDE_FROM_ALL tests/PracticeTests.cpp)
-    target_link_libraries(gamepad_practice_tests PRIVATE gamepad_practice)
+    target_link_libraries(gamepad_practice_tests PRIVATE gamepad_practice gamepad_controller_model)
     target_compile_options(gamepad_practice_tests PRIVATE /W4 /WX /permissive- /utf-8)
     add_executable(gamepad_practice_reader_tests EXCLUDE_FROM_ALL tests/PracticeReaderTests.cpp)
     target_link_libraries(gamepad_practice_reader_tests PRIVATE gamepad_practice_reader)
@@ -243,7 +256,7 @@ if(BUILD_TESTING)
 endif()
 
 foreach(target gamepad_core gamepad_keyboard gamepad_voice gamepad_navigation gamepad_settings gamepad_ring
-    gamepad_cursor_pixels gamepad_xinput gamepad_keyboard_visual gamepad_keyboard_popup gamepad_app_ui GamepadDesktop)
+    gamepad_cursor_pixels gamepad_controller_model gamepad_xinput gamepad_keyboard_visual gamepad_keyboard_popup gamepad_app_ui GamepadDesktop)
     target_compile_options(${target} PRIVATE /W4 /WX /permissive- /utf-8)
 endforeach()
 if(BUILD_TESTING)

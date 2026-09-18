@@ -27,6 +27,7 @@ struct Controller {
     std::int16_t left_y = 0;
     std::int16_t right_x = 0;
     std::int16_t right_y = 0;
+    std::array<wchar_t, 160> description{}; // Bounded controller mapping metadata, never device paths.
 };
 
 struct Snapshot {

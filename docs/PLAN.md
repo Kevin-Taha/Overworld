@@ -7,7 +7,8 @@ and optional offline dictation.
 
 ## Current scope
 
-- XInput sampling and automatic controller acquisition after fresh neutral input.
+- XInput and mapped DirectInput/HID sampling, with automatic controller
+  acquisition after fresh neutral input.
 - Pointer movement, click/drag, scrolling, custom cursor, and manual mode control.
 - Immediate controller keyboard edits and opt-in one-handed selection.
 - Broad local word suggestions enabled by default, with Settings opt-out and
