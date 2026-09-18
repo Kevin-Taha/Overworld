@@ -35,6 +35,17 @@ struct KeyboardVisualState {
     std::wstring_view prediction_hint;
 };
 
+[[nodiscard]] inline bool keyboard_prediction_surface(const KeyboardVisualState& state)
+{
+    return state.prediction_preview || (state.word_suggestions && state.active
+        && state.voice.phase == VoicePhase::Idle && state.prediction.count != 0);
+}
+
+[[nodiscard]] inline int keyboard_frame_height(const KeyboardVisualState& state)
+{
+    return keyboard_prediction_surface(state) ? keyboard_prediction_height : keyboard_visual_height;
+}
+
 struct KeyboardGlyphBounds {
     float left, top, right, bottom;
     unsigned petal, face;

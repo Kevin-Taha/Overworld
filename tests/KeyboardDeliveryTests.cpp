@@ -301,7 +301,7 @@ int main()
             f.button(0x0002);
             check(!f.keyboard.prediction_view().count && f.fake.field == L"he", "fresh Down hides immediately without deleting output");
             for (unsigned i = 0; i < 8; ++i) { f.tick(100); }
-            check(f.keyboard.prediction_hint() == L"Word suggestions off for this session",
+            check(f.keyboard.prediction_hint().empty(),
                 "held hide button cannot automatically reenable collection");
             f.button(0); f.type_he();
             check(!f.keyboard.prediction_view().count && f.fake.field == L"hehe", "typing remains available with suggestions hidden");
@@ -309,7 +309,7 @@ int main()
             onehand.open_prediction(); onehand.type_he();
             onehand.aim(45); onehand.tick(); onehand.center_stick(); onehand.tick();
             onehand.button(0x0002);
-            check(onehand.keyboard.prediction_hint() == L"Word suggestions off for this session"
+            check(onehand.keyboard.prediction_hint().empty()
                 && onehand.fake.field == L"he", "quick hide during one-handed character stage does not commit a glyph");
             f.tap(0x0020); f.tick(); f.button(0x8000); f.button(0); f.type_he();
             check(f.keyboard.prediction_view().count == 3, "reopening restores the saved default without reenable friction");

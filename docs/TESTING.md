@@ -142,6 +142,16 @@ Absent production hints are tested as default-constructed string views, not only
 empty literals: quiet suppression and voice states must not pass a null text
 pointer to DirectWrite or fail with `E_INVALIDARG`.
 
+`gamepad_keyboard_popup_tests` is a separate opt-in target, not default CTest.
+Build it explicitly and run `--render-only` under a 120-second process watchdog.
+It links the actual production popup library, uses only hidden owned windows and
+a fake text boundary, and checks 96/144/192-DPI expansion/collapse, negative and
+small work areas, resize/selection/reopen transitions, zero-size and malformed
+DPI failures, theme-error latching and deliberate new-open recovery. It verifies
+no focus changes or output from presentation. Empty/hidden suggestions must have
+ordinary keyboard dimensions, not an empty strip or off-status banner.
+The tests cannot establish shell compositor ordering or Teams/Explorer behavior.
+
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and
 voice capability/opt-in combinations. It checks forward/reverse tab access and

@@ -219,9 +219,19 @@ cause retries, and neither prefix hints nor accepted input prove field contents.
 
 The optional 66-DIP suggestion strip is outside the original wheel/footer. Its
 owning view/cache is bounded, validates actual label fit, and hides chips when
-inactive, voice-active or without a candidate. Normal keyboard dimensions and
-pixels with the setting disabled are unchanged. Development fixtures seed only
+inactive, voice-active or without a candidate. The production popup collapses
+the entire strip when empty, session-hidden or disabled, restoring its ordinary
+350-DIP height and shortcut footer. Resizing uses the current DPI and a bounded
+work-area anchor; changing the selection alone does not allocate a new surface.
+Normal keyboard dimensions and pixels with the setting disabled are unchanged. Development fixtures seed only
 synthetic keyboard snapshots and do not start controller polling.
+
+Empty optional labels bypass DirectWrite layout rather than passing a null text
+pointer. A drawing/placement failure remains visible, hides the popup and blocks
+that keyboard session. Closing retains the diagnostic but permits neutral
+reacquisition; a deliberate new open constructs a fresh renderer. Only a
+successful new draw clears the error. There is no same-session render retry or
+input replay, and the accepted-key cleanup ledger is not reset.
 
 ## Local voice
 

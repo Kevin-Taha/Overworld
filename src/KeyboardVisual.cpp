@@ -461,8 +461,9 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         ? static_cast<unsigned>(std::lround(std::clamp(state.voice.level, 0.0f, 1.0f) * 16)) : 0;
     const auto voice_hint = voice_active ? state.voice.hint.substr(0, 120) : std::wstring_view{};
     PredictionView prediction;
-    const bool prediction_surface = state.prediction_preview || state.word_suggestions;
-    const auto prediction_hint = state.word_suggestions ? state.prediction_hint.substr(0, 120) : std::wstring_view{};
+    const bool prediction_surface = keyboard_prediction_surface(state);
+    const auto prediction_hint = prediction_surface && state.word_suggestions
+        ? state.prediction_hint.substr(0, 120) : std::wstring_view{};
     if (prediction_surface && state.active && !voice_active && model.phase() == KeyboardPhase::Typing) {
         if (state.prediction.count > prediction_choice_limit
             || (state.prediction.count && state.prediction.selected >= state.prediction.count)) {
@@ -645,9 +646,9 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
     }
     if (SUCCEEDED(hr)) {
         hr = r.label(state.prediction_preview ? L"LOCAL PRACTICE - no external output"
-            : state.word_suggestions ? prediction_hint
+            : prediction_surface && state.word_suggestions ? prediction_hint
             : L"LT  Shift       RT  Symbols       View  Close",
-            {43, 318, 349, 337}, color(colors.secondary), 11, DWRITE_FONT_WEIGHT_NORMAL, state.word_suggestions);
+            {43, 318, 349, 337}, color(colors.secondary), 11, DWRITE_FONT_WEIGHT_NORMAL, prediction_surface && state.word_suggestions);
     }
     if (SUCCEEDED(hr) && prediction_surface) {
         if (prediction.count) {

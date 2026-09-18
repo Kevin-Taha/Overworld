@@ -507,10 +507,10 @@ PredictionView KeyboardDelivery::prediction_view() const
 
 std::wstring_view KeyboardDelivery::prediction_hint() const
 {
-    if (!boundary_.prediction_enabled() || prediction_privacy_ != PredictionPrivacy::Unknown) { return {}; }
+    if (!boundary_.prediction_enabled() || prediction_hidden_ || prediction_privacy_ != PredictionPrivacy::Unknown) { return {}; }
     if (boundary_.prediction_preview()) { return L"LOCAL PRACTICE - no external output"; }
     if (voice_status_.phase != VoiceBackendPhase::Idle) { return {}; }
-    return prediction_hidden_ ? L"Word suggestions off for this session" : L"Word suggestions on - Down hides";
+    return L"Word suggestions on - Down hides";
 }
 
 void KeyboardDelivery::revoke_prediction()

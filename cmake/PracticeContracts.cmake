@@ -59,7 +59,7 @@ foreach(target IN LISTS local_targets)
     endif()
 endforeach()
 foreach(spec "Pointer.cpp|gamepad_core" "Keyboard.cpp|gamepad_keyboard" "WordPrediction.cpp|gamepad_keyboard"
-    "KeyboardVisual.cpp|gamepad_keyboard_visual" "AppUi.cpp|gamepad_app_ui"
+    "KeyboardVisual.cpp|gamepad_keyboard_visual" "KeyboardPopup.cpp|gamepad_keyboard_popup" "AppUi.cpp|gamepad_app_ui"
     "RingPixels.cpp|gamepad_cursor_pixels" "XInputReader.cpp|gamepad_xinput")
     string(REPLACE "|" ";" pair "${spec}")
     list(GET pair 0 file)

@@ -57,6 +57,13 @@ types the synthetic `he` fragment, compares candidates with the shared
 `gamepad_keyboard_visual_tests` renders that fixture through the same
 `gamepad_keyboard_visual` library, covering candidate labels, theme/DPI, alpha
 and idle reuse. It is not another product mode or copied predictor/renderer.
+The shared renderer also checks exact ordinary-keyboard pixels when the native
+suggestion strip collapses. The interactive scene does not host the production
+popup: separate `gamepad_keyboard_popup_tests --render-only` links the same
+compiled `gamepad_keyboard_popup` library as the product and uses hidden owned
+windows plus a bounded fake text boundary to exercise DPI, collapse and
+close/reopen after drawing failure. This does not simulate external delivery,
+shell stacking or desktop focus eligibility.
 Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`
 dispatcher; the latter has separate fake `gamepad_release_tap_tests`.

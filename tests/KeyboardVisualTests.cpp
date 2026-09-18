@@ -345,10 +345,16 @@ void prediction_frames(const std::filesystem::path& directory)
     inspect(visual.frame(), source.theme.high_contrast);
     if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-on"); }
     state.prediction = {};
-    for (auto hint : {L"Word suggestions off for this session", L""}) {
-        state.prediction_hint = hint;
-        render(visual, keyboard_visual_width, keyboard_prediction_height, practice.keyboard().model(), state);
-        check(visual.frame().pixels[365 * keyboard_visual_width + 196] == 0, "hidden or suppressed suggestions never expose candidate chips");
+    state.prediction_hint = {};
+    for (bool enabled : {true, false}) {
+        state.word_suggestions = enabled;
+        check(keyboard_frame_height(state) == keyboard_visual_height, "no candidates collapses the entire native strip");
+        render(visual, keyboard_visual_width, keyboard_frame_height(state), practice.keyboard().model(), state);
+        const std::vector<std::uint32_t> collapsed(visual.frame().pixels.begin(), visual.frame().pixels.end());
+        state.word_suggestions = false;
+        render(visual, keyboard_visual_width, keyboard_visual_height, practice.keyboard().model(), state);
+        check(std::equal(collapsed.begin(), collapsed.end(), visual.frame().pixels.begin()),
+            "hidden suggestions match the ordinary keyboard exactly, including shortcut footer");
     }
     if (!directory.empty()) { export_frame(visual, directory, L"prediction-native-unavailable"); }
     std::cout << "PASS " << count << " prediction mode/theme/DPI frames; label fit/contrast, hidden chips, ownership and idle reuse\n";
@@ -518,17 +524,18 @@ void absent_prediction_hint()
 {
     FakeTheme theme;
     KeyboardVisual visual(&theme);
-    Fixture fixture;
+    PredictionPractice fixture; seed_prediction_demo(fixture, KeyboardInputMode::FaceButtons);
     KeyboardVisualState state{true, false, {}, {}};
     state.word_suggestions = true;
+    state.prediction = fixture.keyboard().prediction_view();
     check(state.prediction_hint.data() == nullptr, "production absent hint is a default string_view, not an empty literal");
     for (const auto phase : {VoicePhase::Idle, VoicePhase::Loading, VoicePhase::Listening, VoicePhase::Error}) {
         state.voice = {phase, 0, {}};
-        render(visual, keyboard_visual_width, keyboard_prediction_height, fixture.model, state);
+        render(visual, keyboard_visual_width, keyboard_frame_height(state), fixture.keyboard().model(), state);
         const auto absent = visual.frame();
         const std::vector<std::uint32_t> pixels(absent.pixels.begin(), absent.pixels.end());
         state.prediction_hint = L"";
-        render(visual, keyboard_visual_width, keyboard_prediction_height, fixture.model, state);
+        render(visual, keyboard_visual_width, keyboard_frame_height(state), fixture.keyboard().model(), state);
         check(std::equal(pixels.begin(), pixels.end(), visual.frame().pixels.begin()),
             "absent and empty hints must produce identical valid frames");
         state.prediction_hint = {};

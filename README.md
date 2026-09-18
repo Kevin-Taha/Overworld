@@ -100,7 +100,8 @@ eligible target and type two letters to see up to three frequency-ranked choices
 No leading Space or per-field enable gesture is required. Turn off **Settings >
 Typing > Word suggestions** and Save to opt out. **D-pad Down** hides suggestions
 for the current keyboard session only; reopening uses the saved preference.
-Neither action erases text already typed.
+Neither action erases text already typed. Hidden, disabled or empty suggestions
+take no extra space: the keyboard returns to its ordinary size and shortcuts.
 
 **D-pad Left/Right** chooses; **D-pad Up** appends only the remaining suffix once.
 Return to neutral between presses and finish an in-progress one-handed flick
