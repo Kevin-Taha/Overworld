@@ -169,6 +169,24 @@ Physical mouse handling, caption dragging, and other apps are not rewritten.
 
 ## Keyboard and text
 
+The native keyboard popup uses `KeyboardPlacement` to retain its ordinary
+bottom-center/current position unless it overlaps the verified foreground Start
+or Search window. `NativeKeyboardShell` reads only foreground root identity,
+process basename, visibility/cloak and DWM frame bounds, with cached process
+identity; it does not query field text, use UIA, or call stateful input routing.
+The pure bounded search tries rectangle-edge candidates inside the target
+monitor's work area, retaining full DPI-scaled artwork and an 8-DIP shell gap.
+Current clear placement wins, then shortest movement with deterministic ties.
+
+Visible sessions run placement preparation before `KeyboardDelivery::step`.
+No available rectangle or unavailable geometry blocks the session before another
+edit; accepted-key cleanup remains owned by the delivery model. Expansion,
+shell movement and DPI changes recheck placement. A placement failure follows
+the existing close/new-open recovery rule, never an automatic typing retry.
+The layer remains nonactivating/topmost; there is no privileged band, focus
+transfer, shell dismissal, or alternate delivery target. Shell frame bounds are
+conservative metadata, not a claim of universal compositor visibility.
+
 `Daisywheel` is independent of pointer mode and native output. Face-button mode
 uses eight groups with physical A-bottom/B-right/X-left/Y-top slots. One-handed
 mode commits a group on recenter, then a cardinal character on the next recenter.

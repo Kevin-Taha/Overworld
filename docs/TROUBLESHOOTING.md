@@ -66,9 +66,19 @@ handling and may not appear over exclusive fullscreen surfaces.
 The floating keyboard requests a nonactivating topmost window. Documented
 [`HWND_TOPMOST`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos)
 ordering places it above non-topmost windows; this is not proof of visibility
-above Windows Start or every system surface. The app does not use privileged
-window bands or move focus to force visibility. If it is obscured, close it with
-View before continuing; do not type blindly into the still-focused target.
+above Windows Start or every system surface. For identified foreground Start and
+Search windows, the app instead finds a full-size rectangle outside the shell's
+reported frame on the same monitor. It retains a clear current position and moves
+only when necessary, including suggestion expansion and shell movement.
+
+If the shell reports full-monitor bounds, or the remaining space is too small at
+the current DPI, the app pauses with **No full-size keyboard space beside Start
+or Search**. Unknown geometry also pauses; View closes and deliberate reopening
+starts a new attempt. There is no automatic replay or shrinking of glyphs.
+This cannot account for unrelated overlays or transparent areas inside a large
+shell root rectangle. The app does not use privileged window bands, dismiss
+Start, or move focus to force visibility. If still obscured, close it with View
+before continuing; do not type blindly into the still-focused target.
 
 Windows may independently display its touch keyboard in a search field. The
 optional navigation filter does not own that behavior and cannot guarantee that

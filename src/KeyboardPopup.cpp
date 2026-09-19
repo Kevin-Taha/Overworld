@@ -10,24 +10,8 @@ constexpr DWORD popup_style = WS_POPUP;
 constexpr DWORD popup_extended = WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED;
 }
 
-std::optional<RECT> keyboard_popup_bounds(RECT work, UINT dpi, int logical_height, std::optional<RECT> anchor)
-{
-    const auto width_available = static_cast<long long>(work.right) - work.left;
-    const auto height_available = static_cast<long long>(work.bottom) - work.top;
-    if (dpi < 96 || dpi > 768 || width_available <= 0 || width_available > INT_MAX
-        || height_available <= 0 || height_available > INT_MAX
-        || (logical_height != keyboard_visual_height && logical_height != keyboard_prediction_height)) { return {}; }
-    const auto width = std::min<long long>(MulDiv(keyboard_visual_width, dpi, 96), width_available);
-    const auto height = std::min<long long>(MulDiv(logical_height, dpi, 96), height_available);
-    const auto left = std::clamp<long long>(anchor ? anchor->left : work.left + (width_available - width) / 2,
-        work.left, work.right - width);
-    const auto top = std::clamp<long long>(anchor ? anchor->top : work.bottom - height - MulDiv(16, dpi, 96),
-        work.top, work.bottom - height);
-    return RECT{static_cast<LONG>(left), static_cast<LONG>(top), static_cast<LONG>(left + width),
-        static_cast<LONG>(top + height)};
-}
-
-KeyboardPopup::KeyboardPopup(KeyboardThemeSource* source) : theme_source_(source) {}
+KeyboardPopup::KeyboardPopup(KeyboardThemeSource* source, KeyboardShellSource* shell)
+    : theme_source_(source), shell_source_(shell) {}
 KeyboardPopup::~KeyboardPopup() { close(); }
 
 bool KeyboardPopup::create(HWND host)
@@ -54,7 +38,12 @@ bool KeyboardPopup::create(HWND host)
 
 bool KeyboardPopup::update(HWND host, KeyboardDelivery& keyboard, const VoicePresentation& voice)
 {
-    return update_window(host, keyboard, voice, !shown_ && keyboard.visible() ? GetForegroundWindow() : nullptr, true);
+    return update_window(host, keyboard, voice, keyboard.visible() ? GetForegroundWindow() : nullptr, true);
+}
+bool KeyboardPopup::prepare(HWND host, KeyboardDelivery& keyboard, const VoicePresentation& voice)
+{
+    if (!keyboard.visible()) { return true; }
+    return prepare_window(host, keyboard, voice, GetForegroundWindow(), true);
 }
 
 bool KeyboardPopup::update_window(HWND host, KeyboardDelivery& keyboard, const VoicePresentation& voice,
@@ -74,23 +63,7 @@ bool KeyboardPopup::update_window(HWND host, KeyboardDelivery& keyboard, const V
         // making Host block every neutral sample needed for a deliberate new open.
         return true;
     }
-    if (failed_) { return false; }
-    if (!window_ && !create(host)) { fail(error_); return false; }
-    KeyboardVisualState state{keyboard.accepts_typing(), false, {}, {}, voice};
-    state.word_suggestions = keyboard.prediction_enabled();
-    state.prediction = keyboard.prediction_view();
-    const auto logical_height = keyboard_frame_height(state);
-    if (!shown_ || logical_height_ != logical_height) {
-        RECT current{};
-        MONITORINFO monitor{sizeof(monitor)};
-        if ((shown_ && !GetWindowRect(window_, &current))
-            || !GetMonitorInfoW(MonitorFromWindow(shown_ ? window_ : placement_target, MONITOR_DEFAULTTONEAREST), &monitor)) {
-            fail(L"Keyboard monitor geometry unavailable");
-            return false;
-        }
-        if (!place(monitor.rcWork, shown_ ? dpi_ : GetDpiForWindow(placement_target), logical_height,
-                shown_ ? std::optional<RECT>{current} : std::nullopt)) { return false; }
-    }
+    if (!prepare_window(host, keyboard, voice, placement_target, reveal || shell_source_)) { return false; }
     // Presentation is synchronous with the fresh model; unchanged state reuses its frame.
     paint();
     if (error_.empty() && !shown_) {
@@ -100,10 +73,46 @@ bool KeyboardPopup::update_window(HWND host, KeyboardDelivery& keyboard, const V
     return error_.empty();
 }
 
-bool KeyboardPopup::place(RECT work, UINT dpi, int logical_height, std::optional<RECT> anchor)
+bool KeyboardPopup::prepare_window(HWND host, KeyboardDelivery& keyboard, const VoicePresentation& voice,
+    HWND placement_target, bool inspect_shell)
 {
-    const auto bounds = keyboard_popup_bounds(work, dpi, logical_height, anchor);
-    if (!bounds) { fail(L"Keyboard popup geometry invalid"); return false; }
+    keyboard_ = &keyboard;
+    if (failed_) { return false; }
+    if (!window_ && !create(host)) { fail(error_); return false; }
+    KeyboardShellObservation shell;
+    if (inspect_shell) { shell = (shell_source_ ? *shell_source_ : native_shell_).observe(placement_target); }
+    if (!shell.available) { fail(L"Keyboard shell placement unavailable. View closes."); return false; }
+    KeyboardVisualState state{keyboard.accepts_typing(), false, {}, {}, voice};
+    state.word_suggestions = keyboard.prediction_enabled();
+    state.prediction = keyboard.prediction_view();
+    const auto logical_height = keyboard_frame_height(state);
+    if (!shown_ || logical_height_ != logical_height || shell.obstruction || obstruction_) {
+        RECT current{};
+        MONITORINFO monitor{sizeof(monitor)};
+        if ((shown_ && !GetWindowRect(window_, &current))
+            || !GetMonitorInfoW(MonitorFromWindow(shown_ ? window_ : placement_target, MONITOR_DEFAULTTONEAREST), &monitor)) {
+            fail(L"Keyboard monitor geometry unavailable");
+            return false;
+        }
+        if (!place(monitor.rcWork, shown_ ? dpi_ : GetDpiForWindow(placement_target), logical_height,
+                shown_ ? std::optional<RECT>{current} : std::nullopt, shell.obstruction)) { return false; }
+    }
+    obstruction_ = shell.obstruction;
+    return true;
+}
+
+bool KeyboardPopup::place(RECT work, UINT dpi, int logical_height, std::optional<RECT> anchor, std::optional<RECT> obstruction)
+{
+    const auto bounds = keyboard_popup_bounds(work, dpi, logical_height, anchor, obstruction);
+    if (!bounds) {
+        fail(obstruction ? L"No full-size keyboard space beside Start or Search. View closes."
+            : L"Keyboard popup geometry invalid");
+        return false;
+    }
+    RECT current{};
+    if (shown_ && GetWindowRect(window_, &current) && EqualRect(&current, &*bounds) && dpi_ == dpi && logical_height_ == logical_height) {
+        return true;
+    }
     positioning_ = true;
     const bool positioned = SetWindowPos(window_, HWND_TOPMOST, bounds->left, bounds->top,
         bounds->right - bounds->left, bounds->bottom - bounds->top, SWP_NOACTIVATE) != FALSE;
@@ -155,6 +164,8 @@ void KeyboardPopup::close()
     shown_ = false;
     failed_ = positioning_ = false;
     logical_height_ = 0;
+    obstruction_.reset();
+    native_shell_.reset();
 }
 
 LRESULT CALLBACK KeyboardPopup::window_proc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
@@ -191,7 +202,7 @@ LRESULT CALLBACK KeyboardPopup::window_proc(HWND window, UINT message, WPARAM wp
             || !GetMonitorInfoW(MonitorFromRect(rect, MONITOR_DEFAULTTONEAREST), &monitor)) {
             popup->fail(L"Keyboard display scaling geometry unavailable");
         } else {
-            popup->place(monitor.rcWork, HIWORD(wparam), popup->logical_height_, *rect);
+            popup->place(monitor.rcWork, HIWORD(wparam), popup->logical_height_, *rect, popup->obstruction_);
         }
         InvalidateRect(window, nullptr, FALSE);
         return 0;

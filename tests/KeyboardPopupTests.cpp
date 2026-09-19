@@ -13,6 +13,10 @@ struct KeyboardPopupTestAccess {
     }
     static HWND window(const KeyboardPopup& popup) { return popup.window_; }
     static KeyboardVisualFrame frame(const KeyboardPopup& popup) { return popup.visual_->frame(); }
+    static bool prepare(KeyboardPopup& popup, HWND host, KeyboardDelivery& keyboard)
+    {
+        return popup.prepare_window(host, keyboard, {}, host, true);
+    }
 };
 }
 namespace {
@@ -37,6 +41,11 @@ public:
     TextObservation observe_text(std::optional<TextKey>) override { return observation; }
     Tick text_now() const override { return now; }
     unsigned send_text(TextEvent) override { ++events; return 1; }
+};
+class Shell final : public KeyboardShellSource {
+public:
+    KeyboardShellObservation observation;
+    KeyboardShellObservation observe(HWND) override { return observation; }
 };
 struct Fixture {
     Boundary boundary;
@@ -181,6 +190,54 @@ void lifecycle(HWND host)
     check(!KeyboardPopupTestAccess::update(popup, host, f.keyboard) && !popup.error().empty(),
         "malformed DPI transition fails explicitly rather than using guessed geometry");
 }
+void shell_placement(HWND host)
+{
+    Fixture f;
+    Theme theme;
+    Shell shell;
+    KeyboardPopup popup(&theme, &shell);
+    f.open();
+    check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "owned popup initial frame");
+    RECT before{};
+    check(GetWindowRect(KeyboardPopupTestAccess::window(popup), &before), "owned initial geometry");
+    MONITORINFO monitor{sizeof(monitor)};
+    check(GetMonitorInfoW(MonitorFromWindow(KeyboardPopupTestAccess::window(popup), MONITOR_DEFAULTTONEAREST), &monitor),
+        "owned popup monitor");
+    const auto work = monitor.rcWork;
+    const LONG width = before.right - before.left;
+    const LONG height = before.bottom - before.top;
+    // A small synthetic shell obstruction over the default popup; no external shell query.
+    shell.observation.obstruction = RECT{before.left + width / 2 - 10, before.top,
+        before.left + width / 2 + 10, before.top + 10};
+    const auto expected = keyboard_popup_bounds(work, GetDpiForWindow(host), keyboard_visual_height, before, shell.observation.obstruction);
+    const auto events = f.boundary.events;
+    if (expected) {
+        check(KeyboardPopupTestAccess::prepare(popup, host, f.keyboard), "pre-delivery shell avoidance succeeds");
+        RECT after{};
+        check(GetWindowRect(KeyboardPopupTestAccess::window(popup), &after) && EqualRect(&after, &*expected),
+            "actual hidden HWND follows shared unoccluded placement");
+        check(after.right - after.left == width && after.bottom - after.top == height, "popup renderer is not scaled down");
+        check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "relocated popup still renders");
+        const auto cached = KeyboardPopupTestAccess::frame(popup);
+        for (unsigned i = 0; i < 10; ++i) { check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "stable shell updates"); }
+        check(KeyboardPopupTestAccess::frame(popup).rasterizations == cached.rasterizations
+            && KeyboardPopupTestAccess::frame(popup).surface_allocations == cached.surface_allocations, "shell idle retains render caches");
+    }
+    shell.observation.obstruction = work;
+    check(!KeyboardPopupTestAccess::prepare(popup, host, f.keyboard) && !f.keyboard.accepts_typing()
+        && popup.error().find(L"No full-size") != popup.error().npos, "no-space blocks before the next typing step");
+    f.tick(0x1000); f.tick();
+    check(f.boundary.events == events, "obstructed keyboard sends no character or replay");
+    shell.observation.obstruction.reset();
+    check(!KeyboardPopupTestAccess::update(popup, host, f.keyboard), "removing shell cannot silently resume failed keyboard session");
+    f.tick(0x0020); f.tick();
+    check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "explicit close clears failed presentation session");
+    f.open();
+    check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "deliberate reopen returns to ordinary placement");
+    shell.observation.available = false;
+    check(!KeyboardPopupTestAccess::prepare(popup, host, f.keyboard) && !f.keyboard.accepts_typing(),
+        "unknown shell geometry cannot continue blindly");
+}
 }
 int wmain(int argc, wchar_t** argv)
 {
@@ -192,6 +249,7 @@ int wmain(int argc, wchar_t** argv)
         check(host != nullptr, "owned host creation");
         geometry();
         lifecycle(host);
+        shell_placement(host);
         DestroyWindow(host);
         check(GetForegroundWindow() == foreground && GetFocus() == focus, "popup rendering never takes focus");
         std::cout << "PASS hidden production popup: strip collapse, DPI/resize/negative geometry, quiet suppression, failure latch and deliberate reopen; no native input\n";

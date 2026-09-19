@@ -143,6 +143,12 @@ reserved-range policy, not guessed injection flags.
 
 ## Render-only checks
 
+Default `gamepad_keyboard_placement_tests` uses pure rectangles and process-name
+classification, not HWND creation or live metadata. It covers normal placement,
+Start/Search avoidance at 96/144/192 DPI, normal/prediction heights, stable anchors,
+negative monitor origins, integer edges, off-monitor obstructions, full-size
+no-space failures, and an exhaustive comparison with small-area placement.
+
 These targets are opt-in and excluded from default CTest because they create
 native windows. Run only in an authorized test session:
 
@@ -183,6 +189,12 @@ DPI failures, theme-error latching and deliberate new-open recovery. It verifies
 no focus changes or output from presentation. Empty/hidden suggestions must have
 ordinary keyboard dimensions, not an empty strip or off-status banner.
 The tests cannot establish shell compositor ordering or Teams/Explorer behavior.
+The same popup suite injects a fake shell source into the production popup,
+checks the actual hidden HWND against the shared placement result, verifies
+unchanged idle render caches, and rejects typing after a pre-delivery no-space
+failure. It tests deliberate reopen and unavailable metadata without observing
+Start or other applications. Build/run authorization for this suite remains
+separate from the pure placement tests and live shell validation.
 
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and

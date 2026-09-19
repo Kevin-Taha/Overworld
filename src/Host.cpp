@@ -535,6 +535,7 @@ private:
                 }
             }
         } guard{*this};
+        if (keyboard_.visible()) { keyboard_popup_.prepare(window_, keyboard_, voice_view()); }
         snapshot_ = poller_.latest();
         const auto now = monotonic_now();
         accept(core_.step(snapshot_, gates(), now));

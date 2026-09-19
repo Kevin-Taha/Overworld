@@ -115,6 +115,14 @@ contexts stop typing. Pending edits never move to a new target or replay
 automatically. A browser or custom control may change its internal field without
 changing native HWND identity, so exact targeting cannot be guaranteed for all apps.
 
+When typing into Windows Start or Search, the keyboard tries to fit beside the
+shell window instead of relying on drawing above it. It keeps its current
+position when clear and otherwise chooses the nearest available full-size spot
+on that monitor. If no spot fits or shell geometry cannot be verified, typing
+pauses; **View** closes the keyboard so it can be reopened deliberately.
+This avoids known shell-window bounds, not every possible OS overlay or compositor
+effect. It never dismisses Start or takes focus away from the text field.
+
 ## Local word suggestions
 
 Word suggestions are **on by default**. Open the keyboard at an otherwise

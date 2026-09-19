@@ -77,6 +77,11 @@ compiled `gamepad_keyboard_popup` library as the product and uses hidden owned
 windows plus a bounded fake text boundary to exercise DPI, collapse and
 close/reopen after drawing failure. This does not simulate external delivery,
 shell stacking or desktop focus eligibility.
+Shell-aware placement also belongs to the production popup, not the interactive
+Practice scene. Default `gamepad_keyboard_placement_tests` exercises the same
+compiled geometry; the opt-in hidden popup suite injects shell bounds and checks
+real HWND placement, idle resources, no-space blocking and deliberate reopen.
+Neither fixture establishes actual Start/Search bounds or shell visibility.
 Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`
 dispatcher; the latter has separate fake `gamepad_release_tap_tests`.
