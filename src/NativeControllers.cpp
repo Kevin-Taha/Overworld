@@ -15,10 +15,12 @@ struct Enumeration {
     IDirectInput8W* input = nullptr;
     ControllerDevices devices;
     unsigned visited = 0;
+    const std::atomic<bool>* stop = nullptr;
 };
 BOOL CALLBACK enumerate_device(const DIDEVICEINSTANCEW* instance, void* context)
 {
     auto& enumeration = *static_cast<Enumeration*>(context);
+    if (enumeration.stop && enumeration.stop->load()) { enumeration.devices.error = ERROR_CANCELLED; return DIENUM_STOP; }
     if (++enumeration.visited > 64) { enumeration.devices.error = ERROR_MORE_DATA; return DIENUM_STOP; }
     IDirectInputDevice8W* device = nullptr;
     auto hr = enumeration.input->CreateDevice(instance->guidInstance, &device, nullptr);
@@ -39,6 +41,28 @@ BOOL CALLBACK enumerate_device(const DIDEVICEINSTANCEW* instance, void* context)
     enumeration.devices.ids[enumeration.devices.count++] = std::bit_cast<ControllerDeviceId>(instance->guidInstance);
     return DIENUM_CONTINUE;
 }
+class NativeDiscovery final : public ControllerDiscoverySource {
+public:
+    ~NativeDiscovery() override { if (input_) { input_->Release(); } }
+    ControllerDevices query(const std::atomic<bool>& stop) override
+    {
+        if (stop.load()) { ControllerDevices cancelled; cancelled.error = ERROR_CANCELLED; return cancelled; }
+        if (!input_) {
+            const auto hr = DirectInput8Create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8W,
+                reinterpret_cast<void**>(&input_), nullptr);
+            if (FAILED(hr)) { ControllerDevices failed; failed.error = static_cast<DWORD>(hr); return failed; }
+        }
+        Enumeration enumeration;
+        enumeration.input = input_;
+        enumeration.stop = &stop;
+        if (stop.load()) { enumeration.devices.error = ERROR_CANCELLED; return enumeration.devices; }
+        const auto hr = input_->EnumDevices(DI8DEVCLASS_GAMECTRL, enumerate_device, &enumeration, DIEDFL_ATTACHEDONLY);
+        if (FAILED(hr)) { enumeration.devices.error = static_cast<DWORD>(hr); }
+        return enumeration.devices;
+    }
+private:
+    IDirectInput8W* input_ = nullptr;
+};
 struct Objects {
     DirectInputLayout layout;
     bool valid = true;
@@ -70,9 +94,15 @@ DWORD read_mapping_file(const std::filesystem::path& path, bool optional, std::s
 
 NativeControllers::~NativeControllers()
 {
+    shutdown();
+}
+bool NativeControllers::shutdown()
+{
+    const bool stopped = !discovery_ || discovery_->stop();
     for (unsigned i = 0; i < slot_count; ++i) { close(i); }
-    if (input_) { input_->Release(); }
-    if (window_) { DestroyWindow(window_); }
+    if (input_) { input_->Release(); input_ = nullptr; }
+    if (window_) { DestroyWindow(window_); window_ = nullptr; }
+    return stopped;
 }
 DWORD NativeControllers::load_mappings()
 {
@@ -104,23 +134,19 @@ DWORD NativeControllers::load_mappings()
 }
 ControllerDevices NativeControllers::discover()
 {
-    if (!input_) {
-        const auto hr = DirectInput8Create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8W,
-            reinterpret_cast<void**>(&input_), nullptr);
-        if (FAILED(hr)) { ControllerDevices failed; failed.error = static_cast<DWORD>(hr); return failed; }
-    }
-    Enumeration enumeration;
-    enumeration.input = input_;
-    const auto hr = input_->EnumDevices(DI8DEVCLASS_GAMECTRL, enumerate_device, &enumeration, DIEDFL_ATTACHEDONLY);
-    if (FAILED(hr)) { enumeration.devices.error = static_cast<DWORD>(hr); }
-    return enumeration.devices;
+    if (!discovery_) { discovery_ = std::make_unique<ControllerDiscovery>(std::make_unique<NativeDiscovery>()); }
+    return discovery_->latest();
 }
 std::uint32_t NativeControllers::open(unsigned slot, const ControllerDeviceId& id)
 {
     close(slot);
     auto& device = devices_[slot];
     device.description.fill(0);
-    if (!input_) { return ERROR_INVALID_HANDLE; }
+    if (!input_) {
+        const auto created = DirectInput8Create(GetModuleHandleW(nullptr), DIRECTINPUT_VERSION, IID_IDirectInput8W,
+            reinterpret_cast<void**>(&input_), nullptr);
+        if (FAILED(created)) { return static_cast<DWORD>(created); }
+    }
     auto hr = input_->CreateDevice(std::bit_cast<GUID>(id), &device.handle, nullptr);
     if (FAILED(hr)) { return static_cast<DWORD>(hr); }
     DIPROPDWORD product{};

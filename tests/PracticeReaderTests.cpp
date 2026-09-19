@@ -51,7 +51,7 @@ public:
         return result;
     }
     void wait_entered() { check(WaitForSingleObject(entered, 1000) == WAIT_OBJECT_0, "fake slot zero started"); }
-    void shutdown() override
+    bool shutdown() override
     {
         shutdown_thread.store(GetCurrentThreadId());
         if (block_shutdown.load()) {
@@ -59,6 +59,7 @@ public:
             if (WaitForSingleObject(release, 2000) != WAIT_OBJECT_0) { expired.store(true); }
         }
         shutdown_finished.store(true);
+        return !shutdown_failure.load();
     }
     void service_messages() override { services.fetch_add(1); }
     void unblock() { SetEvent(release); }
@@ -67,6 +68,7 @@ public:
     std::atomic<bool> foreground{true}, block{true}, expired{false}, repeat{false}, revoke_last{false};
     std::atomic<bool> expire_publication{false}, last_slot{false};
     std::atomic<bool> block_shutdown{false}, shutdown_finished{false};
+    std::atomic<bool> shutdown_failure{false};
     std::atomic<DWORD> shutdown_thread{0};
     std::atomic<unsigned> services{0};
     std::atomic<unsigned> post_last_clocks{0};
@@ -218,9 +220,17 @@ void teardown_timeout()
     check(backend->shutdown_finished.load() && !backend->expired.load(), "retained worker finishes late teardown");
     for (const auto& calls : backend->calls) { check(calls.load() == 0, "teardown does not sample controllers"); }
 }
+void teardown_failure()
+{
+    auto backend = std::make_shared<Fake>();
+    backend->shutdown_failure.store(true);
+    Reader reader(backend);
+    check(reader.start() && !reader.stop() && !reader.error().empty(),
+        "background metadata shutdown failure reaches explicit terminal harness error");
+}
 int main()
 {
-    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); publication_expiry(); stopped_timeout(); retained_lifetime(); teardown_timeout(); }
+    try { fresh_batch(); revoked(false); revoked(true); expired_batch(); publication_gate(); publication_expiry(); stopped_timeout(); retained_lifetime(); teardown_timeout(); teardown_failure(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS fake per-slot revocation, focus loss, deadlines, bounded stop, and retained-state lifetime; no XInput backend linked.\n";
 }

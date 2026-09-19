@@ -14,6 +14,7 @@ struct ControllerReader::Hid {
 ControllerReader::ControllerReader() = default;
 ControllerReader::~ControllerReader() = default;
 void ControllerReader::service_messages() { if (hid_) { hid_->backend.service_messages(); } }
+bool ControllerReader::shutdown() { return !hid_ || hid_->backend.shutdown(); }
 
 Tick monotonic_now()
 {
@@ -86,6 +87,12 @@ void ControllerPoller::start()
                 latest_ = next;
             }
             wake_.wait_for(wait_lock, stop, std::chrono::milliseconds(16), [] { return false; });
+        }
+        if (!reader.shutdown()) {
+            std::lock_guard lock(mutex_);
+            latest_ = {};
+            latest_.slots[0].connection = Connection::Error;
+            latest_.slots[0].error = ERROR_TIMEOUT;
         }
     });
 }

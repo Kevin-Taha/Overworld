@@ -3,6 +3,7 @@
 #include "ControllerDevices.h"
 #include "ControllerMapping.h"
 #include "DirectInputLayout.h"
+#include "ControllerDiscovery.h"
 
 #include <Windows.h>
 #include <dinput.h>
@@ -19,6 +20,7 @@ public:
     void close(unsigned slot) override;
     void describe(unsigned slot, Controller& value) const override;
     void service_messages();
+    bool shutdown();
 private:
     struct Device {
         IDirectInputDevice8W* handle = nullptr;
@@ -34,5 +36,6 @@ private:
     std::string database_, overrides_;
     DWORD mapping_error_ = 0;
     bool mappings_loaded_ = false;
+    std::unique_ptr<ControllerDiscovery> discovery_;
 };
 } // namespace gamepad

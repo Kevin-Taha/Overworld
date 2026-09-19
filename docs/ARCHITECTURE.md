@@ -39,6 +39,17 @@ cannot authorize a new device. Batch timestamps precede native reads. Production
 and Practice use the same compiled reader and mapping; Practice retains per-slot
 authorization and terminal bounded shutdown, including native teardown.
 
+DirectInput enumeration and duplicate-interface checks run on a separate
+metadata-only worker. The sampler reads its inventory mailbox without waiting;
+slow periodic device discovery cannot block a connected controller's 16-ms reads.
+Before the first inventory, discovery reports pending, not an invented empty
+success. The metadata worker owns its DirectInput interface, never acquires a
+device or reads controls, and cannot publish or start another query after stop.
+Its 200-ms stop bound retains in-flight state safely on timeout and reports
+failure; Practice includes this result in its existing terminal shutdown path.
+The keyboard's 100-ms sample-age/continuity checks and original sampling
+timestamps are unchanged.
+
 ## Development-only practice harness
 
 Practice is not a product mode. `GamepadDesktopPractice` is an explicit

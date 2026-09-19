@@ -21,6 +21,7 @@ public:
     Snapshot read();
     Controller read_slot(unsigned index, ControllerReadScope scope = {});
     void service_messages();
+    bool shutdown();
 
 private:
     struct Hid;

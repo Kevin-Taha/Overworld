@@ -133,7 +133,7 @@ DWORD WINAPI Reader::worker(void* context)
         const auto wait = WaitForSingleObject(state->wake, 16);
         if (wait != WAIT_OBJECT_0 && wait != WAIT_TIMEOUT) { state->failed.store(true); break; }
     }
-    state->backend->shutdown();
+    if (!state->backend->shutdown()) { state->failed.store(true); }
     return state->failed.load() ? 1 : 0;
 }
 } // namespace gamepad::practice

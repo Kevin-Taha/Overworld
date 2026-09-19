@@ -15,7 +15,12 @@ public:
     bool focused(HWND window) override { return GetForegroundWindow() == window && !IsIconic(window); }
     gamepad::Controller slot(unsigned index) override { return reader_->read_slot(index); }
     gamepad::Controller slot(unsigned index, gamepad::ControllerReadScope scope) override { return reader_->read_slot(index, scope); }
-    void shutdown() override { reader_.reset(); }
+    bool shutdown() override
+    {
+        const bool stopped = reader_->shutdown();
+        reader_.reset();
+        return stopped;
+    }
     void service_messages() override { reader_->service_messages(); }
 private:
     std::optional<gamepad::ControllerReader> reader_{std::in_place};

@@ -11,7 +11,7 @@ public:
     virtual bool focused(HWND window) = 0;
     virtual Controller slot(unsigned index) = 0;
     virtual Controller slot(unsigned index, ControllerReadScope) { return slot(index); }
-    virtual void shutdown() {}
+    virtual bool shutdown() { return true; }
     virtual void service_messages() {}
 };
 

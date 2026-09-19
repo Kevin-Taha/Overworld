@@ -91,6 +91,10 @@ Error 50 means missing/unsupported mapping or control layout. Error 13 means
 invalid mapping data or an invalid native report. File-read errors mean the
 `controllers` files are unavailable. Other HRESULTs remain visible in Details.
 Discovery and reacquisition are throttled; failed reads discard all controls.
+Discovery runs independently of sampling, so a slow inventory scan does not
+interrupt typing from an already connected pad. At startup, error 997 means the
+first inventory is still pending. Error 1460 during shutdown means an in-flight
+metadata query did not stop within its bound; it cannot publish or restart.
 Reconnection, source replacement, and reacquisition advance identity epochs
 and require fresh neutral input. A mapping never overrides physical takeover,
 original-target checks, exclusions, or pending accepted-button release recovery.

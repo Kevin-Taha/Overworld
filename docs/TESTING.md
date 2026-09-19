@@ -75,6 +75,14 @@ The reader's message service runs without sampling authorization, but performs
 no controller reads. Fake teardown stalls verify that native cleanup remains
 inside the Practice worker's 250-ms terminal shutdown bound.
 
+`gamepad_discovery_tests` holds a fake metadata query in flight while feeding
+fresh snapshots through the real `ControllerDevicesReader` and `KeyboardDelivery`.
+Opening and repeated typing must continue across inventory refreshes; an actual
+101-ms sample gap must still interrupt without replay. It also covers explicit
+initial pending/error results, owning-thread cleanup, bounded failed shutdown,
+and retained state without late publication or another query. These are fake
+devices and a fake text boundary, not controller or typing tests on Windows apps.
+
 ## Explicit deterministic development harness tests
 
 These targets and the practice libraries are excluded from `ALL_BUILD` and

@@ -46,6 +46,12 @@ protected-desktop, physical-input, or cleanup guards.
 
 ## Keyboard closes or text does not appear
 
+**Controller interrupted** means the controller snapshot is stale, has a gap
+over 100 ms, or violates timestamp/sequence continuity. It is distinct from
+**Controller disconnected**, which indicates connection or identity loss.
+The reader keeps periodic device discovery off the sampling thread; do not
+increase the freshness deadline or replay missed strokes to hide a real gap.
+
 Focus changes, real physical input, controller changes, and unsafe routing dismiss
 or pause typing. Reopen deliberately at the intended field. Details retains the
 last dismissal category; it does not log the text.

@@ -48,6 +48,13 @@ SDL-compatible logical aliases. Default controller tests exercise that same help
 with synthetic objects and reports before the shared mapper; no native device
 sampling or successful external delivery is implied.
 
+Metadata discovery uses the shared `ControllerDiscovery` worker and mailbox;
+it never acquires devices or reads controls, including when Practice lacks focus.
+Actual slot reads still require the original focused lease. Fake discovery tests
+keep sampling and the real keyboard model running while enumeration is blocked.
+Discovery stop failure propagates to Practice's terminal reader error, with
+in-flight metadata resources retained on their owning worker until it returns.
+
 `Practice.cpp` is the local scene sink, progress, and safe input adapter.
 `PracticeWindow` and `PracticeReader` own the development-only UI/read lifecycle.
 They are not production delivery models. No `Desktop`, `NativeVoice`,
