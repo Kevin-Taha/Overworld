@@ -225,7 +225,7 @@ void shell_placement(HWND host)
     }
     shell.observation.obstruction = work;
     check(!KeyboardPopupTestAccess::prepare(popup, host, f.keyboard) && !f.keyboard.accepts_typing()
-        && popup.error().find(L"No full-size") != popup.error().npos, "no-space blocks before the next typing step");
+        && popup.error().find(L"20% compact limit") != popup.error().npos, "no-space blocks before the next typing step");
     f.tick(0x1000); f.tick();
     check(f.boundary.events == events, "obstructed keyboard sends no character or replay");
     shell.observation.obstruction.reset();
@@ -237,6 +237,45 @@ void shell_placement(HWND host)
     shell.observation.available = false;
     check(!KeyboardPopupTestAccess::prepare(popup, host, f.keyboard) && !f.keyboard.accepts_typing(),
         "unknown shell geometry cannot continue blindly");
+}
+void compact_popup(HWND host)
+{
+    Fixture f;
+    Theme theme;
+    Shell shell;
+    KeyboardPopup popup(&theme, &shell);
+    f.open();
+    check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "compact fixture opens hidden popup");
+    const auto window = KeyboardPopupTestAccess::window(popup);
+    RECT initial{};
+    check(GetWindowRect(window, &initial), "compact fixture initial geometry");
+    SendMessageW(window, WM_DPICHANGED, MAKELONG(144, 144), reinterpret_cast<LPARAM>(&initial));
+    MONITORINFO monitor{sizeof(monitor)};
+    check(GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &monitor), "compact fixture monitor");
+    const auto work = monitor.rcWork;
+    shell.observation.obstruction = RECT{work.left + 483, work.top, work.right, work.bottom};
+    const auto events = f.boundary.events;
+    check(KeyboardPopupTestAccess::prepare(popup, host, f.keyboard)
+        && KeyboardPopupTestAccess::update(popup, host, f.keyboard), "native hidden popup accepts an eighty-percent side slot");
+    RECT compact{};
+    check(GetWindowRect(window, &compact) && compact.right - compact.left == 471 && compact.bottom - compact.top == 420,
+        "compact popup uses actual client size rather than changing Windows DPI");
+    check(f.boundary.events == events && f.keyboard.accepts_typing(), "placement does not emit or block eligible fake typing");
+    const auto cached = KeyboardPopupTestAccess::frame(popup);
+    check(cached.width == 471 && cached.height == 420, "production renderer paints compact HWND dimensions");
+    for (unsigned i = 0; i < 20; ++i) { check(KeyboardPopupTestAccess::update(popup, host, f.keyboard), "compact idle frame"); }
+    check(KeyboardPopupTestAccess::frame(popup).rasterizations == cached.rasterizations
+        && KeyboardPopupTestAccess::frame(popup).surface_allocations == cached.surface_allocations, "compact idle caches remain stable");
+    f.word();
+    check(KeyboardPopupTestAccess::prepare(popup, host, f.keyboard)
+        && KeyboardPopupTestAccess::update(popup, host, f.keyboard), "prediction expansion stays beside shell");
+    check(KeyboardPopupTestAccess::frame(popup).width == 471 && KeyboardPopupTestAccess::frame(popup).height == 500,
+        "suggestion glyphs receive the same bounded compact scale");
+    shell.observation.obstruction.reset();
+    check(KeyboardPopupTestAccess::update(popup, host, f.keyboard)
+        && KeyboardPopupTestAccess::frame(popup).width == 588
+        && KeyboardPopupTestAccess::frame(popup).height == 624, "ordinary context restores native DPI dimensions");
+    check(!(GetWindowLongPtrW(window, GWL_STYLE) & WS_VISIBLE), "compact fixture never displays a live overlay");
 }
 }
 int wmain(int argc, wchar_t** argv)
@@ -250,6 +289,7 @@ int wmain(int argc, wchar_t** argv)
         geometry();
         lifecycle(host);
         shell_placement(host);
+        compact_popup(host);
         DestroyWindow(host);
         check(GetForegroundWindow() == foreground && GetFocus() == focus, "popup rendering never takes focus");
         std::cout << "PASS hidden production popup: strip collapse, DPI/resize/negative geometry, quiet suppression, failure latch and deliberate reopen; no native input\n";

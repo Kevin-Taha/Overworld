@@ -148,6 +148,9 @@ classification, not HWND creation or live metadata. It covers normal placement,
 Start/Search avoidance at 96/144/192 DPI, normal/prediction heights, stable anchors,
 negative monitor origins, integer edges, off-monitor obstructions, full-size
 no-space failures, and an exhaustive comparison with small-area placement.
+It also checks native region-envelope translation/clipping, largest-fitting
+compact selection, the 20%/baseline-pixel lower bounds, idle stability, normal
+size restoration, and suggestion-height placement.
 
 These targets are opt-in and excluded from default CTest because they create
 native windows. Run only in an authorized test session:
@@ -195,6 +198,16 @@ unchanged idle render caches, and rejects typing after a pre-delivery no-space
 failure. It tests deliberate reopen and unavailable metadata without observing
 Start or other applications. Build/run authorization for this suite remains
 separate from the pure placement tests and live shell validation.
+
+For the separately authorized compact artwork regression, build
+`gamepad_keyboard_visual_tests` and run
+`gamepad_keyboard_visual_tests.exe --compact-shell-only <owned-artifact-directory>`
+under a 120-second process watchdog. It checks actual glyph ink, 4.5:1 contrast,
+nonoverlap, alpha and resource reuse across pages/modes/themes/DPI at 80%/91%,
+including candidate strips. Measurements use the renderer's actual centered
+aspect-preserving transform rather than assuming exact integer DPI multiples.
+Exports contain synthetic fixtures only. The same invocation also exercises
+hidden owned-window presentation, not a live overlay over Start.
 
 The complete app UI suite measures Settings text/control bounds on every tab at
 96/144/192 DPI with light, dark and high-contrast palettes, all combo labels and

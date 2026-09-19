@@ -81,7 +81,7 @@ bool KeyboardPopup::prepare_window(HWND host, KeyboardDelivery& keyboard, const 
     if (!window_ && !create(host)) { fail(error_); return false; }
     KeyboardShellObservation shell;
     if (inspect_shell) { shell = (shell_source_ ? *shell_source_ : native_shell_).observe(placement_target); }
-    if (!shell.available) { fail(L"Keyboard shell placement unavailable. View closes."); return false; }
+    if (!shell.available) { fail(L"Keyboard shell placement unavailable"); return false; }
     KeyboardVisualState state{keyboard.accepts_typing(), false, {}, {}, voice};
     state.word_suggestions = keyboard.prediction_enabled();
     state.prediction = keyboard.prediction_view();
@@ -103,19 +103,20 @@ bool KeyboardPopup::prepare_window(HWND host, KeyboardDelivery& keyboard, const 
 
 bool KeyboardPopup::place(RECT work, UINT dpi, int logical_height, std::optional<RECT> anchor, std::optional<RECT> obstruction)
 {
-    const auto bounds = keyboard_popup_bounds(work, dpi, logical_height, anchor, obstruction);
-    if (!bounds) {
-        fail(obstruction ? L"No full-size keyboard space beside Start or Search. View closes."
+    const auto placement = keyboard_popup_placement(work, dpi, logical_height, anchor, obstruction);
+    if (!placement) {
+        fail(obstruction ? L"No keyboard space beside Start or Search within the 20% compact limit"
             : L"Keyboard popup geometry invalid");
         return false;
     }
+    const auto& bounds = placement->bounds;
     RECT current{};
-    if (shown_ && GetWindowRect(window_, &current) && EqualRect(&current, &*bounds) && dpi_ == dpi && logical_height_ == logical_height) {
+    if (shown_ && GetWindowRect(window_, &current) && EqualRect(&current, &bounds) && dpi_ == dpi && logical_height_ == logical_height) {
         return true;
     }
     positioning_ = true;
-    const bool positioned = SetWindowPos(window_, HWND_TOPMOST, bounds->left, bounds->top,
-        bounds->right - bounds->left, bounds->bottom - bounds->top, SWP_NOACTIVATE) != FALSE;
+    const bool positioned = SetWindowPos(window_, HWND_TOPMOST, bounds.left, bounds.top,
+        bounds.right - bounds.left, bounds.bottom - bounds.top, SWP_NOACTIVATE) != FALSE;
     positioning_ = false;
     if (!positioned) { fail(L"Keyboard popup presentation failed"); return false; }
     dpi_ = dpi;

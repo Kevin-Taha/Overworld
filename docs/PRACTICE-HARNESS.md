@@ -81,6 +81,10 @@ Shell-aware placement also belongs to the production popup, not the interactive
 Practice scene. Default `gamepad_keyboard_placement_tests` exercises the same
 compiled geometry; the opt-in hidden popup suite injects shell bounds and checks
 real HWND placement, idle resources, no-space blocking and deliberate reopen.
+It includes bounded compact client sizes, suggestion expansion and restoration
+of normal size. The render-only compact fixture exercises the same renderer at
+120/144/192 DPI, 80%/91%, all pages, both selection modes, and all four theme
+palettes, measuring actual glyph clearance/contrast and premultiplied alpha.
 Neither fixture establishes actual Start/Search bounds or shell visibility.
 Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`

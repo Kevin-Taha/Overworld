@@ -38,13 +38,20 @@ KeyboardShellObservation NativeKeyboardShell::observe(HWND foreground)
     }
     KeyboardShellObservation result;
     if (shell_) {
-        RECT bounds{};
+        RECT bounds{}, window{}, region{};
         DWORD cloaked = 0;
         if (!IsWindowVisible(root) || IsIconic(root)
             || FAILED(DwmGetWindowAttribute(root, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) || cloaked
             || FAILED(DwmGetWindowAttribute(root, DWMWA_EXTENDED_FRAME_BOUNDS, &bounds, sizeof(bounds)))
+            || !GetWindowRect(root, &window)
             || bounds.right <= bounds.left || bounds.bottom <= bounds.top) { return {false, {}}; }
-        result.obstruction = bounds;
+        const auto kind = GetWindowRgnBox(root, &region);
+        if (kind == NULLREGION) { return {false, {}}; }
+        result.obstruction = keyboard_shell_obstruction(bounds, window,
+            kind == SIMPLEREGION || kind == COMPLEXREGION ? std::optional<RECT>{region} : std::nullopt);
+        if (!result.obstruction) { return {false, {}}; }
+        RECT final_window{};
+        if (!GetWindowRect(root, &final_window) || !EqualRect(&window, &final_window)) { return {false, {}}; }
     }
     DWORD final_pid = 0;
     if (GetWindowThreadProcessId(root, &final_pid) != tid || final_pid != pid

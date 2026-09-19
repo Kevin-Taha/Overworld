@@ -257,7 +257,7 @@ if(BUILD_TESTING)
     target_link_options(gamepad_text_smoke PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
     # Creates real offscreen HWNDs: compile explicitly, never run in default CTest.
     add_executable(gamepad_keyboard_visual_tests EXCLUDE_FROM_ALL tests/KeyboardVisualTests.cpp)
-    target_link_libraries(gamepad_keyboard_visual_tests PRIVATE gamepad_keyboard_visual)
+    target_link_libraries(gamepad_keyboard_visual_tests PRIVATE gamepad_keyboard_visual gamepad_keyboard_placement)
     target_compile_definitions(gamepad_keyboard_visual_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
     add_executable(gamepad_keyboard_popup_tests EXCLUDE_FROM_ALL tests/KeyboardPopupTests.cpp)
     target_link_libraries(gamepad_keyboard_popup_tests PRIVATE gamepad_keyboard_popup)

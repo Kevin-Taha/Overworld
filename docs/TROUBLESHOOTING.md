@@ -67,14 +67,18 @@ The floating keyboard requests a nonactivating topmost window. Documented
 [`HWND_TOPMOST`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowpos)
 ordering places it above non-topmost windows; this is not proof of visibility
 above Windows Start or every system surface. For identified foreground Start and
-Search windows, the app instead finds a full-size rectangle outside the shell's
-reported frame on the same monitor. It retains a clear current position and moves
-only when necessary, including suggestion expansion and shell movement.
+Search windows, the app instead finds a rectangle outside the shell's reported
+window region on the same monitor. This matters when the shell root is fullscreen
+but has a smaller region. Without a region, the DWM frame remains the boundary.
+Full size is preferred; if it cannot fit, a shell-only compact fallback reduces
+the keyboard by at most 20%, never below the baseline pixel size. Ordinary-app
+size and system DPI settings are unchanged. Suggestion expansion and shell
+movement recheck the largest fitting size and placement.
 
-If the shell reports full-monitor bounds, or the remaining space is too small at
-the current DPI, the app pauses with **No full-size keyboard space beside Start
-or Search**. Unknown geometry also pauses; View closes and deliberate reopening
-starts a new attempt. There is no automatic replay or shrinking of glyphs.
+If there is no room within that compact limit, the app pauses with **No keyboard
+space beside Start or Search within the 20% compact limit**. Unknown or empty
+shell-region geometry also pauses; View closes and deliberate reopening starts
+a new attempt. There is no automatic input replay.
 This cannot account for unrelated overlays or transparent areas inside a large
 shell root rectangle. The app does not use privileged window bands, dismiss
 Start, or move focus to force visibility. If still obscured, close it with View

@@ -1,6 +1,7 @@
 #include "KeyboardVisual.h"
 #include "Keyboard.h"
 #include "PredictionPractice.h"
+#include "KeyboardPlacement.h"
 #include <dwrite.h>
 #include <wrl/client.h>
 
@@ -109,12 +110,16 @@ double contrast(std::uint32_t a, std::uint32_t b, std::uint32_t background)
     return (std::max(x, y) + 0.05) / (std::min(x, y) + 0.05);
 }
 
-void inspect(const KeyboardVisualFrame& frame, bool high_contrast = false, bool character_stage = false, bool voice_active = false)
+void inspect(const KeyboardVisualFrame& frame, bool high_contrast = false, bool character_stage = false,
+    bool voice_active = false, std::optional<int> logical_height = {})
 {
     check(frame.glyphs.size() == (character_stage ? 4 : 32), "visible glyph count must match group/character stage");
-    const float scale = static_cast<float>(frame.width) / keyboard_visual_width;
+    const float width_scale = static_cast<float>(frame.width) / keyboard_visual_width;
+    const float scale = logical_height ? std::min(width_scale, static_cast<float>(frame.height) / *logical_height) : width_scale;
+    const float left = logical_height ? (frame.width - keyboard_visual_width * scale) / 2 : 0;
+    const float top = logical_height ? (frame.height - *logical_height * scale) / 2 : 0;
     const auto pixel_at = [&](float x, float y) {
-        return frame.pixels[static_cast<std::size_t>(y * scale) * frame.width + static_cast<std::size_t>(x * scale)];
+        return frame.pixels[static_cast<std::size_t>(y * scale + top) * frame.width + static_cast<std::size_t>(x * scale + left)];
     };
     float leftmost = static_cast<float>(frame.width), rightmost = 0;
     for (std::size_t i = 0; i < frame.glyphs.size(); ++i) {
@@ -123,11 +128,11 @@ void inspect(const KeyboardVisualFrame& frame, bool high_contrast = false, bool 
         rightmost = std::max(rightmost, a.right);
         check(a.left < a.right && a.top < a.bottom, "glyph ink bounds must be nonempty");
         if (voice_active) {
-            check(a.right <= 158 * scale || a.left >= 234 * scale || a.bottom <= 121 * scale || a.top >= 185 * scale,
+            check(a.right <= 158 * scale + left || a.left >= 234 * scale + left || a.bottom <= 121 * scale + top || a.top >= 185 * scale + top,
                 "voice center must not overlap any actual character ink");
         }
-        check(a.left >= 36 * scale && a.right <= (keyboard_visual_width - 36) * scale
-            && a.top >= 22 * scale && a.bottom < 277 * scale, "glyph must stay inside body and above footer");
+        check(a.left >= 36 * scale + left && a.right <= (keyboard_visual_width - 36) * scale + left
+            && a.top >= 22 * scale + top && a.bottom < 277 * scale + top, "glyph must stay inside body and above footer");
         for (std::size_t j = i + 1; j < frame.glyphs.size(); ++j) {
             const auto& b = frame.glyphs[j];
             check(!overlaps(a, b), "actual glyph ink must never overlap");
@@ -542,11 +547,75 @@ void absent_prediction_hint()
     }
     std::cout << "PASS absent production prediction hints, including voice and quiet suppression\n";
 }
+void compact_shell_frames(const std::filesystem::path& directory)
+{
+    FakeTheme theme;
+    KeyboardVisual visual(&theme);
+    unsigned inspected = 0;
+    for (unsigned palette = 0; palette < 4; ++palette) {
+        theme.theme = {};
+        theme.theme.dark = palette == 1;
+        theme.theme.high_contrast = palette >= 2;
+        if (palette == 3) {
+            theme.theme.window = 0; theme.theme.window_text = 0xffffff;
+            theme.theme.highlight = 0xffff00; theme.theme.highlight_text = 0;
+        }
+        visual.system_theme_changed(WM_SETTINGCHANGE);
+        for (const UINT dpi : {120u, 144u, 192u}) {
+            const RECT work{0, 0, MulDiv(1920, dpi, 96), MulDiv(1040, dpi, 96)};
+            for (const unsigned percent : {80u, 91u}) {
+                const auto width = (MulDiv(keyboard_visual_width, dpi, 96) * percent + 99) / 100;
+                const RECT shell{static_cast<LONG>(width) + MulDiv(8, dpi, 96), 0, work.right, work.bottom};
+                for (unsigned page = 0; page < 4; ++page) {
+                    for (unsigned mode = 0; mode < 3; ++mode) {
+                        Fixture fixture(mode ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
+                        fixture.select(mode == 2 ? 7 : 1, page);
+                        if (mode == 2) { fixture.center(); }
+                        const auto placement = keyboard_popup_placement(work, dpi, keyboard_visual_height, {}, shell);
+                        check(placement && placement->percent == percent, "compact frame uses largest allowed placement scale");
+                        const auto bounds = placement->bounds;
+                        render(visual, bounds.right - bounds.left, bounds.bottom - bounds.top, fixture.model, {true, false, {}, {}});
+                        inspect(visual.frame(), theme.theme.high_contrast, mode == 2, false, keyboard_visual_height);
+                        const auto cached = visual.frame();
+                        render(visual, cached.width, cached.height, fixture.model, {true, false, {}, {}});
+                        check(visual.frame().rasterizations == cached.rasterizations
+                            && visual.frame().surface_allocations == cached.surface_allocations, "compact idle reuses real renderer resources");
+                        if (!directory.empty() && dpi == 144 && page == 0 && mode == 0) {
+                            export_frame(visual, directory, L"compact-shell-" + std::to_wstring(palette) + L"-" + std::to_wstring(percent));
+                        }
+                        ++inspected;
+                    }
+                }
+                PredictionPractice fixture; seed_prediction_demo(fixture, KeyboardInputMode::FaceButtons);
+                KeyboardVisualState state{true, false, {}, {}};
+                state.word_suggestions = true;
+                state.prediction = fixture.keyboard().prediction_view();
+                const auto placement = keyboard_popup_placement(work, dpi, keyboard_prediction_height, {}, shell);
+                check(placement && placement->percent == percent, "suggestion expansion retains compact placement limit");
+                const auto bounds = placement->bounds;
+                render(visual, bounds.right - bounds.left, bounds.bottom - bounds.top, fixture.keyboard().model(), state);
+                inspect(visual.frame(), theme.theme.high_contrast, false, false, keyboard_prediction_height);
+                if (!directory.empty() && dpi == 144) {
+                    export_frame(visual, directory, L"compact-prediction-" + std::to_wstring(palette) + L"-" + std::to_wstring(percent));
+                }
+            }
+        }
+    }
+    std::cout << "PASS " << inspected << " compact shell page/mode/theme/DPI frames; actual ink/contrast/alpha and idle reuse.\n";
+}
 }
 
 int wmain(int argc, wchar_t** argv)
 {
     try {
+        if (argc >= 2 && std::wstring_view(argv[1]) == L"--compact-shell-only") {
+            check(argc == 2 || argc == 3, "usage: gamepad_keyboard_visual_tests --compact-shell-only [owned-artifact-directory]");
+            const std::filesystem::path directory = argc == 3 ? argv[2] : L"";
+            if (!directory.empty()) { std::filesystem::create_directories(directory); }
+            compact_shell_frames(directory);
+            hidden_presentation();
+            return 0;
+        }
         check(argc == 1 || argc == 2, "usage: gamepad_keyboard_visual_tests [owned-artifact-directory]");
         std::filesystem::path directory;
         if (argc == 2) {

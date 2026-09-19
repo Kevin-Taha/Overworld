@@ -172,11 +172,20 @@ Physical mouse handling, caption dragging, and other apps are not rewritten.
 The native keyboard popup uses `KeyboardPlacement` to retain its ordinary
 bottom-center/current position unless it overlaps the verified foreground Start
 or Search window. `NativeKeyboardShell` reads only foreground root identity,
-process basename, visibility/cloak and DWM frame bounds, with cached process
+process basename, visibility/cloak, DWM frame bounds and the native window-region
+envelope, with cached process
 identity; it does not query field text, use UIA, or call stateful input routing.
 The pure bounded search tries rectangle-edge candidates inside the target
-monitor's work area, retaining full DPI-scaled artwork and an 8-DIP shell gap.
-Current clear placement wins, then shortest movement with deterministic ties.
+monitor's work area with an 8-DIP shell gap. Region coordinates are translated
+from the actual window origin and conservatively clipped to its frame/window;
+an absent region retains frame bounds, while an empty/invalid region is unavailable.
+Full DPI-scaled artwork is preferred; only for a shell obstruction, the search
+tries 99% down to 80% in one-percent steps, never below the ordinary 96-DPI pixel
+baseline. Pixel dimensions round up to honor that lower bound. The existing
+renderer fits the resulting client size; Windows DPI, fonts and settings are
+not rewritten. At the largest fitting size, a clear current position wins,
+then shortest movement with deterministic ties. Normal sizing returns outside
+the shell context.
 
 Visible sessions run placement preparation before `KeyboardDelivery::step`.
 No available rectangle or unavailable geometry blocks the session before another

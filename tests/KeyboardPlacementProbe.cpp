@@ -276,10 +276,18 @@ void output(Probe& probe)
         if (GetMonitorInfoW(MonitorFromWindow(item.handle, MONITOR_DEFAULTTONEAREST), &monitor)) {
             std::wcout << L" "; rectangle(L"work", monitor.rcWork);
             if (item.role == Role::Shell && !item.child && item.frame_known && IsWindowVisible(item.handle) && SUCCEEDED(cloak_result) && !cloak) {
+                const auto extent = item.bounds_known && region_kind != NULLREGION
+                    ? gamepad::keyboard_shell_obstruction(item.frame, item.bounds,
+                        region_kind == SIMPLEREGION || region_kind == COMPLEXREGION ? std::optional<RECT>{region} : std::nullopt)
+                    : std::nullopt;
+                std::wcout << L" ";
+                if (extent) { rectangle(L"shell_extent", *extent); }
+                else { std::wcout << L"shell_extent=unavailable"; }
                 for (const int height : {gamepad::keyboard_visual_height, gamepad::keyboard_prediction_height}) {
-                    const auto candidate = gamepad::keyboard_popup_bounds(monitor.rcWork, GetDpiForWindow(item.handle), height, {}, item.frame);
+                    const auto candidate = extent ? gamepad::keyboard_popup_placement(monitor.rcWork, GetDpiForWindow(item.handle), height, {}, *extent) : std::nullopt;
                     std::wcout << L" candidate_" << height << L"=";
-                    if (candidate) { rectangle(L"", *candidate); } else { std::wcout << L"no_space"; }
+                    if (candidate) { rectangle(L"", candidate->bounds); std::wcout << L"@" << candidate->percent << L"%"; }
+                    else { std::wcout << L"no_space_or_unavailable"; }
                 }
                 std::wcout << L" work_hit_grid_7x5=";
                 for (LONG y = 0; y < 5; ++y) {
@@ -323,7 +331,7 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     }
     try {
-        std::wcout << L"Keyboard placement diagnostic v2; prepare only until countdown completes.\n"
+        std::wcout << L"Keyboard placement diagnostic v3; prepare only until countdown completes.\n"
             L"Windows enumeration and point hit tests do not prove compositor visibility.\n";
         for (unsigned remaining = 5; remaining; --remaining) {
             std::wcout << L"Countdown: " << remaining << L"\n" << std::flush;

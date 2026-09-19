@@ -92,10 +92,50 @@ void classification()
         check(!keyboard_shell_image(name), "ordinary or lookalike processes are not shell placement exceptions");
     }
 }
+void regions_and_compact()
+{
+    const RECT work{0, 0, 2400, 1500};
+    const RECT panel{492, 340, 1908, 1500};
+    const auto region = keyboard_shell_obstruction(work, work, panel);
+    check(region && equal(*region, panel), "fullscreen root with smaller native region uses actual region envelope");
+    check(!keyboard_popup_bounds(work, 144, keyboard_visual_height, {}, *region), "full-size keyboard does not fit narrow shell side gaps");
+    for (const int height : {keyboard_visual_height, keyboard_prediction_height}) {
+        const auto compact = keyboard_popup_placement(work, 144, height, {}, *region);
+        check(compact && compact->percent >= 80 && compact->percent < 100 && !overlaps(compact->bounds, panel),
+            "bounded compact fallback makes narrow shell side gaps usable");
+        const auto width = compact->bounds.right - compact->bounds.left;
+        check(width * 100 >= MulDiv(keyboard_visual_width, 144, 96) * 80, "integer rounding never exceeds twenty percent reduction");
+        check(!keyboard_popup_bounds(work, 144, height, {}, *region, compact->percent + 1),
+            "chosen compact percentage is the largest that fits");
+        const auto stable = keyboard_popup_placement(work, 144, height, compact->bounds, *region);
+        check(stable && stable->percent == compact->percent && equal(stable->bounds, compact->bounds), "compact idle placement is stable");
+        const auto normal = keyboard_popup_placement(work, 144, height, compact->bounds);
+        check(normal && normal->percent == 100
+            && normal->bounds.right - normal->bounds.left == MulDiv(keyboard_visual_width, 144, 96), "leaving shell restores native size");
+    }
+    const auto ordinary = keyboard_popup_placement(work, 144, keyboard_visual_height);
+    const auto legacy = keyboard_popup_bounds(work, 144, keyboard_visual_height);
+    check(ordinary && legacy && ordinary->percent == 100 && equal(ordinary->bounds, *legacy), "ordinary app placement is unchanged");
+    check(!keyboard_popup_placement(work, 144, keyboard_visual_height, {}, RECT{470, 0, 1930, 1500}), "still fail if even twenty percent reduction cannot fit");
+    check(!keyboard_popup_bounds(work, 144, keyboard_visual_height, {}, panel, 79), "explicit below-limit scale rejected");
+    check(!keyboard_popup_bounds(work, 144, keyboard_visual_height, {}, {}, 90), "compact size is shell-only");
+    check(!keyboard_popup_bounds(work, 96, keyboard_visual_height, {}, panel, 80), "never reduce below baseline pixel readability");
+    const RECT window{-1800, -600, -600, 500};
+    const RECT local{100, 20, 900, 800};
+    const auto translated = keyboard_shell_obstruction(window, window, local);
+    check(translated && equal(*translated, {-1700, -580, -900, 200}), "region coordinates translate from window origin on negative monitors");
+    check(!keyboard_shell_obstruction(work, work, RECT{}), "empty region is unavailable, not free space");
+    check(!keyboard_shell_obstruction(work, work, RECT{3000, 0, 4000, 100}), "nonintersecting malformed region rejected");
+    const auto no_region = keyboard_shell_obstruction(panel, panel);
+    check(no_region && equal(*no_region, panel), "windows without a region retain conservative DWM bounds");
+    const auto edge = keyboard_shell_obstruction({INT_MAX - 1000, 0, INT_MAX, 800},
+        {INT_MAX - 1000, 0, INT_MAX, 800}, RECT{100, 0, INT_MAX, 700});
+    check(edge && edge->left == INT_MAX - 900 && edge->right == INT_MAX, "region translation clips without signed overflow");
+}
 }
 int main()
 {
-    try { classification(); placement(); }
+    try { classification(); placement(); regions_and_compact(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS bounded shell avoidance, stable full-size placement, DPI/negative geometry and explicit no-space; no native windows.\n";
 }
