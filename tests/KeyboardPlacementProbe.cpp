@@ -31,6 +31,7 @@ struct Window {
     unsigned order = 0;
     RECT bounds{}, frame{};
     bool bounds_known = false, frame_known = false, popup = false, host = false;
+    bool direct = false, child = false;
 };
 struct Probe {
     std::map<DWORD, std::unique_ptr<Process>> processes;
@@ -156,6 +157,51 @@ BOOL CALLBACK window(HWND hwnd, LPARAM context)
     probe.windows.push_back(item);
     return TRUE;
 }
+void foreground_window(Probe& probe)
+{
+    const auto root = probe.foreground ? GetAncestor(probe.foreground, GA_ROOT) : nullptr;
+    if (!root) { return; }
+    DWORD pid = 0;
+    if (!GetWindowThreadProcessId(root, &pid)) { return; }
+    // Immersive shell roots can be absent from EnumWindows; query this identity directly.
+    if (!probe.processes.contains(pid)) {
+        auto process = std::make_unique<Process>();
+        process->handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, pid);
+        if (process->handle) {
+            std::array<wchar_t, 32768> path{};
+            DWORD length = static_cast<DWORD>(path.size());
+            if (QueryFullProcessImageNameW(process->handle, 0, path.data(), &length)) {
+                const std::wstring_view full(path.data(), length);
+                const auto separator = full.find_last_of(L"\\/");
+                const auto name = full.substr(separator == full.npos ? 0 : separator + 1);
+                if (gamepad::keyboard_shell_image(name)) {
+                    process->role = Role::Shell;
+                    process->image = name;
+                    probe.processes.emplace(pid, std::move(process));
+                }
+            }
+        }
+    }
+    if (std::none_of(probe.windows.begin(), probe.windows.end(), [&](const auto& item) { return item.handle == root; })) {
+        const auto before = probe.windows.size();
+        window(root, reinterpret_cast<LPARAM>(&probe));
+        if (probe.windows.size() > before) { probe.windows.back().direct = true; probe.windows.back().order = 0; }
+    }
+    const auto process = probe.processes.find(pid);
+    if (process == probe.processes.end() || process->second->role != Role::Shell) { return; }
+    struct Children { Probe& probe; unsigned visited = 0; } children{probe};
+    EnumChildWindows(root, [](HWND child, LPARAM context) -> BOOL {
+        auto& state = *reinterpret_cast<Children*>(context);
+        if (++state.visited > 32 || Clock::now() >= state.probe.deadline) { return FALSE; }
+        const auto before = state.probe.windows.size();
+        const auto result = window(child, reinterpret_cast<LPARAM>(&state.probe));
+        if (state.probe.windows.size() > before) {
+            state.probe.windows.back().child = true;
+            state.probe.windows.back().order = 0;
+        }
+        return result;
+    }, reinterpret_cast<LPARAM>(&children));
+}
 void status(const Window& host)
 {
     const auto control = GetDlgItem(host.handle, gamepad::LiveStatus);
@@ -208,6 +254,7 @@ void output(Probe& probe)
             << L" image=" << safe(process.image) << L" pid=" << item.pid
             << L" hwnd=" << reinterpret_cast<std::uintptr_t>(item.handle)
             << L" class=" << safe(type) << L" enum_order=" << item.order
+            << L" source=" << (item.child ? L"shell_child" : item.direct ? L"direct_foreground" : L"enum_windows")
             << L" foreground=" << (item.handle == probe.foreground)
             << L" visible=" << (IsWindowVisible(item.handle) != FALSE)
             << L" iconic=" << (IsIconic(item.handle) != FALSE)
@@ -228,11 +275,22 @@ void output(Probe& probe)
         MONITORINFO monitor{sizeof(monitor)};
         if (GetMonitorInfoW(MonitorFromWindow(item.handle, MONITOR_DEFAULTTONEAREST), &monitor)) {
             std::wcout << L" "; rectangle(L"work", monitor.rcWork);
-            if (item.role == Role::Shell && item.frame_known && IsWindowVisible(item.handle) && SUCCEEDED(cloak_result) && !cloak) {
+            if (item.role == Role::Shell && !item.child && item.frame_known && IsWindowVisible(item.handle) && SUCCEEDED(cloak_result) && !cloak) {
                 for (const int height : {gamepad::keyboard_visual_height, gamepad::keyboard_prediction_height}) {
                     const auto candidate = gamepad::keyboard_popup_bounds(monitor.rcWork, GetDpiForWindow(item.handle), height, {}, item.frame);
                     std::wcout << L" candidate_" << height << L"=";
                     if (candidate) { rectangle(L"", *candidate); } else { std::wcout << L"no_space"; }
+                }
+                std::wcout << L" work_hit_grid_7x5=";
+                for (LONG y = 0; y < 5; ++y) {
+                    for (LONG x = 0; x < 7; ++x) {
+                        const POINT point{static_cast<LONG>(monitor.rcWork.left + 1
+                            + (static_cast<long long>(monitor.rcWork.right) - monitor.rcWork.left - 2) * x / 6),
+                            static_cast<LONG>(monitor.rcWork.top + 1
+                            + (static_cast<long long>(monitor.rcWork.bottom) - monitor.rcWork.top - 2) * y / 4)};
+                        std::wcout << hit_role(WindowFromPoint(point), probe) << L",";
+                    }
+                    std::wcout << L"/";
                 }
             }
         }
@@ -265,7 +323,7 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     }
     try {
-        std::wcout << L"Keyboard placement diagnostic v1; prepare only until countdown completes.\n"
+        std::wcout << L"Keyboard placement diagnostic v2; prepare only until countdown completes.\n"
             L"Windows enumeration and point hit tests do not prove compositor visibility.\n";
         for (unsigned remaining = 5; remaining; --remaining) {
             std::wcout << L"Countdown: " << remaining << L"\n" << std::flush;
@@ -281,6 +339,7 @@ int wmain(int argc, wchar_t** argv)
             probe.windows.clear(); probe.visited = 0;
             SetLastError(ERROR_SUCCESS);
             const bool enumerated = EnumWindows(window, reinterpret_cast<LPARAM>(&probe)) != FALSE;
+            foreground_window(probe);
             std::wcout << L"\n--- sample_ms=" << std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count()
                 << L" enumeration_complete=" << enumerated << L" ---\n";
             if (ordinary_desktop() && GetForegroundWindow() == probe.foreground) { output(probe); }

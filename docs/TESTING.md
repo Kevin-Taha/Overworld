@@ -336,6 +336,10 @@ The probe records the running application's version and its own bounded status
 control, plus app/keyboard/Start/Search class, bounds, DPI, visibility, cloak,
 topmost flags and enumeration order. A popup point-hit grid reports only
 keyboard/app/shell/other/none, never unrelated window identities or text.
+Version 2 also reads the foreground root directly because `EnumWindows` can
+omit immersive shell windows. Up to 32 children of an identified foreground
+shell contribute geometry only; a 7-by-5 work-area hit grid helps distinguish
+window-frame extent from hit-tested shell coverage. This is not pixel visibility.
 It does not read window titles, target/search content, input state, screenshots,
 audio or clipboard, and never injects input or changes focus/settings. It stops
 on a protected/locked desktop. A hit test or HWND flag is not proof of compositor
