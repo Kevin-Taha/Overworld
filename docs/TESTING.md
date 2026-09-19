@@ -322,6 +322,25 @@ and symbols; they do not run an ARM64 executable.
 
 ## Interactive checks: explicit authorization required
 
+### User-run keyboard placement diagnostic
+
+Build `gamepad_keyboard_placement_probe` explicitly; it is excluded from ALL,
+CTest and release packaging. Copy `tests\CollectKeyboardPlacement.ps1` beside
+its EXE, or supply `-ProbePath` to the script. The user runs the script when
+ready, with Gamepad Desktop already running. It gives a five-second delay and
+records for 20 seconds while the user opens Start and invokes the keyboard.
+The launcher enforces a 35-second process watchdog and writes reports only to
+the selected local output directory.
+
+The probe records the running application's version and its own bounded status
+control, plus app/keyboard/Start/Search class, bounds, DPI, visibility, cloak,
+topmost flags and enumeration order. A popup point-hit grid reports only
+keyboard/app/shell/other/none, never unrelated window identities or text.
+It does not read window titles, target/search content, input state, screenshots,
+audio or clipboard, and never injects input or changes focus/settings. It stops
+on a protected/locked desktop. A hit test or HWND flag is not proof of compositor
+visibility; cropped user-provided visual evidence may still be needed.
+
 Normal application launch activates automatic controller mapping.
 `--inspect` disables external input and the optional filter, but still creates a
 real app window and reads settings/observers. Keyboard previews are no-output
