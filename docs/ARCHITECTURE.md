@@ -171,14 +171,20 @@ Physical mouse handling, caption dragging, and other apps are not rewritten.
 
 The native keyboard popup uses `KeyboardPlacement` to retain its ordinary
 bottom-center/current position unless it overlaps the verified foreground Start
-or Search window. `NativeKeyboardShell` reads only foreground root identity,
-process basename, visibility/cloak, DWM frame bounds and the native window-region
-envelope, with cached process
+or Search window. `NativeKeyboardShell` reads foreground root identity, and for
+a verified shell target also checks same-monitor visible Start/Search peers.
+Only process basename, visibility/cloak, DWM frame bounds and native window-region
+envelopes are used, with bounded cached process
 identity; it does not query field text, use UIA, or call stateful input routing.
 The pure bounded search tries rectangle-edge candidates inside the target
 monitor's work area with an 8-DIP shell gap. Region coordinates are translated
 from the actual window origin and conservatively clipped to its frame/window;
-an absent region retains frame bounds, while an empty/invalid region is unavailable.
+an absent region retains frame bounds. A valid empty region means that window
+draws nothing: Search can hold focus this way while a separate Start root is
+visible. The known visible peer envelopes are combined conservatively, using
+bounded `FindWindowEx` CoreWindow discovery rather than desktop-only enumeration.
+Invalid metadata or failure to establish any visible shell extent still blocks;
+an empty region alone does not change the original text target or authorize input.
 Full DPI-scaled artwork is preferred; only for a shell obstruction, the search
 tries 99% down to 80% in one-percent steps, never below the ordinary 96-DPI pixel
 baseline. Pixel dimensions round up to honor that lower bound. The existing

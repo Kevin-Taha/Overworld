@@ -75,8 +75,13 @@ the keyboard by at most 20%, never below the baseline pixel size. Ordinary-app
 size and system DPI settings are unchanged. Suggestion expansion and shell
 movement recheck the largest fitting size and placement.
 
+Start may route keyboard focus to Search while that Search window has an empty
+region. The app treats this as a non-drawing window and avoids the visible Start
+peer instead; it does not click or focus the search bar for you. A real metadata
+failure or the absence of any verifiable visible shell extent still pauses.
+
 If there is no room within that compact limit, the app pauses with **No keyboard
-space beside Start or Search within the 20% compact limit**. Unknown or empty
+space beside Start or Search within the 20% compact limit**. Unknown or invalid
 shell-region geometry also pauses; View closes and deliberate reopening starts
 a new attempt. There is no automatic input replay.
 This cannot account for unrelated overlays or transparent areas inside a large

@@ -132,10 +132,36 @@ void regions_and_compact()
         {INT_MAX - 1000, 0, INT_MAX, 800}, RECT{100, 0, INT_MAX, 700});
     check(edge && edge->left == INT_MAX - 900 && edge->right == INT_MAX, "region translation clips without signed overflow");
 }
+void empty_focus_shell()
+{
+    const RECT work{0, 0, 2400, 1500};
+    const auto focus_proxy = keyboard_shell_region(work, work, NULLREGION, {});
+    check(focus_proxy.available && !focus_proxy.obstruction, "empty focused shell region is known non-drawing, not a query failure");
+    const RECT start{492, 340, 1908, 1500};
+    const auto peer = keyboard_shell_region(work, work, SIMPLEREGION, start);
+    const auto merged = keyboard_shell_union(focus_proxy, peer, work);
+    check(merged.available && merged.obstruction && equal(*merged.obstruction, start),
+        "visible Start peer supplies obstruction while focused Search has no pixels");
+    const auto placement = keyboard_popup_placement(work, 144, keyboard_visual_height, {}, merged.obstruction);
+    check(placement && placement->percent >= 80 && !overlaps(placement->bounds, start), "focus proxy can display a compact keyboard beside visible shell");
+    const RECT search{600, 340, 1800, 1500};
+    const auto search_visible = keyboard_shell_region(search, search, SIMPLEREGION, RECT{0, 0, 1200, 1160});
+    const auto handoff = keyboard_shell_union(search_visible, focus_proxy, work);
+    check(handoff.available && handoff.obstruction && equal(*handoff.obstruction, search),
+        "appearance of Search replaces empty peer without altering input identity");
+    const auto together = keyboard_shell_union(peer, search_visible, work);
+    check(together.obstruction && equal(*together.obstruction, start), "simultaneous shell surfaces are avoided conservatively");
+    check(!keyboard_shell_union({false, {}}, peer, work).available, "real metadata failure is not confused with empty region");
+    check(!keyboard_shell_region({}, work, NULLREGION, {}).available, "empty region cannot excuse invalid frame metadata");
+    check(!keyboard_shell_region(work, work, SIMPLEREGION, {}).available, "malformed nonempty region remains an error");
+    check(!keyboard_shell_region(work, work, 99, {}).available, "unknown region kind remains an error");
+    const auto other_monitor = keyboard_shell_union(focus_proxy, {true, RECT{-1800, 0, -1200, 900}}, work);
+    check(other_monitor.available && !other_monitor.obstruction, "other-monitor shell peer does not consume target monitor space");
+}
 }
 int main()
 {
-    try { classification(); placement(); regions_and_compact(); }
+    try { classification(); placement(); regions_and_compact(); empty_focus_shell(); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS bounded shell avoidance, stable full-size placement, DPI/negative geometry and explicit no-space; no native windows.\n";
 }

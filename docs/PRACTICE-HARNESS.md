@@ -86,6 +86,9 @@ of normal size. The render-only compact fixture exercises the same renderer at
 120/144/192 DPI, 80%/91%, all pages, both selection modes, and all four theme
 palettes, measuring actual glyph clearance/contrast and premultiplied alpha.
 Neither fixture establishes actual Start/Search bounds or shell visibility.
+The popup fixture also covers empty focused Search with a visible Start peer and
+the later visual handoff, without rebinding its fake text target. Native shell
+peer discovery is not exercised by the interactive Practice scene.
 Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`
 dispatcher; the latter has separate fake `gamepad_release_tap_tests`.

@@ -151,6 +151,11 @@ no-space failures, and an exhaustive comparison with small-area placement.
 It also checks native region-envelope translation/clipping, largest-fitting
 compact selection, the 20%/baseline-pixel lower bounds, idle stability, normal
 size restoration, and suggestion-height placement.
+Empty focused shell regions are distinguished from failed queries. Peer-envelope
+tests cover visible Start behind an empty focused Search root, the reverse
+visibility handoff, multiple panels and unrelated monitors. The hidden popup
+fixture verifies that such geometry changes retain the original fake text target
+and do not produce clicks, new text, or replay.
 
 These targets are opt-in and excluded from default CTest because they create
 native windows. Run only in an authorized test session:

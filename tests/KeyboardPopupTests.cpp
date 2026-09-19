@@ -253,7 +253,12 @@ void compact_popup(HWND host)
     MONITORINFO monitor{sizeof(monitor)};
     check(GetMonitorInfoW(MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST), &monitor), "compact fixture monitor");
     const auto work = monitor.rcWork;
-    shell.observation.obstruction = RECT{work.left + 483, work.top, work.right, work.bottom};
+    const auto focus_proxy = keyboard_shell_region(work, work, NULLREGION, {});
+    const auto start_peer = keyboard_shell_region(work, work, SIMPLEREGION,
+        RECT{483, 0, work.right - work.left, work.bottom - work.top});
+    shell.observation = keyboard_shell_union(focus_proxy, start_peer, work);
+    check(shell.observation.available && shell.observation.obstruction, "empty focused Search plus visible Start resolves placement");
+    const auto original_target = f.boundary.observation.target;
     const auto events = f.boundary.events;
     check(KeyboardPopupTestAccess::prepare(popup, host, f.keyboard)
         && KeyboardPopupTestAccess::update(popup, host, f.keyboard), "native hidden popup accepts an eighty-percent side slot");
@@ -271,11 +276,49 @@ void compact_popup(HWND host)
         && KeyboardPopupTestAccess::update(popup, host, f.keyboard), "prediction expansion stays beside shell");
     check(KeyboardPopupTestAccess::frame(popup).width == 471 && KeyboardPopupTestAccess::frame(popup).height == 500,
         "suggestion glyphs receive the same bounded compact scale");
+    const auto after_typing = f.boundary.events;
+    const auto search_peer = keyboard_shell_region(work, work, SIMPLEREGION,
+        RECT{548, 0, work.right - work.left, work.bottom - work.top});
+    shell.observation = keyboard_shell_union(search_peer, focus_proxy, work);
+    check(KeyboardPopupTestAccess::prepare(popup, host, f.keyboard)
+        && KeyboardPopupTestAccess::update(popup, host, f.keyboard)
+        && f.keyboard.accepts_typing() && f.boundary.observation.target == original_target && f.boundary.events == after_typing,
+        "shell visibility handoff changes placement only, without target rebinding, fake clicks or typing replay");
+    check(KeyboardPopupTestAccess::frame(popup).width == 536, "visible Search peer permits the larger ninety-one-percent footprint");
     shell.observation.obstruction.reset();
     check(KeyboardPopupTestAccess::update(popup, host, f.keyboard)
         && KeyboardPopupTestAccess::frame(popup).width == 588
         && KeyboardPopupTestAccess::frame(popup).height == 624, "ordinary context restores native DPI dimensions");
     check(!(GetWindowLongPtrW(window, GWL_STYLE) & WS_VISIBLE), "compact fixture never displays a live overlay");
+}
+void shell_peer_lookup()
+{
+    constexpr wchar_t name[] = L"GamepadKeyboardShellPeerTest";
+    WNDCLASSW type{};
+    type.lpfnWndProc = DefWindowProcW;
+    type.hInstance = GetModuleHandleW(nullptr);
+    type.lpszClassName = name;
+    check(RegisterClassW(&type) != 0, "owned shell-peer fixture class registered");
+    const auto window = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, name, L"Owned shell-peer metadata",
+        WS_POPUP, -30000, -30000, 200, 200, nullptr, nullptr, type.hInstance, nullptr);
+    check(window != nullptr, "owned shell-peer fixture created hidden");
+    SetLastError(ERROR_SUCCESS);
+    check(FindWindowExW(nullptr, nullptr, name, nullptr) == window, "top-level class lookup finds an owned peer without title queries");
+    SetLastError(ERROR_SUCCESS);
+    check(!FindWindowExW(nullptr, window, name, nullptr) && GetLastError() == ERROR_SUCCESS,
+        "normal peer enumeration exhaustion is not a metadata error");
+    const auto region = CreateRectRgn(0, 0, 0, 0);
+    check(region != nullptr, "owned empty region created");
+    if (!SetWindowRgn(window, region, FALSE)) {
+        DeleteObject(region);
+        throw std::runtime_error("owned empty region assignment failed");
+    }
+    RECT box{};
+    check(GetWindowRgnBox(window, &box) == NULLREGION, "real empty native region is distinct from an API failure");
+    const auto metadata = keyboard_shell_region({0, 0, 200, 200}, {0, 0, 200, 200}, NULLREGION, box);
+    check(metadata.available && !metadata.obstruction, "production geometry helper accepts real empty-region semantics");
+    DestroyWindow(window);
+    UnregisterClassW(name, type.hInstance);
 }
 }
 int wmain(int argc, wchar_t** argv)
@@ -287,6 +330,7 @@ int wmain(int argc, wchar_t** argv)
             WS_POPUP, -30000, -30000, 800, 800, nullptr, nullptr, GetModuleHandleW(nullptr), nullptr);
         check(host != nullptr, "owned host creation");
         geometry();
+        shell_peer_lookup();
         lifecycle(host);
         shell_placement(host);
         compact_popup(host);

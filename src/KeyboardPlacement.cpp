@@ -99,4 +99,32 @@ std::optional<RECT> keyboard_shell_obstruction(RECT frame, RECT window, std::opt
     if (right <= left || bottom <= top) { return {}; }
     return RECT{static_cast<LONG>(left), static_cast<LONG>(top), static_cast<LONG>(right), static_cast<LONG>(bottom)};
 }
+KeyboardShellObservation keyboard_shell_region(RECT frame, RECT window, int region_kind, RECT region)
+{
+    if (!keyboard_shell_obstruction(frame, window)) { return {false, {}}; }
+    if (region_kind == NULLREGION) { return {}; }
+    if (region_kind != ERROR && region_kind != SIMPLEREGION && region_kind != COMPLEXREGION) { return {false, {}}; }
+    const auto bounds = keyboard_shell_obstruction(frame, window,
+        region_kind == ERROR ? std::nullopt : std::optional<RECT>{region});
+    return {bounds.has_value(), bounds};
+}
+KeyboardShellObservation keyboard_shell_union(KeyboardShellObservation first, KeyboardShellObservation second, RECT work)
+{
+    if (!first.available || !second.available || work.right <= work.left || work.bottom <= work.top) { return {false, {}}; }
+    KeyboardShellObservation result;
+    for (const auto& source : {first.obstruction, second.obstruction}) {
+        if (!source) { continue; }
+        if (source->right <= source->left || source->bottom <= source->top) { return {false, {}}; }
+        RECT clipped{std::max(work.left, source->left), std::max(work.top, source->top),
+            std::min(work.right, source->right), std::min(work.bottom, source->bottom)};
+        if (clipped.right <= clipped.left || clipped.bottom <= clipped.top) { continue; }
+        if (!result.obstruction) { result.obstruction = clipped; }
+        else {
+            auto& bounds = *result.obstruction;
+            bounds = {std::min(bounds.left, clipped.left), std::min(bounds.top, clipped.top),
+                std::max(bounds.right, clipped.right), std::max(bounds.bottom, clipped.bottom)};
+        }
+    }
+    return result;
+}
 } // namespace gamepad

@@ -124,6 +124,9 @@ or shell geometry cannot be verified, typing pauses; **View** closes the keyboar
 so it can be reopened deliberately.
 This avoids known shell-window bounds, not every possible OS overlay or compositor
 effect. It never dismisses Start or takes focus away from the text field.
+Start's initial search focus can belong to an empty Search window. Placement
+also checks the visible Start/Search peer windows, without clicking the search
+bar or changing the typing target.
 
 ## Local word suggestions
 
