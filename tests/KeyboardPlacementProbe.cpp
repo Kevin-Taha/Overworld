@@ -272,6 +272,18 @@ void output(Probe& probe)
             std::wcout << L" "; rectangle(L"region_relative", region);
         }
         if (item.host) { std::wcout << L" build=\"" << process.version << L"\""; status(item); }
+        if (item.role == Role::Shell && !item.child && item.handle == probe.foreground) {
+            GUITHREADINFO gui{sizeof(gui)};
+            SetLastError(ERROR_SUCCESS);
+            if (GetGUIThreadInfo(item.tid, &gui)) {
+                std::wcout << L" gui_flags=" << gui.flags
+                    << L" active_present=" << (gui.hwndActive != nullptr)
+                    << L" focus_present=" << (gui.hwndFocus != nullptr)
+                    << L" focus_role=" << hit_role(gui.hwndFocus, probe)
+                    << L" capture_present=" << (gui.hwndCapture != nullptr)
+                    << L" menu_present=" << (gui.hwndMenuOwner != nullptr);
+            } else { std::wcout << L" gui_error=" << GetLastError(); }
+        }
         MONITORINFO monitor{sizeof(monitor)};
         if (GetMonitorInfoW(MonitorFromWindow(item.handle, MONITOR_DEFAULTTONEAREST), &monitor)) {
             std::wcout << L" "; rectangle(L"work", monitor.rcWork);
@@ -331,7 +343,7 @@ int wmain(int argc, wchar_t** argv)
         return 2;
     }
     try {
-        std::wcout << L"Keyboard placement diagnostic v3; prepare only until countdown completes.\n"
+        std::wcout << L"Keyboard placement diagnostic v4; prepare only until countdown completes.\n"
             L"Windows enumeration and point hit tests do not prove compositor visibility.\n";
         for (unsigned remaining = 5; remaining; --remaining) {
             std::wcout << L"Countdown: " << remaining << L"\n" << std::flush;

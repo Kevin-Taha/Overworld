@@ -353,6 +353,10 @@ Version 2 also reads the foreground root directly because `EnumWindows` can
 omit immersive shell windows. Up to 32 children of an identified foreground
 shell contribute geometry only; a 7-by-5 work-area hit grid helps distinguish
 window-frame extent from hit-tested shell coverage. This is not pixel visibility.
+Version 4 also records the identified foreground shell's GUI flags and whether
+active/focus/capture/menu windows exist, plus a role-only focus classification.
+It still reads no field contents. For an opener failure, hold Y for two seconds
+during the user-run recording so the transient application status is captured.
 It does not read window titles, target/search content, input state, screenshots,
 audio or clipboard, and never injects input or changes focus/settings. It stops
 on a protected/locked desktop. A hit test or HWND flag is not proof of compositor
