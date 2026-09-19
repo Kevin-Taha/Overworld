@@ -1,5 +1,6 @@
 #include "ControllerDevices.h"
 #include "ControllerMapping.h"
+#include "DirectInputLayout.h"
 
 #include <Windows.h>
 #include <fstream>
@@ -212,6 +213,62 @@ void database(const char* path)
     for (const auto& [reason, count] : rejected) { std::wcout << count << L": " << reason << L'\n'; }
     check(windows > 500 && supported * 100 / windows >= 85, "broad database coverage, not a single-device profile");
 }
+void directinput_layout()
+{
+    DirectInputLayout layout;
+    const auto add = [&](const GUID& guid, DWORD type) {
+        DIDEVICEOBJECTINSTANCEW object{};
+        object.guidType = guid;
+        object.dwType = type;
+        object.dwOfs = 4000 + DIDFT_GETINSTANCE(type) * 4;
+        return layout.add(object);
+    };
+    // Generic repeated-type layout: extra simulation axes do not remove logical indices.
+    check(add(GUID_RzAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(5))
+        && add(GUID_ZAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(2))
+        && add(GUID_YAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(1))
+        && add(GUID_XAxis, DIDFT_ABSAXIS)
+        && add(GUID_RzAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(6))
+        && add(GUID_YAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(7)),
+        "repeated DirectInput axis types are supported rather than error 50");
+    for (unsigned i = 0; i < 16; ++i) { check(add(GUID_Button, DIDFT_PSHBUTTON | DIDFT_MAKEINSTANCE(i)), "buttons retained"); }
+    check(add(GUID_POV, DIDFT_POV) && add(GUID_Unknown, DIDFT_COLLECTION), "hat and non-input metadata accepted");
+    layout.order();
+    check(layout.controls.axes == 6 && layout.controls.buttons == 16 && layout.controls.hats == 1,
+        "logical counts preserve repeated axes");
+    const std::array<DWORD, 6> expected{offsetof(DIJOYSTATE2, lX), offsetof(DIJOYSTATE2, lY),
+        offsetof(DIJOYSTATE2, lY), offsetof(DIJOYSTATE2, lZ), offsetof(DIJOYSTATE2, lRz), offsetof(DIJOYSTATE2, lRz)};
+    for (unsigned i = 0; i < expected.size(); ++i) { check(layout.axes[i].offset == expected[i], "SDL ordering preserves canonical-field aliases"); }
+    DIJOYSTATE2 native{};
+    native.lX = 12000; native.lY = -13000; native.lZ = 23000; native.lRz = -24000;
+    native.rgdwPOV[0] = 4500; native.rgbButtons[2] = 0x80; native.rgbButtons[1] = 1;
+    RawController raw;
+    check(directinput_report(layout, native, raw), "native state decoded with shared production helper");
+    check(raw.axes[0] == 12000 && raw.axes[1] == -13000 && raw.axes[2] == -13000
+        && raw.axes[3] == 23000 && raw.axes[4] == -24000 && raw.axes[5] == -24000,
+        "aliases read the same canonical fields, not native enumeration offsets or arbitrary duplicate instances");
+    check(raw.buttons[2] && !raw.buttons[1] && raw.hats[0] == 3, "native button high-bit and hat decoding preserved");
+    const auto map = mapping(std::string(id) + ",Synthetic,a:b2,leftx:a0,lefty:a1,rightx:a3,righty:a4,");
+    const auto pad = mapped_controller(map, raw);
+    check(pad.left_x == 12000 && pad.left_y == 13000 && pad.right_x == 23000 && pad.right_y == 24000
+        && pad.buttons == a_button, "mapping indices after repeated axes address correct pointer controls");
+    native.lZ = 40000;
+    const auto before = raw.axes;
+    check(!directinput_report(layout, native, raw) && raw.axes == before, "invalid reports are transactional");
+    native.lZ = 0; native.rgdwPOV[0] = 36000;
+    check(!directinput_report(layout, native, raw), "invalid native hats rejected");
+    native.rgdwPOV[0] = 0xffff;
+    check(directinput_report(layout, native, raw) && raw.hats[0] == 0, "native neutral POV accepted");
+    check(add(GUID_Slider, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(8))
+        && add(GUID_Slider, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(9))
+        && !add(GUID_XAxis, DIDFT_ABSAXIS | DIDFT_MAKEINSTANCE(10)), "axis bound remains enforced");
+    DirectInputLayout unsupported;
+    DIDEVICEOBJECTINSTANCEW relative{};
+    relative.guidType = GUID_XAxis; relative.dwType = DIDFT_RELAXIS;
+    check(!unsupported.add(relative), "relative axes cannot masquerade as absolute stick input");
+    relative.guidType = GUID_Unknown; relative.dwType = DIDFT_ABSAXIS;
+    check(!unsupported.add(relative), "unknown axis semantics are not guessed");
+}
 void read_scope()
 {
     bool allowed = true;
@@ -229,7 +286,7 @@ void read_scope()
 }
 int main(int argc, char** argv)
 {
-    try { check(argc == 2, "mapping database argument required"); parsing(); normalization(); lifecycle(); read_scope(); database(argv[1]); }
+    try { check(argc == 2, "mapping database argument required"); parsing(); normalization(); lifecycle(); directinput_layout(); read_scope(); database(argv[1]); }
     catch (const std::exception& error) { std::cerr << error.what() << '\n'; return 1; }
     std::cout << "PASS generic mapping and device lifecycle; no native input.\n";
 }

@@ -51,7 +51,10 @@ Example for an **invented controller**, not a claim about any hardware:
 ```
 
 Indices start at zero. DirectInput axes are ordered X, Y, Z, Rx, Ry, Rz,
-Slider0, Slider1 with absent axes removed. Buttons and hats use their enumeration
+Slider0, Slider1 with absent axes removed. Repeated axis types retain their logical
+indices and alias the same `DIJOYSTATE2` field, matching SDL's Windows reader.
+For example, X/Y/Y/Z/Rz/Rz places Z at `a3`, not `a2`. Native object offsets are
+not offsets into the read buffer. Buttons and hats use their enumeration
 order, not object instance numbers. The GUID identifies a layout class, not a
 unique physical controller; matching devices share an override. Optional
 `crc:hhhh`, or CRC bytes embedded in an exported SDL GUID, restricts a record to

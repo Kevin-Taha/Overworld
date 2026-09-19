@@ -67,6 +67,9 @@ discovery throttling, failure/reacquisition, identity replacement, distinct mult
 assignment, clock rollback, original read-scope revocation, and source epochs.
 It neither enumerates nor samples native devices. The explicit Practice model
 tests also feed normalized mapped snapshots through real pointer/keyboard models.
+Synthetic DirectInput object tests exercise the production layout/report helper:
+repeated axis types, SDL logical ordering and aliases, unrelated native offsets,
+button high bits, POV neutral/diagonals, invalid reports, and retained axis bounds.
 Compilation and these fixtures are not a Bluetooth or real-control mapping test.
 The reader's message service runs without sampling authorization, but performs
 no controller reads. Fake teardown stalls verify that native cleanup remains

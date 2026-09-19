@@ -39,41 +39,14 @@ BOOL CALLBACK enumerate_device(const DIDEVICEINSTANCEW* instance, void* context)
     enumeration.devices.ids[enumeration.devices.count++] = std::bit_cast<ControllerDeviceId>(instance->guidInstance);
     return DIENUM_CONTINUE;
 }
-struct NativeReport {
-    std::array<LONG, controller_axes> axes{};
-    std::array<BYTE, controller_buttons> buttons{};
-    std::array<DWORD, controller_hats> hats{};
-};
 struct Objects {
-    std::array<DIDEVICEOBJECTINSTANCEW, controller_axes> axes{};
-    std::array<bool, controller_axes> present{};
-    std::array<DIOBJECTDATAFORMAT, controller_axes + controller_buttons + controller_hats> format{};
-    ControllerLayout layout;
+    DirectInputLayout layout;
     bool valid = true;
 };
 BOOL CALLBACK enumerate_object(const DIDEVICEOBJECTINSTANCEW* object, void* context)
 {
     auto& objects = *static_cast<Objects*>(context);
-    if (object->dwType & DIDFT_AXIS) {
-        if (!(object->dwType & DIDFT_ABSAXIS)) { objects.valid = false; return DIENUM_STOP; }
-        const std::array<const GUID*, 6> types{&GUID_XAxis, &GUID_YAxis, &GUID_ZAxis, &GUID_RxAxis, &GUID_RyAxis, &GUID_RzAxis};
-        unsigned index = controller_axes;
-        for (unsigned i = 0; i < types.size(); ++i) { if (object->guidType == *types[i]) { index = i; break; } }
-        if (object->guidType == GUID_Slider) { index = objects.present[6] ? 7 : 6; }
-        if (index == controller_axes || objects.present[index]) { objects.valid = false; return DIENUM_STOP; }
-        objects.axes[index] = *object;
-        objects.present[index] = true;
-    } else if (object->dwType & DIDFT_BUTTON) {
-        if (objects.layout.buttons == controller_buttons) { objects.valid = false; return DIENUM_STOP; }
-        const auto index = objects.layout.buttons++;
-        objects.format[controller_axes + index] = {&GUID_Button,
-            static_cast<DWORD>(offsetof(NativeReport, buttons)) + index, object->dwType, 0};
-    } else if (object->dwType & DIDFT_POV) {
-        if (objects.layout.hats == controller_hats) { objects.valid = false; return DIENUM_STOP; }
-        const auto index = objects.layout.hats++;
-        objects.format[controller_axes + controller_buttons + index] = {&GUID_POV,
-            static_cast<DWORD>(offsetof(NativeReport, hats) + index * sizeof(DWORD)), object->dwType, 0};
-    }
+    if (!objects.layout.add(*object)) { objects.valid = false; return DIENUM_STOP; }
     return DIENUM_CONTINUE;
 }
 DWORD read_mapping_file(const std::filesystem::path& path, bool optional, std::string& bytes)
@@ -167,37 +140,33 @@ std::uint32_t NativeControllers::open(unsigned slot, const ControllerDeviceId& i
     Objects objects;
     hr = device.handle->EnumObjects(enumerate_object, &objects, DIDFT_ALL);
     if (FAILED(hr)) { return static_cast<DWORD>(hr); }
-    if (!objects.valid) { return ERROR_NOT_SUPPORTED; }
-    std::array<DIOBJECTDATAFORMAT, controller_axes + controller_buttons + controller_hats> format{};
-    unsigned count = 0;
-    for (unsigned i = 0; i < controller_axes; ++i) {
-        if (!objects.present[i]) { continue; }
-        auto& axis = objects.axes[i];
+    if (!objects.valid) {
+        wcscpy_s(device.description.data(), device.description.size(), L"HID object layout unsupported or exceeds control limits.");
+        return ERROR_NOT_SUPPORTED;
+    }
+    objects.layout.order();
+    for (unsigned i = 0; i < objects.layout.controls.axes; ++i) {
+        const auto& axis = objects.layout.axes[i];
         DIPROPRANGE range{};
-        range.diph = {sizeof(range), sizeof(range.diph), axis.dwType, DIPH_BYID};
+        range.diph = {sizeof(range), sizeof(range.diph), axis.type, DIPH_BYID};
         range.lMin = -32768; range.lMax = 32767;
         hr = device.handle->SetProperty(DIPROP_RANGE, &range.diph);
         if (FAILED(hr)) { return static_cast<DWORD>(hr); }
         DIPROPDWORD deadzone{};
-        deadzone.diph = {sizeof(deadzone), sizeof(deadzone.diph), axis.dwType, DIPH_BYID};
+        deadzone.diph = {sizeof(deadzone), sizeof(deadzone.diph), axis.type, DIPH_BYID};
         hr = device.handle->SetProperty(DIPROP_DEADZONE, &deadzone.diph);
         if (FAILED(hr)) { return static_cast<DWORD>(hr); }
-        format[count++] = {&axis.guidType, static_cast<DWORD>(offsetof(NativeReport, axes)
-            + objects.layout.axes++ * sizeof(LONG)), axis.dwType, 0};
     }
-    for (unsigned i = 0; i < objects.layout.buttons; ++i) { format[count++] = objects.format[controller_axes + i]; }
-    for (unsigned i = 0; i < objects.layout.hats; ++i) { format[count++] = objects.format[controller_axes + controller_buttons + i]; }
     device.layout = objects.layout;
     const std::wstring wide_guid(guid.begin(), guid.end());
     swprintf_s(device.description.data(), device.description.size(), L"HID %ls; axes %u, buttons %u, hats %u",
-        wide_guid.c_str(), device.layout.axes, device.layout.buttons, device.layout.hats);
+        wide_guid.c_str(), device.layout.controls.axes, device.layout.controls.buttons, device.layout.controls.hats);
     if (const auto error = load_mappings()) { return error; }
     auto mapping = find_controller_mapping(overrides_, guid, crc);
     if (mapping.empty()) { mapping = find_controller_mapping(database_, guid, crc); }
     if (mapping.empty() || !parse_controller_mapping(mapping, device.mapping).empty()
-        || !mapping_fits(device.mapping, device.layout)) { return ERROR_NOT_SUPPORTED; }
-    DIDATAFORMAT data{sizeof(data), sizeof(DIOBJECTDATAFORMAT), DIDF_ABSAXIS, sizeof(NativeReport), count, format.data()};
-    hr = device.handle->SetDataFormat(&data);
+        || !mapping_fits(device.mapping, device.layout.controls)) { return ERROR_NOT_SUPPORTED; }
+    hr = device.handle->SetDataFormat(&c_dfDIJoystick2);
     if (FAILED(hr)) { return static_cast<DWORD>(hr); }
     if (!window_) {
         window_ = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, L"STATIC", L"Controller reader",
@@ -222,24 +191,13 @@ Controller NativeControllers::sample(unsigned slot, ControllerReadScope scope)
     if (!scope.allowed()) { failed.error = ERROR_CANCELLED; return failed; }
     auto hr = device.handle->Poll();
     if (FAILED(hr)) { failed.error = static_cast<DWORD>(hr); return failed; }
-    NativeReport report;
-    report.hats.fill(0xffffffff);
+    DIJOYSTATE2 report{};
+    std::fill(std::begin(report.rgdwPOV), std::end(report.rgdwPOV), 0xffffffff);
     if (!scope.allowed()) { failed.error = ERROR_CANCELLED; return failed; }
     hr = device.handle->GetDeviceState(sizeof(report), &report);
     if (FAILED(hr)) { failed.error = static_cast<DWORD>(hr); return failed; }
     RawController raw;
-    for (unsigned i = 0; i < device.layout.axes; ++i) {
-        if (report.axes[i] < -32768 || report.axes[i] > 32767) { failed.error = ERROR_INVALID_DATA; return failed; }
-        raw.axes[i] = static_cast<std::int16_t>(report.axes[i]);
-    }
-    for (unsigned i = 0; i < device.layout.buttons; ++i) { raw.buttons[i] = (report.buttons[i] & 0x80) != 0; }
-    for (unsigned i = 0; i < device.layout.hats; ++i) {
-        const auto angle = report.hats[i];
-        if ((angle & 0xffff) == 0xffff) { continue; }
-        if (angle >= 36000) { failed.error = ERROR_INVALID_DATA; return failed; }
-        constexpr std::array<std::uint8_t, 8> hats{1, 3, 2, 6, 4, 12, 8, 9};
-        raw.hats[i] = hats[((angle + 2250) % 36000) / 4500];
-    }
+    if (!directinput_report(device.layout, report, raw)) { failed.error = ERROR_INVALID_DATA; return failed; }
     auto result = mapped_controller(device.mapping, raw);
     result.packet = ++device.packet;
     return result;

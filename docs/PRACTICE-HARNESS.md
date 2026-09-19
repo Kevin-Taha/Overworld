@@ -43,6 +43,11 @@ the controller.
 | `InputClassification.h` / `Live.cpp` | Existing reserved controller/navigation key classification for own-window takeover | A global hook, native navigation filter, or physical-input observer |
 | `InstanceGuard.h` | The same mapper-instance exclusion | Native output permission or a bypass of an already-running mapper |
 
+The production `DirectInputLayout.h` helper preserves repeated axis types as
+SDL-compatible logical aliases. Default controller tests exercise that same helper
+with synthetic objects and reports before the shared mapper; no native device
+sampling or successful external delivery is implied.
+
 `Practice.cpp` is the local scene sink, progress, and safe input adapter.
 `PracticeWindow` and `PracticeReader` own the development-only UI/read lifecycle.
 They are not production delivery models. No `Desktop`, `NativeVoice`,

@@ -2,9 +2,9 @@
 
 #include "ControllerDevices.h"
 #include "ControllerMapping.h"
+#include "DirectInputLayout.h"
 
 #include <Windows.h>
-#define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #include <string>
 
@@ -23,7 +23,7 @@ private:
     struct Device {
         IDirectInputDevice8W* handle = nullptr;
         ControllerMapping mapping;
-        ControllerLayout layout;
+        DirectInputLayout layout;
         std::array<wchar_t, 160> description{};
         std::uint32_t packet = 0;
     };
