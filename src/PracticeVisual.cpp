@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace gamepad::practice {
+namespace overworld::practice {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr std::array<std::wstring_view, 5> step_names{L"1  Aim", L"2  Click", L"3  Drag", L"4  Scroll", L"5  Type"};
@@ -427,8 +427,8 @@ bool Visual::render(int width, int height, const Model& model, const AppPalette&
         const auto point = model.pointer();
         if (!r.cursor_bitmap && SUCCEEDED(hr)) {
             const auto dpi = static_cast<unsigned>(std::max(96l, std::lround(96 * view.scale)));
-            const auto geometry = gamepad::cursor_geometry({}, dpi, default_cursor_size, default_cursor_style);
-            r.cursor_pixels = gamepad::cursor_pixels(dpi, default_cursor_size, default_cursor_style);
+            const auto geometry = overworld::cursor_geometry({}, dpi, default_cursor_size, default_cursor_style);
+            r.cursor_pixels = overworld::cursor_pixels(dpi, default_cursor_size, default_cursor_style);
             if (!geometry || r.cursor_pixels.empty()) { hr = E_INVALIDARG; }
             else {
                 r.cursor_geometry = *geometry;
@@ -479,4 +479,4 @@ bool Visual::save_png(const wchar_t* path)
     if (FAILED(hr)) { error_ = L"Could not save the practice PNG."; return false; }
     return true;
 }
-} // namespace gamepad::practice
+} // namespace overworld::practice

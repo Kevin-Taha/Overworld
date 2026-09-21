@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <optional>
 
-namespace gamepad {
+namespace overworld {
 enum class CaptionButton { None, Minimize, Maximize, Close };
 
 struct CaptionContext {
@@ -90,4 +90,4 @@ private:
     bool ready_ = false;
     bool released_ = false;
 };
-} // namespace gamepad
+} // namespace overworld

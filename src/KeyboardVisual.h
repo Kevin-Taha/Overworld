@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 class Daisywheel;
 
 inline constexpr int keyboard_visual_width = 392;
@@ -104,4 +104,4 @@ private:
     std::unique_ptr<Resources> resources_;
     std::wstring error_;
 };
-} // namespace gamepad
+} // namespace overworld

@@ -1,6 +1,6 @@
 # Privacy and data handling
 
-Gamepad Desktop is a local desktop utility. It does not implement telemetry,
+Overworld is a local desktop utility. It does not implement telemetry,
 cloud dictation, transcript uploads, or automatic model downloads.
 
 ## Data used during operation
@@ -10,6 +10,7 @@ cloud dictation, transcript uploads, or automatic model downloads.
   state, and physical-input observations protect input delivery.
 - Settings store pointer tuning, exclusions, keyboard/filter options, and optional
   voice enablement/model path in `%LOCALAPPDATA%\GamepadDesktop\settings.ini`.
+  This legacy directory is retained by Overworld to preserve existing preferences.
 - Live keyboard edits use bounded pending queues. Previews keep a bounded local
   sample, not a persistent draft.
 - Voice holds bounded audio and recognition results in process memory and does

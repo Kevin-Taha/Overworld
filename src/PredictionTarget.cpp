@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <cwchar>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 bool same_window(TextWindow target)
 {
@@ -35,4 +35,4 @@ PredictionPrivacy prediction_target_privacy(TextWindow target)
     // inside one HWND. No class is a positive privacy or field-eligibility proof.
     return same_window(target) ? PredictionPrivacy::Unknown : PredictionPrivacy::Unavailable;
 }
-} // namespace gamepad
+} // namespace overworld

@@ -2,7 +2,7 @@
 
 #include <dwmapi.h>
 
-namespace gamepad {
+namespace overworld {
 NativeKeyboardShell::Root::~Root() { reset(); }
 void NativeKeyboardShell::Root::reset()
 {
@@ -108,4 +108,4 @@ KeyboardShellObservation NativeKeyboardShell::observe(HWND foreground)
     if (!foreground_.stable() || GetForegroundWindow() != foreground || !result.obstruction) { return {false, {}}; }
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

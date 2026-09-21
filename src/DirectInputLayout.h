@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <cstring>
 
-namespace gamepad {
+namespace overworld {
 struct DirectInputAxis {
     DWORD type = 0, offset = 0;
 };
@@ -73,4 +73,4 @@ struct DirectInputLayout {
     raw = parsed;
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

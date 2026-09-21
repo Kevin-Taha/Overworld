@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 constexpr std::size_t keyboard_text_limit = 256;
 enum class KeyboardPage { Letters, ShiftLetters, Symbols, ShiftSymbols };
 enum class KeyboardPhase { Waiting, Typing, Complete };
@@ -106,4 +106,4 @@ private:
     bool oh_face_engaged_ = false;
     KeyboardPage one_handed_page_ = KeyboardPage::Letters; // Stick-only page cycle; LT/RT still override.
 };
-} // namespace gamepad
+} // namespace overworld

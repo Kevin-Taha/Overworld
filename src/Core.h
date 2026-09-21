@@ -5,7 +5,7 @@
 #include <optional>
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 
 using Tick = std::uint64_t; // Monotonic milliseconds, never wall-clock time.
 constexpr unsigned slot_count = 4;
@@ -117,4 +117,4 @@ private:
 [[nodiscard]] std::wstring_view state_text(State state);
 [[nodiscard]] std::wstring_view reason_text(Reason reason);
 
-} // namespace gamepad
+} // namespace overworld

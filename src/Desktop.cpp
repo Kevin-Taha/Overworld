@@ -7,7 +7,7 @@
 #include <cwchar>
 #include <limits>
 
-namespace gamepad::live {
+namespace overworld::live {
 namespace {
 bool named(HANDLE object, const wchar_t* name)
 {
@@ -750,4 +750,4 @@ std::wstring Desktop::diagnostic_summary() const
         + L"; app-override=" + std::to_wstring(auto_override_active());
 }
 
-} // namespace gamepad::live
+} // namespace overworld::live

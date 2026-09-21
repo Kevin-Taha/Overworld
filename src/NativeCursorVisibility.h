@@ -2,7 +2,7 @@
 
 #include "CursorPresentation.h"
 
-namespace gamepad {
+namespace overworld {
 // Lazy and windowless. Does not set magnification/input transforms, schemes, or process privileges.
 class NativeCursorVisibility final : public CursorVisibility {
 public:
@@ -18,4 +18,4 @@ private:
     bool initialized_ = false;
     std::wstring error_;
 };
-} // namespace gamepad
+} // namespace overworld

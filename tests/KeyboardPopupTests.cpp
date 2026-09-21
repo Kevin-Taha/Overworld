@@ -4,8 +4,8 @@
 #include <iostream>
 #include <stdexcept>
 
-using namespace gamepad;
-namespace gamepad {
+using namespace overworld;
+namespace overworld {
 struct KeyboardPopupTestAccess {
     static bool update(KeyboardPopup& popup, HWND host, KeyboardDelivery& keyboard, VoicePresentation voice = {})
     {
@@ -293,7 +293,7 @@ void compact_popup(HWND host)
 }
 void shell_peer_lookup()
 {
-    constexpr wchar_t name[] = L"GamepadKeyboardShellPeerTest";
+    constexpr wchar_t name[] = L"OverworldKeyboardShellPeerTest";
     WNDCLASSW type{};
     type.lpfnWndProc = DefWindowProcW;
     type.hInstance = GetModuleHandleW(nullptr);

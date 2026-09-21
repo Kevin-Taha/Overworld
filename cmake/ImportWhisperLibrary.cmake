@@ -6,13 +6,14 @@ if(NOT CMAKE_MSVC_RUNTIME_LIBRARY STREQUAL "MultiThreaded"
    OR NOT CMAKE_CONFIGURATION_TYPES STREQUAL "Release")
     message(FATAL_ERROR "The isolated Whisper package is Release /MT only. Configure with -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_CONFIGURATION_TYPES=Release.")
 endif()
-if(GAMEPAD_VOICE_AVX2)
-    message(FATAL_ERROR "The isolated Whisper package is voice-portable; set GAMEPAD_VOICE_AVX2=OFF.")
+if(OVERWORLD_VOICE_AVX2)
+    message(FATAL_ERROR "The isolated Whisper package is voice-portable; set OVERWORLD_VOICE_AVX2=OFF.")
 endif()
-if(NOT EXISTS "${GAMEPAD_WHISPER_ROOT}/manifest.cmake")
-    message(FATAL_ERROR "Missing Whisper package manifest at ${GAMEPAD_WHISPER_ROOT}. Run cmake/BuildWhisperLibrary.ps1 first.")
+if(NOT EXISTS "${OVERWORLD_WHISPER_ROOT}/manifest.cmake")
+    message(FATAL_ERROR "Missing Whisper package manifest at ${OVERWORLD_WHISPER_ROOT}. Run cmake/BuildWhisperLibrary.ps1 first.")
 endif()
-include("${GAMEPAD_WHISPER_ROOT}/manifest.cmake")
+# Keep reading the existing version-1 schema so trusted packages need no rebuild.
+include("${OVERWORLD_WHISPER_ROOT}/manifest.cmake")
 if(NOT GAMEPAD_WHISPER_PACKAGE_VERSION STREQUAL "1"
    OR NOT GAMEPAD_WHISPER_ARCH STREQUAL CMAKE_GENERATOR_PLATFORM
    OR NOT GAMEPAD_WHISPER_COMMIT STREQUAL "a8d002cfd879315632a579e73f0148d06959de36"
@@ -32,27 +33,27 @@ foreach(required lib/whisper.lib lib/ggml.lib lib/ggml-base.lib lib/ggml-cpu.lib
     endif()
 endforeach()
 foreach(relative IN LISTS GAMEPAD_WHISPER_FILES)
-    if(NOT EXISTS "${GAMEPAD_WHISPER_ROOT}/${relative}")
+    if(NOT EXISTS "${OVERWORLD_WHISPER_ROOT}/${relative}")
         message(FATAL_ERROR "Whisper package file missing: ${relative}")
     endif()
-    file(SHA256 "${GAMEPAD_WHISPER_ROOT}/${relative}" actual_hash)
+    file(SHA256 "${OVERWORLD_WHISPER_ROOT}/${relative}" actual_hash)
     if(NOT actual_hash STREQUAL "${GAMEPAD_WHISPER_SHA256_${relative}}")
         message(FATAL_ERROR "Whisper package integrity mismatch: ${relative}; rebuild the isolated library.")
     endif()
 endforeach()
 foreach(name ggml-base ggml-cpu ggml whisper)
-    if(NOT EXISTS "${GAMEPAD_WHISPER_ROOT}/lib/${name}.lib")
+    if(NOT EXISTS "${OVERWORLD_WHISPER_ROOT}/lib/${name}.lib")
         message(FATAL_ERROR "Incomplete Whisper package: lib/${name}.lib")
     endif()
     add_library(${name} STATIC IMPORTED)
     set_target_properties(${name} PROPERTIES
-        IMPORTED_LOCATION "${GAMEPAD_WHISPER_ROOT}/lib/${name}.lib"
-        INTERFACE_INCLUDE_DIRECTORIES "${GAMEPAD_WHISPER_ROOT}/include")
+        IMPORTED_LOCATION "${OVERWORLD_WHISPER_ROOT}/lib/${name}.lib"
+        INTERFACE_INCLUDE_DIRECTORIES "${OVERWORLD_WHISPER_ROOT}/include")
 endforeach()
 set_target_properties(ggml-cpu PROPERTIES INTERFACE_LINK_LIBRARIES ggml-base)
 set_target_properties(ggml PROPERTIES INTERFACE_LINK_LIBRARIES "ggml-cpu;ggml-base")
 set_target_properties(whisper PROPERTIES INTERFACE_LINK_LIBRARIES ggml)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/voice-licenses")
-configure_file("${GAMEPAD_WHISPER_ROOT}/whisper.cpp-LICENSE.txt"
+configure_file("${OVERWORLD_WHISPER_ROOT}/whisper.cpp-LICENSE.txt"
     "${CMAKE_CURRENT_BINARY_DIR}/voice-licenses/whisper.cpp-LICENSE.txt" COPYONLY)
 message(STATUS "Local voice: isolated clang-cl ${GAMEPAD_WHISPER_LLVM} ${GAMEPAD_WHISPER_ARCH} Release /MT static libraries; application compiler remains MSVC")

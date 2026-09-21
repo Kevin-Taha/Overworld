@@ -36,8 +36,8 @@
 #include <vector>
 
 namespace {
-using namespace gamepad;
-constexpr wchar_t window_class[] = L"GamepadDesktopM0";
+using namespace overworld;
+constexpr auto* window_class = host_window_class;
 constexpr UINT tray_message = WM_APP + 1;
 constexpr UINT restore_cursor_message = WM_APP + 3;
 constexpr UINT self_caption_message = WM_APP + 20;
@@ -138,7 +138,7 @@ public:
         klass.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
         klass.lpszClassName = window_class;
         if (!RegisterClassExW(&klass)) {
-            MessageBoxW(nullptr, L"Could not register the utility window.", L"Gamepad Desktop", MB_ICONERROR);
+            MessageBoxW(nullptr, L"Could not register the utility window.", L"Overworld", MB_ICONERROR);
             return false;
         }
         RECT bounds{0, 0, 488, 324};
@@ -164,9 +164,9 @@ public:
             dashboard_title(live_.release_tap()),
             host_style, left, top, width, height, nullptr, nullptr, instance, this);
         if (!created) {
-            const auto message = L"Could not initialize Gamepad Desktop. Win32 error "
+            const auto message = L"Could not initialize Overworld. Win32 error "
                 + std::to_wstring(initialization_error_ ? initialization_error_ : GetLastError());
-            MessageBoxW(nullptr, message.c_str(), L"Gamepad Desktop", MB_ICONERROR);
+            MessageBoxW(nullptr, message.c_str(), L"Overworld", MB_ICONERROR);
             return false;
         }
         ShowWindow(created, show);
@@ -189,7 +189,7 @@ public:
         if (result == -1) {
             live_.pause(monotonic_now());
             pause_cursor(true);
-            MessageBoxW(window_, L"Message loop failed; attempting to close Gamepad Desktop.", L"Gamepad Desktop", MB_ICONERROR);
+            MessageBoxW(window_, L"Message loop failed; attempting to close Overworld.", L"Overworld", MB_ICONERROR);
             close(false);
             return 1;
         }
@@ -383,7 +383,7 @@ private:
         }
         if (!app_ui_.refresh(window_)) { initialization_error_ = ERROR_NOT_ENOUGH_MEMORY; return false; }
         layout();
-        add_event(L"Build: " GAMEPAD_BUILD_LABEL_W);
+        add_event(L"Build: " OVERWORLD_BUILD_LABEL_W);
         add_event(inspection_ ? L"Inspection only: automatic input is disabled."
                               : L"Automatic control waits for fresh neutral then controller input.");
         update_status();
@@ -701,7 +701,7 @@ private:
                 ? L"LS click/Y: keys   Menu+View: mode   Ctrl+Alt+F10"
                 : L"Y: keyboard   Menu + View: toggle   Ctrl+Alt+F10: pause";
         text(Infrastructure, infrastructure);
-        std::wstring config = L"Build: " GAMEPAD_BUILD_LABEL_W L"\r\n";
+        std::wstring config = L"Build: " OVERWORLD_BUILD_LABEL_W L"\r\n";
         if (!keyboard_.last_dismissal().empty()) { config += L"Last keyboard dismissal: " + keyboard_.last_dismissal() + L"\r\n"; }
         config += config_available_ ? config_summary_ : L"Settings unavailable. Open Settings for the error and Reload file.";
         config += cursor_.owns_hide() ? L"\r\nCursor replacement owns native hiding."
@@ -974,7 +974,7 @@ private:
         if (settings_window_) { settings_result(result); }
         if (!restored && report_dialog) {
             show();
-            MessageBoxW(window_, result.c_str(), L"Gamepad Desktop - restore failed", MB_OK | MB_ICONERROR);
+            MessageBoxW(window_, result.c_str(), L"Overworld - restore failed", MB_OK | MB_ICONERROR);
         }
         render_live();
         return restored;
@@ -1421,7 +1421,7 @@ private:
                 show();
                 return;
             }
-            const bool built = AppendMenuW(menu, MF_STRING, Show, L"Show Gamepad Desktop")
+            const bool built = AppendMenuW(menu, MF_STRING, Show, L"Show Overworld")
                 && AppendMenuW(menu, MF_STRING, Pause, L"Pause")
                 && AppendMenuW(menu, MF_STRING, ResumeAutomatic, L"Desktop control")
                 && AppendMenuW(menu, MF_STRING, RestorePointer, L"Restore Windows pointer")
@@ -1467,13 +1467,13 @@ private:
             render_live();
             if (user_requested && cursor_.recovery_pending()) {
                 MessageBoxW(window_, (cursor_.error() + L"\r\nNot closing. Use Settings / tray Restore Windows pointer, then retry Exit.").c_str(),
-                    L"Gamepad Desktop - pointer recovery required", MB_OK | MB_ICONERROR);
+                    L"Overworld - pointer recovery required", MB_OK | MB_ICONERROR);
                 shutdown_.veto(); // Manual pause remains latched; explicit recovery/retry is usable.
                 return false;
             }
             if (user_requested) {
                 MessageBoxW(window_, (cursor_.error() + L"\r\nClosing with no native hiding owned; Windows will release process resources.").c_str(),
-                    L"Gamepad Desktop - cursor runtime cleanup", MB_OK | MB_ICONWARNING);
+                    L"Overworld - cursor runtime cleanup", MB_OK | MB_ICONWARNING);
             }
             OutputDebugStringW(cursor_.error().c_str());
         }
@@ -1483,20 +1483,20 @@ private:
                 L"After returning to an ordinary desktop, physically press/release the affected mouse button "
                 L"or Escape to repair shared input state. Closing cannot guarantee cleanup across desktop, "
                 L"integrity, or concurrent physical holds.",
-                L"Gamepad Desktop - unresolved owned input", MB_OK | MB_ICONWARNING);
+                L"Overworld - unresolved owned input", MB_OK | MB_ICONWARNING);
         }
         if (keyboard_.recovery_required() && user_requested) {
             MessageBoxW(window_,
                 L"Typing stopped with unresolved or uncertain accepted input. A partial edit may have reached the app.\r\n"
                 L"Do not automatically replay edits. Closing cannot guarantee key cleanup across protected desktops or physical overlap.",
-                L"Gamepad Desktop - unresolved text output", MB_OK | MB_ICONWARNING);
+                L"Overworld - unresolved text output", MB_OK | MB_ICONWARNING);
         }
         accept(core_.shutdown(monotonic_now()));
         if (!navigation_filter_.shutdown()) {
             add_event(navigation_filter_.status());
             if (user_requested) {
                 MessageBoxW(window_, navigation_filter_.status().c_str(),
-                    L"Gamepad Desktop - navigation filter shutdown", MB_OK | MB_ICONWARNING);
+                    L"Overworld - navigation filter shutdown", MB_OK | MB_ICONWARNING);
             }
         }
         shutdown_.finish();
@@ -1735,7 +1735,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     auto** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) {
         MessageBoxW(nullptr, L"Could not read command-line arguments. No input or cursor visibility changes were started.",
-            L"Gamepad Desktop", MB_OK | MB_ICONERROR);
+            L"Overworld", MB_OK | MB_ICONERROR);
         return 1;
     }
     const std::array<std::wstring_view, 1> argument{argc == 2 ? argv[1] : L""};
@@ -1747,21 +1747,21 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     const bool valid_arguments = mode != LaunchMode::Invalid;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: GamepadDesktop.exe [--release-tap | --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nRelease-tap keeps the custom cursor and delays short A clicks until release. Word suggestions are configured in Settings > Typing. Previews have no external output.",
-            L"Gamepad Desktop", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"Usage: Overworld.exe [--release-tap | --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nRelease-tap keeps the custom cursor and delays short A clicks until release. Word suggestions are configured in Settings > Typing. Previews have no external output.",
+            L"Overworld", MB_OK | MB_ICONERROR);
         return 2;
     }
     MapperInstanceGuard singleton;
     if (singleton.already_running()) {
         if (keyboard_preview || inspection || launch_uses_release_tap(mode)) {
             MessageBoxW(nullptr,
-                L"Exit the running Gamepad Desktop instance before opening a no-output mode or changing click timing.\r\n"
+                L"Exit the running Overworld instance before opening a no-output mode or changing click timing.\r\n"
                 L"The running instance was not changed. No new input was started.",
-                L"Gamepad Desktop - instance already running", MB_OK | MB_ICONINFORMATION);
+                L"Overworld - instance already running", MB_OK | MB_ICONINFORMATION);
             return 1;
         }
         // Never wait for the existing process (or a modal second-instance notice) to exit.
-        if (const HWND existing = FindWindowW(window_class, nullptr)) {
+        if (const HWND existing = existing_mapper_window([](const wchar_t* name) { return FindWindowW(name, nullptr); })) {
             if (restore) {
                 DWORD_PTR acknowledgement = 0;
                 const auto sent = SendMessageTimeoutW(existing, restore_cursor_message, 0, 0,
@@ -1771,24 +1771,24 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
                         L"The running instance did not confirm pointer recovery (busy, older version, or restore failure).\r\n"
                         L"Use its Settings / tray Restore Windows pointer. If unavailable, exit it and retry --restore-cursor.\r\n"
                         L"This recovery process did not independently change global visibility.",
-                        L"Gamepad Desktop - recovery not confirmed", MB_OK | MB_ICONERROR);
+                        L"Overworld - recovery not confirmed", MB_OK | MB_ICONERROR);
                     return 1;
                 }
             } else if (!PostMessageW(existing, WM_COMMAND, Show, 0)) {
                 MessageBoxW(nullptr, L"Could not contact the running instance. Use its Settings / tray Restore Windows pointer.",
-                    L"Gamepad Desktop", MB_OK | MB_ICONERROR);
+                    L"Overworld", MB_OK | MB_ICONERROR);
                 return 1;
             }
         } else {
             MessageBoxW(nullptr, L"Close the existing instance (or wait for it to finish starting/stopping), then retry.",
-                L"Gamepad Desktop", MB_OK | MB_ICONWARNING);
+                L"Overworld", MB_OK | MB_ICONWARNING);
             return 1;
         }
         return 0;
     }
     if (!singleton.acquired()) {
         MessageBoxW(nullptr, L"The instance guard is unavailable. This instance will exit without enabling input.",
-                    L"Gamepad Desktop", MB_OK | MB_ICONWARNING);
+                    L"Overworld", MB_OK | MB_ICONWARNING);
         return 1;
     }
     int result = 0;
@@ -1800,10 +1800,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         if (!released) { error += L"\r\n" + visibility.error(); }
         MessageBoxW(nullptr, restored && released
             ? L"Windows pointer show request succeeded. No desktop mapping was started and no settings were saved."
-            : error.c_str(), L"Gamepad Desktop - pointer recovery", MB_OK | (restored && released ? MB_ICONINFORMATION : MB_ICONERROR));
+            : error.c_str(), L"Overworld - pointer recovery", MB_OK | (restored && released ? MB_ICONINFORMATION : MB_ICONERROR));
         result = restored && released ? 0 : 1;
     } else if (keyboard_preview) {
-        result = gamepad::run_keyboard_preview(instance, show,
+        result = overworld::run_keyboard_preview(instance, show,
             one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
     } else {
         Host host(inspection, launch_uses_release_tap(mode));

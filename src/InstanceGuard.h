@@ -1,12 +1,13 @@
 #pragma once
 
 #include <Windows.h>
+#include "Compatibility.h"
 
-namespace gamepad {
+namespace overworld {
 // Shared by the shipping mapper and explicitly built, controller-observing dev tools.
 class MapperInstanceGuard {
 public:
-    explicit MapperInstanceGuard(const wchar_t* name = L"Local\\GamepadDesktop.M1.SingleMapper")
+    explicit MapperInstanceGuard(const wchar_t* name = mapper_mutex_name)
     {
         handle_ = CreateMutexW(nullptr, TRUE, name);
         existing_ = handle_ && GetLastError() == ERROR_ALREADY_EXISTS;
@@ -31,4 +32,4 @@ private:
     HANDLE handle_ = nullptr;
     bool existing_ = false;
 };
-} // namespace gamepad
+} // namespace overworld

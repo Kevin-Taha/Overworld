@@ -4,7 +4,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr std::uint16_t menu_button = 0x0010;
 constexpr std::uint16_t view_button = 0x0020;
@@ -581,4 +581,4 @@ bool Daisywheel::at_limit() const { return !live_edits_ && text_.size() >= keybo
 KeyboardInputMode Daisywheel::input_mode() const { return input_mode_; }
 KeyboardFlickStage Daisywheel::flick_stage() const { return flick_stage_; }
 std::optional<unsigned> Daisywheel::selected_face() const { return selected_face_; }
-} // namespace gamepad
+} // namespace overworld

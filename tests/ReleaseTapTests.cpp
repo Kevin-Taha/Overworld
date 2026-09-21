@@ -7,8 +7,8 @@
 #include <stdexcept>
 #include <vector>
 
-using namespace gamepad;
-using namespace gamepad::live;
+using namespace overworld;
+using namespace overworld::live;
 namespace {
 void check(bool value, const char* reason) { if (!value) { throw std::runtime_error(reason); } }
 constexpr NavigationForeground original{10, 100, 1000}, changed{20, 200, 2000};

@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace gamepad::practice {
+namespace overworld::practice {
 bool LocalKeys::observe(Model& model, unsigned key, bool down)
 {
     const auto category = live::input_category(key);
@@ -389,4 +389,4 @@ void Model::step(const Snapshot& snapshot, Tick now)
     if (released & button_a) { primary(false); }
     if (pressed & button_x) { secondary(); }
 }
-} // namespace gamepad::practice
+} // namespace overworld::practice

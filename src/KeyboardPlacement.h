@@ -4,7 +4,7 @@
 #include <optional>
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 struct KeyboardShellObservation {
     bool available = true;
     std::optional<RECT> obstruction;
@@ -23,4 +23,4 @@ struct KeyboardPopupPlacement {
 [[nodiscard]] KeyboardShellObservation keyboard_shell_union(KeyboardShellObservation first,
     KeyboardShellObservation second, RECT work);
 [[nodiscard]] bool keyboard_shell_image(std::wstring_view basename);
-} // namespace gamepad
+} // namespace overworld

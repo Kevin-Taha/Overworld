@@ -161,7 +161,7 @@ std::wstring snapshot()
 int wmain(int argc, wchar_t** argv)
 {
     if (argc != 2 || std::wstring_view(argv[1]) != L"--metadata-only") {
-        std::wcout << L"Usage: gamepad_shell_probe --metadata-only\n"
+        std::wcout << L"Usage: overworld_shell_probe --metadata-only\n"
             L"Explicit opt-in: after a 3-second delay, sample at most 20 times over 10 seconds.\n"
             L"An OS metadata call that stalls can extend the sampling duration; no cross-process messages are sent.\n"
             L"Console output only: foreground/focus/capture/menu/hit identities, process basenames,\n"
@@ -188,7 +188,7 @@ int wmain(int argc, wchar_t** argv)
             std::this_thread::sleep_until((std::min)(deadline, started + std::chrono::milliseconds(500 * (i + 1))));
         }
         std::wcout << L"Done. This probe cannot prove the origin of controller input or elevated-band rendering.\n"
-            L"For filter decisions, separately inspect Gamepad Desktop Details: Build, Eligibility,\n"
+            L"For filter decisions, separately inspect Overworld Details: Build, Eligibility,\n"
             L"Last missed GAMEPAD down, policy gate/age, and Keyboard dismissal/recovery status.\n";
     } catch (const std::exception&) {
         std::wcerr << L"Metadata probe failed; no input was sent.\n";

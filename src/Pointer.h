@@ -2,7 +2,7 @@
 
 #include "Core.h"
 
-namespace gamepad::live {
+namespace overworld::live {
 
 struct Point {
     int x = 0;
@@ -71,4 +71,4 @@ private:
     unsigned band_ = 0;
 };
 
-} // namespace gamepad::live
+} // namespace overworld::live

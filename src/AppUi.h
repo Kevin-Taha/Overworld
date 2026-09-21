@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace gamepad {
+namespace overworld {
 enum ControlId {
     Banner = 100, Intro, Slot0, Slot1, Slot2, Slot3, SlotChoice, Select, Enable, Pause, Exit,
     Selection, StatusLine, SimulationGroup, Context, Session, Baseline, Modifier, MouseButton,
@@ -26,7 +26,7 @@ struct DashboardControl {
 };
 [[nodiscard]] std::span<const DashboardControl> dashboard_controls();
 [[nodiscard]] constexpr const wchar_t* dashboard_title(bool release_tap) {
-    return release_tap ? L"Gamepad Desktop - release-tap" : L"Gamepad Desktop";
+    return release_tap ? L"Overworld - release-tap" : L"Overworld";
 }
 struct AppPalette {
     COLORREF background, surface, text, secondary, border, accent, accent_text;
@@ -83,4 +83,4 @@ private:
     SIZE client_{};
     int selected_ = 0;
 };
-} // namespace gamepad
+} // namespace overworld

@@ -3,7 +3,7 @@
 
 #include <dwmapi.h>
 
-namespace gamepad {
+namespace overworld {
 NativeCursorSurface::RootCache::~RootCache() { clear(); }
 
 void NativeCursorSurface::RootCache::clear()
@@ -80,4 +80,4 @@ CursorSurfaceObservation NativeCursorSurface::observe()
     if (GetForegroundWindow() != foreground) { return CursorSurfaceObservation::Unknown; }
     return combine_cursor_surfaces(foreground_state, hit_state);
 }
-} // namespace gamepad
+} // namespace overworld

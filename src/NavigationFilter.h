@@ -3,7 +3,7 @@
 #include "Live.h"
 #include <atomic>
 
-namespace gamepad {
+namespace overworld {
 constexpr Tick navigation_policy_age_ms = 100;
 constexpr Tick navigation_drain_ms = 500;
 class NavigationShutdown {
@@ -128,4 +128,4 @@ private:
     std::array<Entry, 24> entries_{};
     NavigationCounts counts_;
 };
-} // namespace gamepad
+} // namespace overworld

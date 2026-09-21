@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <string_view>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* message) { if (!value) { throw std::runtime_error(message); } }
 CaptionContext input(CaptionButton button = CaptionButton::Minimize)
@@ -161,7 +161,7 @@ void message_tests(bool baseline)
 {
     const auto foreground = GetForegroundWindow();
     WNDCLASSW type{}; type.lpfnWndProc = Probe::proc; type.hInstance = GetModuleHandleW(nullptr);
-    type.lpszClassName = L"GamepadDesktop.OwnedCaptionTest";
+    type.lpszClassName = L"Overworld.OwnedCaptionTest";
     check(RegisterClassW(&type), "register owned caption class");
     for (const bool up_already_queued : {false, true}) {
     for (const auto button : {CaptionButton::Minimize, CaptionButton::Maximize, CaptionButton::Close}) {

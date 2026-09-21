@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <thread>
 
-using namespace gamepad;
-using namespace gamepad::practice;
+using namespace overworld;
+using namespace overworld::practice;
 namespace {
 void check(bool value, const char* message)
 {
@@ -296,7 +296,7 @@ void frames(const std::filesystem::path& path)
 int wmain(int argc, wchar_t** argv)
 {
     if (argc != 3 || std::wstring_view(argv[1]) != L"--render-only") {
-        std::cerr << "Explicit invocation required: gamepad_practice_visual_tests --render-only <owned-output-directory>\n";
+        std::cerr << "Explicit invocation required: overworld_practice_visual_tests --render-only <owned-output-directory>\n";
         return 2;
     }
     std::jthread watchdog([](std::stop_token stop) {

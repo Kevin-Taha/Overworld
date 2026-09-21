@@ -14,7 +14,7 @@ Whisper and installing LLVM are not necessary just to link those packages.
 
 ## Run a voice-enabled release
 
-Place `GamepadDesktop.exe`, `models\ggml-tiny.en.bin`, and the supplied `licenses`
+Place `Overworld.exe`, `models\ggml-tiny.en.bin`, and the supplied `licenses`
 directory together, along with the supplied `controllers` mapping-data folder.
 Releases use individual files, not ZIP archives. Custom controller layouts are
 documented in [Controller mappings](CONTROLLERS.md).
@@ -105,14 +105,14 @@ $command = "call `"$vcvars`" $target 10.0.26100.0 -vcvars_ver=14.44.35207 >nul" 
   " `"-DCMAKE_MAKE_PROGRAM=$ninja`" `"-DCMAKE_TOOLCHAIN_FILE=$toolchain`"" +
   " -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded" +
   " -DCMAKE_EXPORT_COMPILE_COMMANDS=ON" +
-  " `"-DGAMEPAD_LLVM_ROOT=$llvm`" -DGAMEPAD_WHISPER_ARCH=$architecture" +
-  " && `"$cmake`" --build `"$build`" --target gamepad_whisper_package --parallel 1"
+  " `"-DOVERWORLD_LLVM_ROOT=$llvm`" -DOVERWORLD_WHISPER_ARCH=$architecture" +
+  " && `"$cmake`" --build `"$build`" --target overworld_whisper_package --parallel 1"
 & $env:ComSpec /d /s /c $command
 if ($LASTEXITCODE) { throw 'Serial isolated dependency build failed.' }
 ```
 
 For offline configuration, also pass
-`-DGAMEPAD_WHISPER_ARCHIVE=<absolute-path-to-pinned-source-archive>` in the configure
+`-DOVERWORLD_WHISPER_ARCHIVE=<absolute-path-to-pinned-source-archive>` in the configure
 command, or use the helper's `-WhisperArchive`. No source is downloaded if that
 matching local archive is supplied. The pinned public source is:
 
@@ -138,9 +138,9 @@ cmake -S . -B out\arm64 `
   -G "Visual Studio 17 2022" -A ARM64 -T "v143,version=14.44.35207" `
   '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' `
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_CONFIGURATION_TYPES=Release `
-  -DGAMEPAD_VOICE_WHISPER=ON -DGAMEPAD_VOICE_AVX2=OFF `
-  "-DGAMEPAD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
-cmake --build out\arm64 --config Release --target GamepadDesktop gamepad_voice_fixture --parallel 1 -- /nodeReuse:false
+  -DOVERWORLD_VOICE_WHISPER=ON -DOVERWORLD_VOICE_AVX2=OFF `
+  "-DOVERWORLD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
+cmake --build out\arm64 --config Release --target Overworld overworld_voice_fixture --parallel 1 -- /nodeReuse:false
 .\tests\WhisperBuildTests.ps1 -DependencyBuild out\whisper-arm64-library `
   -AppBuild out\arm64 -Architecture ARM64 -LlvmRoot $llvm
 ```
@@ -175,7 +175,7 @@ $hostTools = if ([Runtime.InteropServices.RuntimeInformation]::OSArchitecture.To
   'Hostx64\x64'
 }
 $dumpbin = Join-Path $vs "VC\Tools\MSVC\14.44.35207\bin\$hostTools\dumpbin.exe"
-.\PackageWhisperArm64.ps1 -BuildDirectory out\arm64 `
+.\PackageOverworldArm64.ps1 -BuildDirectory out\arm64 `
   -ModelFile .\out\voice-models\ggml-tiny.en.bin `
   -DumpbinPath $dumpbin
 ```

@@ -25,7 +25,7 @@ if(NOT BUILD_FLAVOR MATCHES "^(voice-off|voice-portable|voice-avx2)$")
     message(FATAL_ERROR "Build identity requires a fixed supported voice flavor.")
 endif()
 if(NOT EXISTS "${SOURCE_DIR}/CMakeLists.txt" OR NOT IS_DIRECTORY "${SOURCE_DIR}/src")
-    message(FATAL_ERROR "Build identity requires the Gamepad Desktop source directory.")
+    message(FATAL_ERROR "Build identity requires the Overworld source directory.")
 endif()
 
 # Read local metadata at build time, not configure time. Never contact a remote.
@@ -49,7 +49,7 @@ if(GIT_EXECUTABLE)
     endif()
 endif()
 if(revision STREQUAL "unversioned")
-    message(WARNING "Gamepad Desktop build identity is unversioned: local Git/HEAD metadata for this source is unavailable.")
+    message(WARNING "Overworld build identity is unversioned: local Git/HEAD metadata for this source is unavailable.")
 endif()
 
 # Only app sources/resources and local CMake inputs; never build output or user settings.
@@ -68,8 +68,8 @@ foreach(input IN LISTS inputs)
 endforeach()
 string(SHA256 source_hash "${source_hashes}")
 string(SUBSTRING "${source_hash}" 0 16 short_source_hash)
-set(GAMEPAD_BUILD_LABEL "${APP_VERSION}+${revision}.src.${short_source_hash}.${BUILD_ARCH}.${BUILD_CONFIG}.${BUILD_FLAVOR}")
-string(REPLACE "." "," GAMEPAD_BUILD_VERSION "${APP_VERSION}")
+set(OVERWORLD_BUILD_LABEL "${APP_VERSION}+${revision}.src.${short_source_hash}.${BUILD_ARCH}.${BUILD_CONFIG}.${BUILD_FLAVOR}")
+string(REPLACE "." "," OVERWORLD_BUILD_VERSION "${APP_VERSION}")
 
 # configure_file copies only when content differs, preserving no-op build timestamps.
 configure_file("${CMAKE_CURRENT_LIST_DIR}/BuildInfo.h.in" "${OUTPUT_FILE}" @ONLY)

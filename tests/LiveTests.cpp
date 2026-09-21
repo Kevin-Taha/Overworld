@@ -8,8 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
-using namespace gamepad;
-using namespace gamepad::live;
+using namespace overworld;
+using namespace overworld::live;
 
 namespace {
 void check(bool value, const char* description)

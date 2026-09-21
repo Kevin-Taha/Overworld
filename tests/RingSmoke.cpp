@@ -7,7 +7,7 @@
 #include <string>
 
 namespace {
-constexpr wchar_t surface_class[] = L"GamepadDesktop.RingSmokeSurface";
+constexpr wchar_t surface_class[] = L"Overworld.RingSmokeSurface";
 
 void check(bool condition, const char* message)
 {
@@ -66,7 +66,7 @@ int wmain(int argc, wchar_t** argv)
 {
     if (argc == 3 && std::wstring_view{argv[1]} == L"--surface") { return surface(argv[2]); }
     if (argc != 2 || std::wstring_view{argv[1]} != L"--run") {
-        std::cout << "Explicit non-injecting native smoke only: gamepad_ring_smoke --run\n"
+        std::cout << "Explicit non-injecting native smoke only: overworld_ring_smoke --run\n"
                      "Creates a temporary nonactivating surface in its own child process and four cursor overlays.\n"
                      "No controller, live adapter, native cursor hiding/showing, SendInput, SetCursorPos, hooks, or user-app operations.\n";
         return 2;
@@ -97,19 +97,19 @@ int wmain(int argc, wchar_t** argv)
         check(process_id == child.process.dwProcessId, "surface belongs to smoke child, not another app");
         RECT bounds{};
         check(GetWindowRect(child.window, &bounds) != FALSE, "own surface bounds");
-        const gamepad::live::Point hotspot{bounds.left + 120, bounds.top + 120};
+        const overworld::live::Point hotspot{bounds.left + 120, bounds.top + 120};
         check(WindowFromPoint({hotspot.x, hotspot.y}) == child.window, "own surface hit before overlay");
         check(GetForegroundWindow() == foreground, "surface did not activate");
         const auto resources = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
         {
-            gamepad::CursorRing ring;
+            overworld::CursorRing ring;
             for (unsigned dpi : {96u, 144u, 192u, 96u}) {
                 for (int nominal : {24, 28, 32, 40}) {
-                    for (const auto& choice : gamepad::cursor_styles) {
+                    for (const auto& choice : overworld::cursor_styles) {
                         check(ring.show_at(hotspot, dpi, nominal, choice.style), "show/switch per-pixel-alpha cursor");
                         const auto cached_resources = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
                         for (int offset : {0, 2, 4, 0}) {
-                            const gamepad::live::Point position{hotspot.x + offset, hotspot.y + offset};
+                            const overworld::live::Point position{hotspot.x + offset, hotspot.y + offset};
                             check(ring.show_at(position, dpi, nominal, choice.style), "move overlay using cached pixels");
                             check(GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS) == cached_resources, "position update allocates no new GDI objects");
                             const auto style = GetWindowLongPtrW(ring.window(), GWL_EXSTYLE);
@@ -117,11 +117,11 @@ int wmain(int argc, wchar_t** argv)
                             check((style & required) == required && !(style & WS_EX_APPWINDOW), "layered transparent nonactivating tool window");
                             check(SendMessageW(ring.window(), WM_MOUSEACTIVATE, 0, 0) == MA_NOACTIVATE, "defensive no activate");
                             check(SendMessageW(ring.window(), WM_NCHITTEST, 0, MAKELPARAM(position.x, position.y)) == HTTRANSPARENT, "defensive hit test");
-                            const auto geometry = *gamepad::cursor_geometry(position, dpi, nominal, choice.style);
+                            const auto geometry = *overworld::cursor_geometry(position, dpi, nominal, choice.style);
                             RECT actual{};
                             check(GetWindowRect(ring.window(), &actual) && actual.left == geometry.left && actual.top == geometry.top
                                 && actual.right - actual.left == geometry.side && actual.bottom - actual.top == geometry.side, "native geometry and hotspot");
-                            const auto pixels = gamepad::cursor_pixels(dpi, nominal, choice.style);
+                            const auto pixels = overworld::cursor_pixels(dpi, nominal, choice.style);
                             bool tested_opaque = false;
                             for (int y = 0; y < geometry.side; ++y) {
                                 for (int x = 0; x < geometry.side; ++x) {
@@ -141,7 +141,7 @@ int wmain(int argc, wchar_t** argv)
                 ring.hide();
                 check(!IsWindowVisible(ring.window()), "hide immediate");
             }
-            check(ring.show_at(hotspot, 96, 40, gamepad::CursorStyle::Ring), "failure retention fixture");
+            check(ring.show_at(hotspot, 96, 40, overworld::CursorStyle::Ring), "failure retention fixture");
             check(!ring.show_at(hotspot, 0, 40) && IsWindowVisible(ring.window()) && !ring.error().empty(),
                 "failed render retains last published visual until coordinator can restore native pointer");
             ring.hide();

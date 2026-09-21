@@ -1,6 +1,6 @@
 # Controller compatibility and mappings
 
-Gamepad Desktop reads XInput and Windows DirectInput game controllers directly.
+Overworld reads XInput and Windows DirectInput game controllers directly.
 Bluetooth and USB devices supported by Windows can use this reader; no virtual
 Xbox device, emulation driver, service, or external remapper is needed.
 This does not mean every HID device has a known gamepad layout: keyboards, mice,

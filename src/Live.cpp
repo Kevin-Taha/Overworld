@@ -5,7 +5,7 @@
 #include <Windows.h>
 #include <utility>
 
-namespace gamepad::live {
+namespace overworld::live {
 bool known_app(AppIdentity app) { return app.root_owner && app.process; }
 bool heuristic_auto(AutoReason reason)
 {
@@ -964,4 +964,4 @@ void Live::step(const Snapshot& snapshot, Tick now)
     routing_wait_since_.reset();
 }
 
-} // namespace gamepad::live
+} // namespace overworld::live

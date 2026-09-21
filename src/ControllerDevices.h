@@ -3,7 +3,7 @@
 #include "Core.h"
 #include "ControllerReadScope.h"
 
-namespace gamepad {
+namespace overworld {
 using ControllerDeviceId = std::array<std::uint8_t, 16>;
 struct ControllerDevices {
     std::array<ControllerDeviceId, 32> ids{};
@@ -57,4 +57,4 @@ private:
     Connection connection_ = Connection::Unknown;
     std::uint64_t epoch_ = 0, native_epoch_ = 0;
 };
-} // namespace gamepad
+} // namespace overworld

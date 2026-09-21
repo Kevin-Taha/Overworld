@@ -7,7 +7,7 @@
 #include <wrl/client.h>
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr std::array<const wchar_t*, 4> pages{L"General", L"Pointer", L"Typing", L"Advanced"};
@@ -35,7 +35,7 @@ AppPalette app_palette(bool dark)
 std::span<const DashboardControl> dashboard_controls()
 {
     static constexpr DashboardControl controls[]{
-        {AppTitle, L"STATIC", L"Gamepad Desktop", SS_LEFT, 24, 20, 440, 36},
+        {AppTitle, L"STATIC", L"Overworld", SS_LEFT, 24, 20, 440, 36},
         {Banner, L"STATIC", L"Ready", SS_LEFT, 36, 82, 408, 34},
         {Selection, L"STATIC", L"Controller: automatic", SS_LEFT, 36, 122, 408, 24},
         {LiveStatus, L"STATIC", L"Move a controller stick to use the desktop.", SS_LEFT, 36, 157, 408, 58},
@@ -491,4 +491,4 @@ bool SettingsPages::shortcut(HWND window, MSG& message)
     select(window, (selected_ + ((GetKeyState(VK_SHIFT) & 0x8000) ? 3 : 1)) % 4);
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

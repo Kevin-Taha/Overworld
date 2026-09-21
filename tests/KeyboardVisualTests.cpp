@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <vector>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool condition, const char* message)
 {
@@ -501,7 +501,7 @@ void hidden_presentation()
     WNDCLASSW type{};
     type.lpfnWndProc = DefWindowProcW;
     type.hInstance = GetModuleHandleW(nullptr);
-    type.lpszClassName = L"GamepadKeyboardVisualHiddenTest";
+    type.lpszClassName = L"OverworldKeyboardVisualHiddenTest";
     check(RegisterClassW(&type) != 0, "test class registration failed");
     const auto window = CreateWindowExW(WS_EX_LAYERED | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
         type.lpszClassName, L"No-input hidden renderer test", WS_POPUP, -32000, -32000,
@@ -609,14 +609,14 @@ int wmain(int argc, wchar_t** argv)
 {
     try {
         if (argc >= 2 && std::wstring_view(argv[1]) == L"--compact-shell-only") {
-            check(argc == 2 || argc == 3, "usage: gamepad_keyboard_visual_tests --compact-shell-only [owned-artifact-directory]");
+            check(argc == 2 || argc == 3, "usage: overworld_keyboard_visual_tests --compact-shell-only [owned-artifact-directory]");
             const std::filesystem::path directory = argc == 3 ? argv[2] : L"";
             if (!directory.empty()) { std::filesystem::create_directories(directory); }
             compact_shell_frames(directory);
             hidden_presentation();
             return 0;
         }
-        check(argc == 1 || argc == 2, "usage: gamepad_keyboard_visual_tests [owned-artifact-directory]");
+        check(argc == 1 || argc == 2, "usage: overworld_keyboard_visual_tests [owned-artifact-directory]");
         std::filesystem::path directory;
         if (argc == 2) {
             directory = argv[1];

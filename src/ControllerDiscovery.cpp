@@ -2,7 +2,7 @@
 
 #include <mutex>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 ControllerDevices failure(DWORD error)
 {
@@ -76,4 +76,4 @@ DWORD WINAPI ControllerDiscovery::worker(void* context)
     state->source.reset();
     return 0;
 }
-} // namespace gamepad
+} // namespace overworld

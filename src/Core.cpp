@@ -1,6 +1,6 @@
 #include "Core.h"
 
-namespace gamepad {
+namespace overworld {
 namespace {
 bool centered(std::int16_t x, std::int16_t y, std::int64_t radius)
 {
@@ -220,4 +220,4 @@ std::wstring_view reason_text(Reason reason)
     }
     return L"Unknown reason";
 }
-} // namespace gamepad
+} // namespace overworld

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 unsigned checks = 0;
 void check(bool value, const char* message)
@@ -326,10 +326,10 @@ int main()
             mailbox.publish(policy(1010));
             check(mailbox.read().scope == 1 && mailbox.read().issued == 1010, "freshness-only update preserves logical scope");
             auto blocked = policy(1011, false);
-            blocked.gate = NavigationGate::DesktopBlocked; blocked.block = gamepad::live::BlockReason::Exclusion;
+            blocked.gate = NavigationGate::DesktopBlocked; blocked.block = overworld::live::BlockReason::Exclusion;
             mailbox.publish(blocked);
             check(mailbox.read().gate == NavigationGate::DesktopBlocked
-                && mailbox.read().block == gamepad::live::BlockReason::Exclusion,
+                && mailbox.read().block == overworld::live::BlockReason::Exclusion,
                 "published reason metadata must travel with its authorization snapshot");
             for (unsigned combination = 0; combination < 8; ++combination) {
                 const bool saved = (combination & 1) != 0, inspection = (combination & 2) != 0, configured = (combination & 4) != 0;
@@ -338,7 +338,7 @@ int main()
             }
         }
         {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             Observation o;
             o.available = o.allowed = o.baseline_known = o.routing_stable = true;
             o.mode = Mode::Pointer;

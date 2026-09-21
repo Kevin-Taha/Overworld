@@ -1,9 +1,20 @@
 # Architecture
 
-Gamepad Desktop is one native Windows desktop executable with small testable
+Overworld is one native Windows desktop executable with small testable
 modules. Application code uses MSVC C++20. The controller poller, recognizer
 worker, and optional navigation-hook thread have bounded, distinct responsibilities;
 input delivery and its ownership ledger remain serialized on the UI thread.
+
+Overworld replaces the former product name in its UI, executable, namespace,
+build targets and Windows resource identity. `Compatibility.h` intentionally
+retains the old settings-directory and single-mapper mutex names so upgrades
+keep preferences and cannot inject concurrently with a pre-rename release.
+Second-instance activation and explicit cursor recovery locate either the
+Overworld host or the legacy host class, retaining the same bounded request and
+acknowledgment path rather than changing cursor visibility independently.
+The synthetic-input tag and settings schema are unchanged. Version-1 static
+Whisper package keys also retain their established format; public CMake options
+use `OVERWORLD_*`. These are compatibility contracts, not stale UI branding.
 
 ## Module map
 
@@ -52,9 +63,9 @@ timestamps are unchanged.
 
 ## Development-only practice harness
 
-Practice is not a product mode. `GamepadDesktopPractice` is an explicit
+Practice is not a product mode. `OverworldPractice` is an explicit
 `EXCLUDE_FROM_ALL` target with a separate `PracticeHost.cpp` entry point.
-The shipping `GamepadDesktop` target contains no practice modules and its
+The shipping `Overworld` target contains no practice modules and its
 strict `LaunchMode.h` parser rejects `--practice` and other unsupported flags
 before acquiring any instance guard or constructing the live Host.
 Both executables use `MapperInstanceGuard` with the existing single-mapper

@@ -9,6 +9,12 @@ to that drive when the system drive has limited space.
 
 ## Prerequisites
 
+The application target/executable is `Overworld`, development harness is
+`OverworldPractice`, libraries and tests use `overworld_*`, and CMake options use
+`OVERWORLD_*`. Configure a fresh build directory after upgrading from the former
+name; legacy `GAMEPAD_*` build options fail explicitly rather than silently
+disabling requested features. Use `PackageOverworldArm64.ps1` to stage ARM64 files.
+
 - Windows with Visual Studio 2022 and the C++ desktop workload. The checked
   release configuration uses the v143 14.44.35207 toolset.
 - MSVC x64 tools and, for the ARM64 target, the ARM64 C++ tools.
@@ -35,8 +41,8 @@ repository using the new machine's normal Git setup; do not copy credentials or
 an old agent directory:
 
 ```powershell
-git clone https://github.com/Kevin-Taha/gamepad-desktop.git
-Set-Location .\gamepad-desktop
+git clone https://github.com/Kevin-Taha/overworld.git
+Set-Location .\overworld
 git status --short
 git log -1 --oneline
 cmake --version
@@ -60,8 +66,8 @@ $build = "out\voice-$suffix"
 cmake -S . -B $build -G "Visual Studio 17 2022" -A $architecture `
   -T "v143,version=14.44.35207" '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' `
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_CONFIGURATION_TYPES=Release `
-  -DGAMEPAD_VOICE_WHISPER=ON -DGAMEPAD_VOICE_AVX2=OFF `
-  "-DGAMEPAD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
+  -DOVERWORLD_VOICE_WHISPER=ON -DOVERWORLD_VOICE_AVX2=OFF `
+  "-DOVERWORLD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
 if ($LASTEXITCODE) { throw 'Application configure failed.' }
 cmake --build $build --config Release --parallel 1 -- /nodeReuse:false
 if ($LASTEXITCODE) { throw 'Application build failed.' }
@@ -71,12 +77,15 @@ if ($LASTEXITCODE) { throw 'Deterministic tests failed.' }
 ```
 
 The package manifest uses relative paths; the importer resolves them under the
-new `GAMEPAD_WHISPER_ROOT`. It checks the declared target architecture, source
+new `OVERWORLD_WHISPER_ROOT`. It checks the declared target architecture, source
 and LLVM pins, compatible MSVC ABI floor, all listed file hashes, Release-only
 `/MT`, and AVX2 OFF. A compiler older than the manifest ABI is rejected.
 The manifest is executable CMake, so its own provenance must be trusted; file
 hash checks do not make an untrusted manifest safe. This import validation is
 not a fresh per-object architecture or compiler-command audit.
+Version-1 dependency manifests deliberately retain their `GAMEPAD_WHISPER_*`
+schema keys. Existing trusted packages remain usable without rewriting hashes or
+rebuilding Whisper. These private package fields are not build/cache option names.
 
 Successful package import is configure-only evidence, not a build or runtime test.
 Reconfigure from scratch after moving source:
@@ -93,7 +102,7 @@ Complete both before offline work is expected.
 Controller support uses native XInput/DirectInput plus hash-pinned
 [SDL-format mapping data](CONTROLLERS.md), not the SDL runtime. Configure downloads
 the public database/license once into its build directory. For offline builds,
-set `GAMEPAD_CONTROLLER_DATABASE_ROOT` to a directory containing the exact pinned
+set `OVERWORLD_CONTROLLER_DATABASE_ROOT` to a directory containing the exact pinned
 `gamecontrollerdb.txt` and `LICENSE`; missing or mismatched bytes fail explicitly.
 Both app targets copy the database to `controllers` beside their EXE.
 No runtime downloads or virtual-controller drivers are used.
@@ -102,13 +111,13 @@ This route needs no speech dependency or model download:
 
 ```powershell
 cmake -S . -B out\x64 -G "Visual Studio 17 2022" -A x64 `
-  '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' -DGAMEPAD_VOICE_WHISPER=OFF
+  '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' -DOVERWORLD_VOICE_WHISPER=OFF
 cmake --build out\x64 --config Release --parallel 1 -- /nodeReuse:false
 ctest --test-dir out\x64 -C Release --output-on-failure
 ```
 
 Use `-A ARM64` and a separate `out\arm64` directory for ARM64.
-The generated executable is `out\<build>\Release\GamepadDesktop.exe`.
+The generated executable is `out\<build>\Release\Overworld.exe`.
 Default tests do not launch the live application or microphone.
 
 ## Development-only component harness
@@ -117,22 +126,22 @@ Practice is not a shipping mode. The interactive development target and its
 render-only helper must be built explicitly:
 
 ```powershell
-cmake --build out\x64 --config Release --target GamepadDesktopPractice gamepad_practice_visual_tests --parallel 1 -- /nodeReuse:false
+cmake --build out\x64 --config Release --target OverworldPractice overworld_practice_visual_tests --parallel 1 -- /nodeReuse:false
 # Deliberate, separately authorized interactive demo only:
-.\out\x64\Release\GamepadDesktopPractice.exe
+.\out\x64\Release\OverworldPractice.exe
 ```
 
 Use the matching ARM64 build directory to cross-compile both targets. The
 harness links shared production Pointer, Daisywheel, keyboard/cursor rendering,
 app appearance, and XInput libraries, but not the voice backend or model.
 It can be built with voice OFF and `BUILD_TESTING=OFF` (omit the test target).
-The shipping `GamepadDesktop` target never links practice modules and rejects
+The shipping `Overworld` target never links practice modules and rejects
 `--practice` instead of starting the mapper. See the
 [harness component map](PRACTICE-HARNESS.md) before interpreting demo results.
 
 ## Alternative x64 local voice without an imported package
 
-When voice is explicitly ON and `GAMEPAD_WHISPER_ROOT` is empty, the x64
+When voice is explicitly ON and `OVERWORLD_WHISPER_ROOT` is empty, the x64
 FetchContent route downloads a hash-pinned whisper.cpp source archive at configure
 time. This is an alternative to the imported clang-cl package used by the
 checked releases, not a requirement for a package-only setup.
@@ -142,12 +151,12 @@ The application itself never downloads models or code.
 cmake -S . -B out\voice-x64 -G "Visual Studio 17 2022" -A x64 `
   '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' `
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_CONFIGURATION_TYPES=Release `
-  -DGAMEPAD_VOICE_WHISPER=ON -DGAMEPAD_VOICE_AVX2=OFF
+  -DOVERWORLD_VOICE_WHISPER=ON -DOVERWORLD_VOICE_AVX2=OFF
 cmake --build out\voice-x64 --config Release --parallel 1 -- /nodeReuse:false
 ctest --test-dir out\voice-x64 -C Release --output-on-failure
 ```
 
-`GAMEPAD_VOICE_AVX2=ON` makes a distinct x64 flavor that requires
+`OVERWORLD_VOICE_AVX2=ON` makes a distinct x64 flavor that requires
 AVX2/FMA/F16C/BMI2 from process start. Do not distribute it as a portable fallback.
 The build label records `voice-off`, `voice-portable`, or `voice-avx2`.
 
@@ -162,8 +171,8 @@ $package = (Resolve-Path .\out\whisper-arm64-library\package).Path
 cmake -S . -B out\arm64 -G "Visual Studio 17 2022" -A ARM64 `
   -T "v143,version=14.44.35207" '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' `
   -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_CONFIGURATION_TYPES=Release `
-  -DGAMEPAD_VOICE_WHISPER=ON -DGAMEPAD_VOICE_AVX2=OFF `
-  "-DGAMEPAD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
+  -DOVERWORLD_VOICE_WHISPER=ON -DOVERWORLD_VOICE_AVX2=OFF `
+  "-DOVERWORLD_WHISPER_ROOT=$package" '-DCMAKE_EXE_LINKER_FLAGS=/MAP'
 cmake --build out\arm64 --config Release --parallel 1 -- /nodeReuse:false
 ```
 
@@ -212,7 +221,7 @@ Distribute the matching architecture's EXE, the exact `models\ggml-tiny.en.bin`
 for voice-enabled builds, and dependency licenses/notices. Keep the model as a
 separate file; do not make a ZIP or include the dependency build tree.
 
-`PackageWhisperArm64.ps1` validates and stages a native ARM64 Release folder.
+`PackageOverworldArm64.ps1` validates and stages a native ARM64 Release folder.
 It checks the current committed source revision, PE architecture, voice flavor,
 imports, and model hash, then writes file hashes to `manifest.json`.
 It deliberately refuses a mismatched or uncommitted build. For an unversioned
@@ -233,7 +242,7 @@ Include `voice-licenses\whisper.cpp-LICENSE.txt` from the build and
 named third-party code/model, not a new license for this application's source.
 LLVM, SDK, MSVC, static libraries, headers, PDBs, compiler logs, fixture audio, and
 model caches are not application release assets.
-`GamepadDesktopPractice.exe` and all probe/test executables are development-only
+`OverworldPractice.exe` and all probe/test executables are development-only
 and must never be included in product release assets or added as product modes.
 
 ## Build identity

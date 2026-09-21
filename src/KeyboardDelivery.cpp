@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr Tick fresh_ms = 100;
 constexpr std::uint16_t y_button = 0x8000;
@@ -609,4 +609,4 @@ std::wstring KeyboardDelivery::status() const
     }
     return {};
 }
-} // namespace gamepad
+} // namespace overworld

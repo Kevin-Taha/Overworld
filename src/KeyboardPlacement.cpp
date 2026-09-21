@@ -7,7 +7,7 @@
 #include <cstdlib>
 #include <limits>
 
-namespace gamepad {
+namespace overworld {
 bool keyboard_shell_image(std::wstring_view basename)
 {
     for (const std::wstring_view expected : {L"startmenuexperiencehost.exe", L"searchhost.exe", L"searchapp.exe"}) {
@@ -127,4 +127,4 @@ KeyboardShellObservation keyboard_shell_union(KeyboardShellObservation first, Ke
     }
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

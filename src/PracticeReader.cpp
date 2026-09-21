@@ -4,7 +4,7 @@
 #include <mutex>
 #include <new>
 
-namespace gamepad::practice {
+namespace overworld::practice {
 struct Reader::State {
     explicit State(std::shared_ptr<ReaderBackend> value) : backend(std::move(value)) {}
     ~State() { if (wake) { CloseHandle(wake); } }
@@ -136,4 +136,4 @@ DWORD WINAPI Reader::worker(void* context)
     if (!state->backend->shutdown()) { state->failed.store(true); }
     return state->failed.load() ? 1 : 0;
 }
-} // namespace gamepad::practice
+} // namespace overworld::practice

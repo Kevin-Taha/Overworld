@@ -8,7 +8,7 @@
 #include <numbers>
 #include <stdexcept>
 
-using namespace gamepad;
+using namespace overworld;
 
 namespace {
 constexpr std::uint16_t menu = 0x0010;

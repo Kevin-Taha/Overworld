@@ -9,7 +9,7 @@
 #include <new>
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 struct Enumeration {
     IDirectInput8W* input = nullptr;
@@ -246,4 +246,4 @@ void NativeControllers::service_messages()
         DispatchMessageW(&message);
     }
 }
-} // namespace gamepad
+} // namespace overworld

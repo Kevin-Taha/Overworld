@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-namespace gamepad {
+namespace overworld {
 // Shared by the window procedure and pure message-dispatch tests. Reserved
 // controller/navigation messages are not ordinary keyboard takeover.
 template<class Focused, class Close, class Suspend>
@@ -33,4 +33,4 @@ bool dispatch_keyboard_preview_input(UINT message, WPARAM key, bool practice,
     }
     return false;
 }
-} // namespace gamepad
+} // namespace overworld

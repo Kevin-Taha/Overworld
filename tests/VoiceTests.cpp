@@ -11,7 +11,7 @@
 #include <stdexcept>
 #include <vector>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* reason) { if (!value) { throw std::runtime_error(reason); } }
 struct FakeVoice final : VoiceBoundary {

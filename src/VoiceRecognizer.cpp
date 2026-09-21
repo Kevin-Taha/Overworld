@@ -4,17 +4,17 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
-#if defined(GAMEPAD_VOICE_AVX2) && defined(_M_X64)
+#if defined(OVERWORLD_VOICE_AVX2) && defined(_M_X64)
 #include <Windows.h>
 #include <intrin.h>
 #endif
-#ifdef GAMEPAD_VOICE_WHISPER
+#ifdef OVERWORLD_VOICE_WHISPER
 #include <whisper.h>
 #endif
 
-namespace gamepad {
+namespace overworld {
 struct VoiceRecognizer::State {
-#ifdef GAMEPAD_VOICE_WHISPER
+#ifdef OVERWORLD_VOICE_WHISPER
     whisper_context* context = nullptr;
     ~State() { if (context) { whisper_free(context); } }
 #endif
@@ -23,8 +23,8 @@ VoiceRecognizer::VoiceRecognizer() : state_(std::make_unique<State>()) {}
 VoiceRecognizer::~VoiceRecognizer() = default;
 bool VoiceRecognizer::supported()
 {
-#ifdef GAMEPAD_VOICE_WHISPER
-#if defined(GAMEPAD_VOICE_AVX2) && defined(_M_X64)
+#ifdef OVERWORLD_VOICE_WHISPER
+#if defined(OVERWORLD_VOICE_AVX2) && defined(_M_X64)
     if (!IsProcessorFeaturePresent(PF_AVX2_INSTRUCTIONS_AVAILABLE)) { return false; }
     int basic[4]{}, extended[4]{};
     __cpuidex(basic, 1, 0);
@@ -40,7 +40,7 @@ bool VoiceRecognizer::supported()
 }
 bool VoiceRecognizer::load(const std::filesystem::path& model, std::wstring& error)
 {
-#ifdef GAMEPAD_VOICE_WHISPER
+#ifdef OVERWORLD_VOICE_WHISPER
     if (!supported()) { error = L"This voice build requires AVX2/FMA/F16C/BMI2; use the portable build"; return false; }
     // Suppress provider text/progress logging entirely; transcripts never enter diagnostics.
     whisper_log_set([](ggml_log_level, const char*, void*) {}, nullptr);
@@ -63,7 +63,7 @@ bool VoiceRecognizer::transcribe(std::span<const float> audio, const std::atomic
 {
     text.clear();
     if (!voice_has_signal(audio)) { error = L"No audible speech captured"; return false; }
-#ifdef GAMEPAD_VOICE_WHISPER
+#ifdef OVERWORLD_VOICE_WHISPER
     if (!state_->context) { error = L"Local voice model is not loaded"; return false; }
     struct Abort {
         const std::atomic<bool>& cancelled;
@@ -101,4 +101,4 @@ bool VoiceRecognizer::transcribe(std::span<const float> audio, const std::atomic
     return false;
 #endif
 }
-} // namespace gamepad
+} // namespace overworld

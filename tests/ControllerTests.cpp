@@ -8,7 +8,7 @@
 #include <map>
 #include <stdexcept>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* message)
 {

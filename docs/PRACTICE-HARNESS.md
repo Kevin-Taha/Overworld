@@ -1,8 +1,8 @@
 # Practice development harness
 
-`GamepadDesktopPractice.exe` is a **development/demo tool, not a product
+`OverworldPractice.exe` is a **development/demo tool, not a product
 feature, first-run experience, or release asset**. It is excluded from the
-default build and has no entry point in `GamepadDesktop.exe`. The old shipping
+default build and has no entry point in `Overworld.exe`. The old shipping
 `--practice` flag fails closed as invalid input; it cannot activate the mapper.
 
 ## Build and deliberate launch
@@ -10,36 +10,36 @@ default build and has no entry point in `GamepadDesktop.exe`. The old shipping
 From an existing x64 or ARM64 build configured as in [Building](BUILDING.md):
 
 ```powershell
-cmake --build out\x64 --config Release --target GamepadDesktopPractice --parallel 1 -- /nodeReuse:false
-.\out\x64\Release\GamepadDesktopPractice.exe
+cmake --build out\x64 --config Release --target OverworldPractice --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\OverworldPractice.exe
 ```
 
 Use `out\arm64` for an ARM64 build. `--help` explains the development boundary;
 other flags are rejected before creating the reader. Neither models nor Whisper
 are linked or needed by this target, even when the separate shipping app is
 configured with voice enabled. A dedicated harness-only build can use
-`-DGAMEPAD_VOICE_WHISPER=OFF -DBUILD_TESTING=OFF` and the same explicit target.
+`-DOVERWORLD_VOICE_WHISPER=OFF -DBUILD_TESTING=OFF` and the same explicit target.
 Do not put this executable or its probes in product release directories.
 
 Controller observation requires deliberate interactive-test authorization.
 Close any running mapper or harness first: both executables acquire the same
 `MapperInstanceGuard`, including compatibility with older mapper releases.
 The harness never activates another window. Select its clearly labeled
-**Practice (development only) - no desktop input** window and center/release
+**Overworld Practice - development only, no desktop input** window and center/release
 the controller.
 
 ## Actual shared components
 
 | Shared library / source | Exercised in this harness | Not established by this exercise |
 | --- | --- | --- |
-| `gamepad_core` / `Pointer.cpp` | Production default motion curve, stick hysteresis/deadzones, integration cap, LB precision, wheel deltas; scene coordinates preserve physical-pixel speed | `Live` output ledger, Windows pointer movement, desktop bounds, or saved pointer preferences |
-| `gamepad_keyboard` / `Keyboard.cpp` | The actual `Daisywheel` selection, pages, repeat/edit rules, face-button and one-handed gestures; bounded preview text | Live unbounded edit delivery, external-field targeting, partially accepted input recovery |
-| `gamepad_keyboard` / `WordPrediction.cpp`, `KeyboardDelivery.cpp` | Explicit deterministic harness tests use `PredictionPractice`, a bounded fake field, with the same compiled default-on predictor and 10,000-word dictionary | The interactive five-scene harness does not yet present a suggestion-selection scenario; no native target/privacy or external delivery is simulated successfully |
-| `gamepad_keyboard_visual` / `KeyboardVisual.cpp` | The same compiled renderer, glyph layout, theme, alpha, cache, and keyboard pixels used by the production popup | Nonactivating popup placement over other apps, compositor visibility in other app surfaces |
-| `gamepad_cursor_pixels` / `RingPixels.cpp` | Exact production default cursor artwork and geometry, with shared size/style defaults also used by `Settings` | Native cursor visibility ownership, layered cursor window, surface fallback |
-| `gamepad_app_ui` / `AppUi.cpp` | Production palette/theme reads and native appearance support | A duplicate Settings editor; the training cards/buttons are owned test fixtures |
-| `gamepad_xinput` / `XInputReader.cpp`, `NativeControllers.cpp` | The same one-slot XInput/DirectInput reader and source epochs, behind the harness's scoped reader | Production poller timing; actual Bluetooth/device compatibility requires a separately authorized trial |
-| `gamepad_controller_model` / `ControllerMapping.cpp` | Shared configurable normalization; a deterministic harness scenario exercises pointer/keyboard actions and reconnect handoff | Native DirectInput acquisition, hardware reports, and radio/reconnection timing are not simulated successfully |
+| `overworld_core` / `Pointer.cpp` | Production default motion curve, stick hysteresis/deadzones, integration cap, LB precision, wheel deltas; scene coordinates preserve physical-pixel speed | `Live` output ledger, Windows pointer movement, desktop bounds, or saved pointer preferences |
+| `overworld_keyboard` / `Keyboard.cpp` | The actual `Daisywheel` selection, pages, repeat/edit rules, face-button and one-handed gestures; bounded preview text | Live unbounded edit delivery, external-field targeting, partially accepted input recovery |
+| `overworld_keyboard` / `WordPrediction.cpp`, `KeyboardDelivery.cpp` | Explicit deterministic harness tests use `PredictionPractice`, a bounded fake field, with the same compiled default-on predictor and 10,000-word dictionary | The interactive five-scene harness does not yet present a suggestion-selection scenario; no native target/privacy or external delivery is simulated successfully |
+| `overworld_keyboard_visual` / `KeyboardVisual.cpp` | The same compiled renderer, glyph layout, theme, alpha, cache, and keyboard pixels used by the production popup | Nonactivating popup placement over other apps, compositor visibility in other app surfaces |
+| `overworld_cursor_pixels` / `RingPixels.cpp` | Exact production default cursor artwork and geometry, with shared size/style defaults also used by `Settings` | Native cursor visibility ownership, layered cursor window, surface fallback |
+| `overworld_app_ui` / `AppUi.cpp` | Production palette/theme reads and native appearance support | A duplicate Settings editor; the training cards/buttons are owned test fixtures |
+| `overworld_xinput` / `XInputReader.cpp`, `NativeControllers.cpp` | The same one-slot XInput/DirectInput reader and source epochs, behind the harness's scoped reader | Production poller timing; actual Bluetooth/device compatibility requires a separately authorized trial |
+| `overworld_controller_model` / `ControllerMapping.cpp` | Shared configurable normalization; a deterministic harness scenario exercises pointer/keyboard actions and reconnect handoff | Native DirectInput acquisition, hardware reports, and radio/reconnection timing are not simulated successfully |
 | `InputClassification.h` / `Live.cpp` | Existing reserved controller/navigation key classification for own-window takeover | A global hook, native navigation filter, or physical-input observer |
 | `InstanceGuard.h` | The same mapper-instance exclusion | Native output permission or a bypass of an already-running mapper |
 
@@ -67,18 +67,18 @@ Update this table and the relevant scenarios/contracts when adding one.
 Prediction's bounded fake scenario opens each real keyboard selection mode,
 types the synthetic `he` fragment, compares candidates with the shared
 `WordPrediction` model/dictionary, and clears on handoff. The separate explicit
-`gamepad_keyboard_visual_tests` renders that fixture through the same
-`gamepad_keyboard_visual` library, covering candidate labels, theme/DPI, alpha
+`overworld_keyboard_visual_tests` renders that fixture through the same
+`overworld_keyboard_visual` library, covering candidate labels, theme/DPI, alpha
 and idle reuse. It is not another product mode or copied predictor/renderer.
 The shared renderer also checks exact ordinary-keyboard pixels when the native
 suggestion strip collapses. The interactive scene does not host the production
-popup: separate `gamepad_keyboard_popup_tests --render-only` links the same
-compiled `gamepad_keyboard_popup` library as the product and uses hidden owned
+popup: separate `overworld_keyboard_popup_tests --render-only` links the same
+compiled `overworld_keyboard_popup` library as the product and uses hidden owned
 windows plus a bounded fake text boundary to exercise DPI, collapse and
 close/reopen after drawing failure. This does not simulate external delivery,
 shell stacking or desktop focus eligibility.
 Shell-aware placement also belongs to the production popup, not the interactive
-Practice scene. Default `gamepad_keyboard_placement_tests` exercises the same
+Practice scene. Default `overworld_keyboard_placement_tests` exercises the same
 compiled geometry; the opt-in hidden popup suite injects shell bounds and checks
 real HWND placement, idle resources, no-space blocking and deliberate reopen.
 It includes bounded compact client sizes, suggestion expansion and restoration
@@ -91,10 +91,10 @@ the later visual handoff, without rebinding its fake text target. Native shell
 peer discovery is not exercised by the interactive Practice scene.
 Product prediction-preview/demo flags are rejected. The interactive harness's
 local click lesson is not evidence for the opt-in production `--release-tap`
-dispatcher; the latter has separate fake `gamepad_release_tap_tests`.
+dispatcher; the latter has separate fake `overworld_release_tap_tests`.
 
 The live Host's desktop/native keyboard eligibility orchestration is not a
-practice scene. `gamepad_delivery_tests` exercises its shared
+practice scene. `overworld_delivery_tests` exercises its shared
 `KeyboardRouting.h` helper with a bounded stateful fake route and the real
 `KeyboardDelivery` model. Neither that fixture nor practice establishes shell
 overlay ordering, native navigation exclusivity, or touch-keyboard behavior.
@@ -151,9 +151,9 @@ any non-excluded target.
 Build and run the deterministic development fixtures separately:
 
 ```powershell
-cmake --build out\x64 --config Release --target gamepad_practice_tests gamepad_practice_reader_tests --parallel 1 -- /nodeReuse:false
-.\out\x64\Release\gamepad_practice_tests.exe
-.\out\x64\Release\gamepad_practice_reader_tests.exe
+cmake --build out\x64 --config Release --target overworld_practice_tests overworld_practice_reader_tests --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\overworld_practice_tests.exe
+.\out\x64\Release\overworld_practice_reader_tests.exe
 ```
 
 They cover exact Pointer response equivalence, production-layout local typing,
@@ -161,8 +161,8 @@ normalized mapped input and reconnect neutral fences, lifecycle/input regression
 and fake delayed reader shutdown. They never query
 a controller, open a microphone, or emit external input.
 
-The explicit `gamepad_practice_visual_tests --render-only <owned-directory>`
-target links the **same `gamepad_practice_view` library** as the harness and no
+The explicit `overworld_practice_visual_tests --render-only <owned-directory>`
+target links the **same `overworld_practice_view` library** as the harness and no
 XInput backend. Its borrowed keyboard/cursor buffers are compared byte-for-byte
 with the production renderers at light/dark/high-contrast 96/144/192 DPI.
 It also covers text geometry, alpha, idle caching, native control bounds/tab

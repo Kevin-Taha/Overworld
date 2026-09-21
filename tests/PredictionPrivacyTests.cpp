@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <string_view>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* message) { if (!value) { throw std::runtime_error(message); } }
 TextWindow identity(HWND window)

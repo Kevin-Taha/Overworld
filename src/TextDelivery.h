@@ -4,7 +4,7 @@
 
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 struct TextWindow {
     std::uintptr_t window = 0;
     std::uint32_t process = 0;
@@ -136,4 +136,4 @@ private:
     unsigned cleanup_attempts_ = 0;
     Tick cleanup_at_ = 0;
 };
-} // namespace gamepad
+} // namespace overworld

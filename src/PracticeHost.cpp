@@ -9,12 +9,12 @@
 #include <system_error>
 
 namespace {
-class PracticeBackend final : public gamepad::practice::ReaderBackend {
+class PracticeBackend final : public overworld::practice::ReaderBackend {
 public:
-    gamepad::Tick now() override { return gamepad::monotonic_now(); }
+    overworld::Tick now() override { return overworld::monotonic_now(); }
     bool focused(HWND window) override { return GetForegroundWindow() == window && !IsIconic(window); }
-    gamepad::Controller slot(unsigned index) override { return reader_->read_slot(index); }
-    gamepad::Controller slot(unsigned index, gamepad::ControllerReadScope scope) override { return reader_->read_slot(index, scope); }
+    overworld::Controller slot(unsigned index) override { return reader_->read_slot(index); }
+    overworld::Controller slot(unsigned index, overworld::ControllerReadScope scope) override { return reader_->read_slot(index, scope); }
     bool shutdown() override
     {
         const bool stopped = reader_->shutdown();
@@ -23,13 +23,13 @@ public:
     }
     void service_messages() override { reader_->service_messages(); }
 private:
-    std::optional<gamepad::ControllerReader> reader_{std::in_place};
+    std::optional<overworld::ControllerReader> reader_{std::in_place};
 };
 }
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
 {
-    using namespace gamepad::practice;
+    using namespace overworld::practice;
     int argc = 0;
     auto** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) {
@@ -42,7 +42,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     LocalFree(argv);
     if (mode != Launch::Run) {
         MessageBoxW(nullptr,
-            L"Usage: GamepadDesktopPractice.exe [--help]\r\n"
+            L"Usage: OverworldPractice.exe [--help]\r\n"
             L"Development-only component harness, not a product feature or release asset.\r\n"
             L"No desktop input, microphone, model, settings writes, or external text delivery.\r\n"
             L"Close other instances before running. Select the window and center the controller.",
@@ -50,10 +50,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
         if (mode == Launch::Invalid) { return 2; }
         return 0;
     }
-    gamepad::MapperInstanceGuard singleton;
+    overworld::MapperInstanceGuard singleton;
     if (!singleton.acquired()) {
         MessageBoxW(nullptr, singleton.already_running()
-            ? L"Exit the running Gamepad Desktop instance or development harness first. No controller reader was started."
+            ? L"Exit the running Overworld instance or development harness first. No controller reader was started."
             : L"The shared mapper instance guard is unavailable. No controller reader was started.",
             window_title, MB_OK | MB_ICONWARNING);
         return 1;

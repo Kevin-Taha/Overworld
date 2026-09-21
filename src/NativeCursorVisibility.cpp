@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <Magnification.h>
 
-namespace gamepad {
+namespace overworld {
 NativeCursorVisibility::~NativeCursorVisibility()
 {
     // No implicit TRUE here: only the coordinator knows whether hiding belongs to us.
@@ -56,4 +56,4 @@ bool NativeCursorVisibility::shutdown()
     error_.clear();
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

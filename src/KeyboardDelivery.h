@@ -5,7 +5,7 @@
 #include "Voice.h"
 #include "WordPrediction.h"
 
-namespace gamepad {
+namespace overworld {
 enum class DesktopKeyboardPhase { Closed, Composing, Paused };
 
 struct KeyboardEligibility {
@@ -97,4 +97,4 @@ private:
     bool prediction_hidden_ = false;
     PredictionPrivacy prediction_privacy_ = PredictionPrivacy::Unknown;
 };
-} // namespace gamepad
+} // namespace overworld

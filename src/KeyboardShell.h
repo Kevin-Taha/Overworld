@@ -3,7 +3,7 @@
 #include "KeyboardPlacement.h"
 #include <array>
 
-namespace gamepad {
+namespace overworld {
 class KeyboardShellSource {
 public:
     virtual ~KeyboardShellSource() = default;
@@ -32,4 +32,4 @@ private:
     Root foreground_;
     std::array<Root, 32> peers_;
 };
-} // namespace gamepad
+} // namespace overworld

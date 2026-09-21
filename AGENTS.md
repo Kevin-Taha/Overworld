@@ -13,12 +13,14 @@ select one small reviewable next step rather than resuming experiments implicitl
 
 ## Product boundaries
 
+- Product name is Overworld. Preserve the legacy persisted names in
+  `src/Compatibility.h` and the version-1 Whisper package schema when rebranding.
 - Keep one native Windows application. Preserve existing controller mappings,
   pointer defaults, one-handed selection, and accessible native settings controls
   unless a task explicitly changes them.
 - Practice is a development-only component harness, not a product mode. Keep
-  `GamepadDesktopPractice` excluded from the default build and release assets.
-  Never add its launch route or modules to the shipping `GamepadDesktop` target.
+  `OverworldPractice` excluded from the default build and release assets.
+  Never add its launch route or modules to the shipping `Overworld` target.
 - Mouse and keyboard takeover, session/integrity checks, exclusions, original text
   target identity, and pending-output recovery are safety boundaries, not
   compatibility obstacles to bypass.

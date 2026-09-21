@@ -15,7 +15,7 @@
 #include <set>
 #include <vector>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* message)
 {
@@ -34,7 +34,7 @@ struct Fake final : TextBoundary {
     std::function<void()> during_observe;
     std::function<void(TextEvent)> during_send;
     std::wstring field;
-    std::optional<gamepad::live::Observation> route;
+    std::optional<overworld::live::Observation> route;
     bool preview = false;
     Tick application_delay = 0;
     std::deque<std::pair<Tick, TextEvent>> pending_application;
@@ -57,7 +57,7 @@ struct Fake final : TextBoundary {
         auto result = observation;
         if (route) {
             result.allowed = result.allowed && route->available && route->baseline_known
-                && route->mode == gamepad::live::Mode::Pointer && gamepad::live::keyboard_route_allowed(*route, native_keyboard_session());
+                && route->mode == overworld::live::Mode::Pointer && overworld::live::keyboard_route_allowed(*route, native_keyboard_session());
             result.physical_held = result.physical_held || route->physical_held != 0;
             result.stable = result.stable && route->routing_stable;
         }
@@ -194,20 +194,20 @@ struct CompletionFixture {
         return delivery.pump(budget);
     }
 };
-struct PointerFake final : gamepad::live::OutputBoundary {
-    gamepad::live::Observation observation;
+struct PointerFake final : overworld::live::OutputBoundary {
+    overworld::live::Observation observation;
     Tick time = 1000;
     unsigned observations = 0;
     std::function<void()> during_observe;
-    std::vector<gamepad::live::Output> events;
+    std::vector<overworld::live::Output> events;
     PointerFake()
     {
         observation.allowed = observation.available = observation.baseline_known = observation.cleanup_allowed = true;
-        observation.mode = gamepad::live::Mode::Pointer;
+        observation.mode = overworld::live::Mode::Pointer;
         observation.desktop = observation.bounds = {0, 0, 1919, 1079};
         observation.context = 1;
     }
-    gamepad::live::Observation observe(unsigned, const gamepad::live::Output* = nullptr) override
+    overworld::live::Observation observe(unsigned, const overworld::live::Output* = nullptr) override
     {
         ++observations;
         if (during_observe) { during_observe(); }
@@ -217,7 +217,7 @@ struct PointerFake final : gamepad::live::OutputBoundary {
         return result;
     }
     Tick now() const override { return time; }
-    unsigned send(const gamepad::live::Output& output, gamepad::live::Rect) override { events.push_back(output); return 1; }
+    unsigned send(const overworld::live::Output& output, overworld::live::Rect) override { events.push_back(output); return 1; }
 };
 }
 
@@ -878,7 +878,7 @@ int main()
             }
         });
         test("visible desktop keyboard never probes an unrelated mouse recipient for a native opener", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (const auto block : {BlockReason::Recipient, BlockReason::Exclusion, BlockReason::Surface}) {
                 Fixture f; f.keyboard.set_native_mode_enabled(true); f.open();
                 PointerFake pointer;
@@ -919,7 +919,7 @@ int main()
             }
         });
         test("closed keyboard native opener still checks the ordinary desktop safety boundary", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (unsigned kind = 0; kind < 11; ++kind) {
                 Fixture f; PointerFake pointer;
                 auto& route = pointer.observation;
@@ -947,7 +947,7 @@ int main()
                 "disabled option and host prerequisites must not query routing");
         });
         test("visible desktop keyboard still cancels on genuine text-route and host failures", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (unsigned kind = 0; kind < 7; ++kind) {
                 Fixture f; f.keyboard.set_native_mode_enabled(true); f.open();
                 PointerFake pointer;
@@ -980,7 +980,7 @@ int main()
                 "explicit recovery releases only the accepted key without replaying the edit");
         });
         test("Host eligibility retains native open type close flow for manual and heuristic native modes", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (const bool manual : {false, true}) {
                 Fixture f; f.keyboard.set_native_mode_enabled(true);
                 PointerFake pointer;
@@ -1088,7 +1088,7 @@ int main()
                 "global mode chord must close even before invocation release");
         });
         test("native text allowance is immutable and limited to recognized heuristic Auto", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (const auto automatic : {AutoReason::ExclusiveD3D, AutoReason::Presentation, AutoReason::Confinement}) {
                 Observation route; route.available = route.baseline_known = route.cleanup_allowed = true;
                 route.mode = Mode::Pointer; route.block = BlockReason::Auto; route.automatic = automatic;
@@ -1141,12 +1141,12 @@ int main()
             for (const bool manual : {false, true}) {
                 Fixture f; f.native_context();
                 PointerFake pointer;
-                gamepad::live::Live live(pointer);
+                overworld::live::Live live(pointer);
                 if (manual) { live.suspend_automatic(pointer.time); }
                 else {
                     pointer.observation.allowed = false;
-                    pointer.observation.block = gamepad::live::BlockReason::Auto;
-                    pointer.observation.automatic = gamepad::live::AutoReason::Confinement;
+                    pointer.observation.block = overworld::live::BlockReason::Auto;
+                    pointer.observation.automatic = overworld::live::AutoReason::Confinement;
                 }
                 const auto route = [&] {
                     pointer.time = f.fake.now;
@@ -1166,7 +1166,7 @@ int main()
             }
         });
         test("native physical menu baseline and infrastructure guards remain hard", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (unsigned gate = 0; gate < 4; ++gate) {
                 Observation route; route.available = route.baseline_known = route.cleanup_allowed = true;
                 route.mode = Mode::Pointer; route.block = BlockReason::Auto; route.automatic = AutoReason::ExclusiveD3D;
@@ -1185,11 +1185,11 @@ int main()
                 check(sequence.has_value(), "valid scalar or edit has events");
                 for (unsigned i = 0; i < sequence->count; ++i) {
                     const auto event = sequence->events[i];
-                    const auto input = gamepad::live::keyboard_input(event);
+                    const auto input = overworld::live::keyboard_input(event);
                     check(event.up == ((i % 2) == 1) && input.type == INPUT_KEYBOARD, "events must alternate down/up");
-                    check(input.ki.dwExtraInfo == gamepad::live::output_tag && input.ki.time == 0, "ownership tag and time");
+                    check(input.ki.dwExtraInfo == overworld::live::output_tag && input.ki.time == 0, "ownership tag and time");
                     const bool unicode = event.key.kind == TextKeyKind::Unicode;
-                    check(input.ki.wVk == (unicode ? 0 : gamepad::live::text_virtual_key(event.key))
+                    check(input.ki.wVk == (unicode ? 0 : overworld::live::text_virtual_key(event.key))
                         && input.ki.wScan == (unicode ? event.key.unit : 0), "scan and VK shape");
                     check(input.ki.dwFlags == static_cast<DWORD>((unicode ? KEYEVENTF_UNICODE : 0)
                         | (event.up ? KEYEVENTF_KEYUP : 0)), "Unicode flag must not leak into virtual keys");
@@ -1387,9 +1387,9 @@ int main()
             for (const bool reject_up : {false, true}) {
                 PointerFake pointer;
                 pointer.observation.allowed = false;
-                pointer.observation.block = gamepad::live::BlockReason::Auto;
-                pointer.observation.automatic = gamepad::live::AutoReason::Confinement;
-                gamepad::live::Live live(pointer);
+                pointer.observation.block = overworld::live::BlockReason::Auto;
+                pointer.observation.automatic = overworld::live::AutoReason::Confinement;
+                overworld::live::Live live(pointer);
                 check(live.request_desktop(pointer.time) && live.auto_override_active(), "initial explicit override");
                 live.hold_for_keyboard(true, pointer.time);
                 Fake text; TextDelivery delivery(text);
@@ -1429,9 +1429,9 @@ int main()
         test("uncertain text acceptance revokes override without discarding hard recovery", [] {
             PointerFake pointer;
             pointer.observation.allowed = false;
-            pointer.observation.block = gamepad::live::BlockReason::Auto;
-            pointer.observation.automatic = gamepad::live::AutoReason::ExclusiveD3D;
-            gamepad::live::Live live(pointer);
+            pointer.observation.block = overworld::live::BlockReason::Auto;
+            pointer.observation.automatic = overworld::live::AutoReason::ExclusiveD3D;
+            overworld::live::Live live(pointer);
             check(live.request_desktop(pointer.time), "initial override");
             Fake text; TextDelivery delivery(text);
             delivery.start(text.observation.target);
@@ -1460,12 +1460,12 @@ int main()
         test("physical overlap never masked by accepted synthetic async state", [] {
             for (const auto kind : {TextKeyKind::Unicode, TextKeyKind::Backspace, TextKeyKind::Enter}) {
                 const TextKey owned{kind, kind == TextKeyKind::Unicode ? std::uint16_t{L'a'} : std::uint16_t{0}};
-                const auto key = gamepad::live::text_virtual_key(owned);
-                check(!gamepad::live::text_key_conflict(key, true, false, owned), "only exact accepted synthetic state may be masked");
-                check(gamepad::live::text_key_conflict(key, true, true, owned), "real physical overlap remains conflicting");
-                check(gamepad::live::text_key_conflict(key, false, true, owned), "raw physical evidence must survive async clearing");
-                check(gamepad::live::text_key_conflict(VK_SHIFT, true, false, owned), "other keys never masked");
-                check(gamepad::live::text_key_conflict(key, true, false, {}), "unowned keys never masked");
+                const auto key = overworld::live::text_virtual_key(owned);
+                check(!overworld::live::text_key_conflict(key, true, false, owned), "only exact accepted synthetic state may be masked");
+                check(overworld::live::text_key_conflict(key, true, true, owned), "real physical overlap remains conflicting");
+                check(overworld::live::text_key_conflict(key, false, true, owned), "raw physical evidence must survive async clearing");
+                check(overworld::live::text_key_conflict(VK_SHIFT, true, false, owned), "other keys never masked");
+                check(overworld::live::text_key_conflict(key, true, false, {}), "unowned keys never masked");
             }
         });
         test("all foreground focus identity and revision changes reject queued edits", [] {
@@ -1484,7 +1484,7 @@ int main()
             }
         });
         test("focus notifications distinguish repeats and unrelated windows from actual field changes", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             Fixture f;
             FocusTracker focus;
             focus.observe(f.fake.observation.target.windows[0], f.fake.observation.target.windows[2]);
@@ -1518,7 +1518,7 @@ int main()
             check(!focus.observe({90, 9, 9}, {91, 9, 9}), "stable native target must not invalidate repeatedly");
         });
         test("caret presentation is not routing identity while menus and capture guards remain", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (const DWORD flags : {DWORD{0}, DWORD{GUI_INMENUMODE}, DWORD{GUI_INMOVESIZE},
                 DWORD{GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE}, DWORD{0x8000}}) {
                 check(routing_flags(flags) == flags && routing_flags(flags | GUI_CARETBLINKING) == flags,
@@ -1526,7 +1526,7 @@ int main()
             }
         });
         test("queued focus excursions invalidate even after the original native target returns", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (const bool foreground : {false, true}) {
                 Fixture f;
                 FocusTracker focus;
@@ -1550,7 +1550,7 @@ int main()
             }
         });
         test("raw controller navigation is not physical keyboard input", [] {
-            using namespace gamepad::live;
+            using namespace overworld::live;
             for (unsigned key = 1; key < 256; ++key) {
                 check(raw_keyboard_activity(true, key, output_tag), "device-backed input must never be hidden by a tag");
                 check(!raw_keyboard_activity(false, key, output_tag), "own virtual input must not cause takeover");
@@ -1595,10 +1595,10 @@ int main()
         test("game protected physical and missing focus gates prevent output", [] {
             for (unsigned gate = 0; gate < 5; ++gate) {
                 Fake f; TextDelivery d(f); d.start(f.observation.target); d.enqueue(enter, 1000, 2000);
-                if (gate == 0) { f.observation.allowed = gamepad::live::process_integrity_allowed(0x2000, 0x3000, false); }
+                if (gate == 0) { f.observation.allowed = overworld::live::process_integrity_allowed(0x2000, 0x3000, false); }
                 if (gate == 1) {
-                    gamepad::live::GameHandoff game;
-                    f.observation.allowed = game.update(true, 10, gamepad::live::NotificationState::ExclusiveD3D, false).empty();
+                    overworld::live::GameHandoff game;
+                    f.observation.allowed = game.update(true, 10, overworld::live::NotificationState::ExclusiveD3D, false).empty();
                 }
                 if (gate == 2) { f.observation.physical_held = true; }
                 if (gate == 3) { f.observation.stable = false; }
@@ -1753,7 +1753,7 @@ int main()
             std::cout << "Software fake-clock dispatch: 6 ms including two 3 ms guards; zero added UI ticks\n";
         });
         test("pointer hold preserves mode chord and fresh rearming", [] {
-            PointerFake f; gamepad::live::Live live(f); Snapshot s;
+            PointerFake f; overworld::live::Live live(f); Snapshot s;
             s.slots[0].connection = Connection::Connected; s.slots[0].connection_epoch = 1;
             const auto tick = [&] { f.time += 16; s.sampled_at = f.time; ++s.sequence; live.automatic_step(s, f.time, true); };
             tick(); tick(); live.hold_for_keyboard(true, f.time);
@@ -1763,9 +1763,9 @@ int main()
             check(f.events.empty(), "stale gesture cannot replay on close");
             s.slots[0].buttons = 0; s.slots[0].left_x = s.slots[0].right_y = 0; tick(); tick();
             s.slots[0].buttons = 0x1000; tick();
-            check(live.owned() == gamepad::live::Primary, "fresh click after neutral is usable");
+            check(live.owned() == overworld::live::Primary, "fresh click after neutral is usable");
             live.hold_for_keyboard(true, f.time);
-            check(live.owned() == 0 && f.events.back().kind == gamepad::live::OutputKind::PrimaryUp, "hold releases prior accepted drag");
+            check(live.owned() == 0 && f.events.back().kind == overworld::live::OutputKind::PrimaryUp, "hold releases prior accepted drag");
             s.slots[0].buttons = 0; tick(); s.slots[0].buttons = 0x0030; tick();
             check(live.automatically_paused(), "mode chord works while keyboard holds pointer");
             live.hold_for_keyboard(false, f.time); tick();

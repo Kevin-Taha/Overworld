@@ -3,7 +3,7 @@
 #include "Desktop.h"
 #include "KeyboardDelivery.h"
 
-namespace gamepad {
+namespace overworld {
 [[nodiscard]] inline KeyboardEligibility observe_keyboard_eligibility(live::OutputBoundary& desktop,
     const KeyboardDelivery& keyboard, bool safe, bool native_enabled, bool desktop_paused,
     std::optional<unsigned> preferred)
@@ -23,4 +23,4 @@ namespace gamepad {
     }
     return {safe && !desktop_paused && !native, preferred, native};
 }
-} // namespace gamepad
+} // namespace overworld

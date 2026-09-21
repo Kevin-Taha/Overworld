@@ -1,6 +1,6 @@
 #pragma once
 
-namespace gamepad {
+namespace overworld {
 // Committed close is inert even while a modal warning pumps the UI message loop.
 class HostShutdown {
 public:
@@ -17,4 +17,4 @@ private:
     bool closing_ = false;
     bool finished_ = false;
 };
-} // namespace gamepad
+} // namespace overworld

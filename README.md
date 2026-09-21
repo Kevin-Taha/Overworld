@@ -1,4 +1,6 @@
-# Gamepad Desktop
+# Overworld
+
+Formerly Gamepad Desktop.
 
 A native Windows utility for using a supported controller on the desktop: pointer
 movement, clicking and scrolling, a floating controller keyboard, and optional
@@ -35,7 +37,7 @@ Use an x64 or ARM64 build matching the device. For a voice-enabled release, keep
 the verified model and license files alongside the executable:
 
 ```text
-GamepadDesktop.exe
+Overworld.exe
 models\
   ggml-tiny.en.bin
 controllers\
@@ -49,7 +51,7 @@ licenses\
 ```
 
 Release assets are distributed as individual files, not ZIP archives. Close any
-other copy before launching `GamepadDesktop.exe`. **Details** and Windows file
+other copy before launching `Overworld.exe`. **Details** and Windows file
 properties identify the version, source fingerprint, architecture, and voice
 flavor. Source builds are described in [Building](docs/BUILDING.md).
 
@@ -75,7 +77,7 @@ The custom cursor appears only after controller activity. When an identified
 Windows Start surface is active, the app requests a native-cursor fallback by
 restoring only hiding it owns. This cannot make an externally hidden cursor visible.
 
-**Optional release-aware taps:** start `GamepadDesktop.exe --release-tap` after
+**Optional release-aware taps:** start `Overworld.exe --release-tap` after
 closing any running instance. The custom cursor and normal Start fallback stay
 unchanged. A stationary short A press clicks on release; holding for 250 ms or
 moving while held starts a drag. Target/routing changes cancel an uncommitted
@@ -230,11 +232,16 @@ system app light/dark colors, high contrast, and keyboard navigation.
   through, identical sources cannot always be distinguished, and D-pad desktop
   mapping is not provided.
 
-Settings live at `%LOCALAPPDATA%\GamepadDesktop\settings.ini`. Loading older
+Settings continue to live at `%LOCALAPPDATA%\GamepadDesktop\settings.ini` for
+upgrade compatibility; the rename does not move or rewrite preferences. Loading older
 supported schemas never rewrites the file; **Save** validates and detects external
 changes and writes schema 12, including the Word suggestions preference.
 Defaults affect the editor until saved. Back up settings before returning
 to an older executable, which may not understand the current schema.
+
+Overworld and pre-rename releases share the same single-instance guard. Exit any
+old copy before launching `Overworld.exe`; renaming the executable does not allow
+two live mappers. Controller mappings and model files remain beside the EXE.
 
 ## Development
 
@@ -247,7 +254,7 @@ an automatically scheduled work queue.
 The [Practice component harness](docs/PRACTICE-HARNESS.md) is a separately built
 development/demo tool, **not a product feature or release asset**. It links the
 same production models and rendering libraries, with an owned scene instead of
-external input delivery. `GamepadDesktop.exe --practice` is not supported; it
+external input delivery. `Overworld.exe --practice` is not supported; it
 exits as an invalid command rather than starting desktop control.
 
 - [Building and release files](docs/BUILDING.md)

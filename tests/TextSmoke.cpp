@@ -2,6 +2,7 @@
 #include "Desktop.h"
 #include "KeyboardPopup.h"
 #include "XInputReader.h"
+#include "Compatibility.h"
 
 #include <algorithm>
 #include <iostream>
@@ -9,8 +10,8 @@
 #include <string>
 
 namespace {
-using namespace gamepad;
-constexpr wchar_t class_name[] = L"GamepadDesktopOwnedTextSmoke";
+using namespace overworld;
+constexpr wchar_t class_name[] = L"OverworldOwnedTextSmoke";
 
 class OwnedBoundary final : public TextBoundary {
 public:
@@ -273,7 +274,7 @@ int wmain(int argc, wchar_t** argv)
         std::cerr << "Build-only by default. Execution needs approval and --allow-owned-text-smoke [--one-handed].\n";
         return 2;
     }
-    const HANDLE singleton = CreateMutexW(nullptr, TRUE, L"Local\\GamepadDesktop.M1.SingleMapper");
+    const HANDLE singleton = CreateMutexW(nullptr, TRUE, mapper_mutex_name);
     if (!singleton || GetLastError() == ERROR_ALREADY_EXISTS) {
         if (singleton) { CloseHandle(singleton); }
         std::cerr << "Exit mapper/preview before the owned input test; nothing started.\n";

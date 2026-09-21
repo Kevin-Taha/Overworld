@@ -8,7 +8,7 @@
 #include <Windows.h>
 #include <string>
 
-namespace gamepad::live {
+namespace overworld::live {
 
 [[nodiscard]] inline bool keyboard_route_allowed(const Observation& observation, bool native_session)
 {
@@ -204,4 +204,4 @@ private:
     std::wstring infrastructure_ = L"Live observers not initialized";
 };
 
-} // namespace gamepad::live
+} // namespace overworld::live

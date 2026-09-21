@@ -5,8 +5,8 @@
 #include <iostream>
 #include <stdexcept>
 
-using namespace gamepad;
-using namespace gamepad::practice;
+using namespace overworld;
+using namespace overworld::practice;
 namespace {
 void check(bool value, const char* reason)
 {

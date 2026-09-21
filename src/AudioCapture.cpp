@@ -10,7 +10,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace gamepad {
+namespace overworld {
 bool capture_voice(const std::atomic<bool>& cancelled, const std::atomic<bool>& released,
     const std::atomic<Tick>& capture_expires, HANDLE changed, const std::function<void(float)>& listening,
     std::vector<float>& audio, std::wstring& error)
@@ -122,4 +122,4 @@ bool capture_voice(const std::atomic<bool>& cancelled, const std::atomic<bool>& 
     if (!voice_has_signal(audio)) { error = L"No audible speech captured"; return false; }
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

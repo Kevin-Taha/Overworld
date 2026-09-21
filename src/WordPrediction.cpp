@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr std::string_view words[]{
 #include "../third_party/PredictionVocabulary.inc"
@@ -89,4 +89,4 @@ std::optional<std::u32string> WordPrediction::accept(std::uint64_t generation)
     clear(); // One-shot; do not infer the completed word or replay acceptance.
     return suffix;
 }
-} // namespace gamepad
+} // namespace overworld

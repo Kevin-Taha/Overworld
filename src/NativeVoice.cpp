@@ -8,7 +8,7 @@
 #include <new>
 #include <system_error>
 
-namespace gamepad {
+namespace overworld {
 struct NativeVoice::State {
     struct Job {
         std::uint64_t generation = 0;
@@ -214,4 +214,4 @@ DWORD WINAPI NativeVoice::run(void* value)
     if (SUCCEEDED(com)) { CoUninitialize(); }
     return 0;
 }
-} // namespace gamepad
+} // namespace overworld

@@ -3,7 +3,7 @@
 #include "Keyboard.h"
 #include <span>
 
-namespace gamepad {
+namespace overworld {
 inline constexpr std::size_t prediction_prefix_limit = 16;
 inline constexpr std::size_t prediction_choice_limit = 3;
 inline constexpr std::size_t prediction_word_limit = 24;
@@ -34,4 +34,4 @@ private:
     PredictionView view_;
     bool known_boundary_ = false;
 };
-} // namespace gamepad
+} // namespace overworld

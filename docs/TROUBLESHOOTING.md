@@ -131,12 +131,12 @@ focus and pointer-hit recipients. Do not infer their input source or rendering
 order from a window being visible/topmost. The filter remains conservative when
 the application's existing route cannot be validated.
 
-For a deliberate diagnostic session, build the separate `gamepad_shell_probe`
+For a deliberate diagnostic session, build the separate `overworld_shell_probe`
 target. It is excluded from normal builds and CTest. Run it only when ready to
 reproduce the issue yourself:
 
 ```powershell
-$probe = Start-Process .\gamepad_shell_probe.exe -ArgumentList '--metadata-only' `
+$probe = Start-Process .\overworld_shell_probe.exe -ArgumentList '--metadata-only' `
   -NoNewWindow -PassThru
 if (-not $probe.WaitForExit(20000)) {
     Stop-Process -Id $probe.Id

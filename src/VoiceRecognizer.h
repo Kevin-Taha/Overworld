@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <memory>
 
-namespace gamepad {
+namespace overworld {
 class VoiceRecognizer {
 public:
     VoiceRecognizer();
@@ -20,4 +20,4 @@ private:
     struct State;
     std::unique_ptr<State> state_;
 };
-} // namespace gamepad
+} // namespace overworld

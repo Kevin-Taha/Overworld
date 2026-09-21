@@ -5,7 +5,7 @@
 #include <memory>
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 // UI-owned lifecycle; a dedicated hook thread owns all callback state.
 class NativeNavigationFilter {
 public:
@@ -31,4 +31,4 @@ private:
     NavigationShutdown shutdown_;
     DWORD start_error_ = 0;
 };
-} // namespace gamepad
+} // namespace overworld

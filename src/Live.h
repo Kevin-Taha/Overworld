@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace gamepad::live {
+namespace overworld::live {
 
 enum class Mode { Pointer, Menu, Blocked };
 enum class BlockReason {
@@ -228,4 +228,4 @@ private:
     std::wstring_view reason_ = L"Automatic - center a controller, then move a stick";
 };
 
-} // namespace gamepad::live
+} // namespace overworld::live

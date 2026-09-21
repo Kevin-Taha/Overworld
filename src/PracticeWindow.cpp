@@ -6,9 +6,9 @@
 #include <chrono>
 #include <new>
 
-namespace gamepad::practice {
+namespace overworld::practice {
 namespace {
-constexpr wchar_t window_class[] = L"GamepadDesktop.Practice";
+constexpr wchar_t window_class[] = L"Overworld.Practice";
 constexpr auto title = window_title;
 constexpr DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
 Tick clock_now()
@@ -448,4 +448,4 @@ int run(HINSTANCE instance, int show, ControllerSource& source)
         return 1;
     }
 }
-} // namespace gamepad::practice
+} // namespace overworld::practice

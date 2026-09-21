@@ -5,7 +5,7 @@
 #include <Windows.h>
 #include <array>
 
-namespace gamepad {
+namespace overworld {
 // Read-only, UI-thread sampler. Never changes foreground, input policy or cursor visibility.
 class NativeCursorSurface {
 public:
@@ -27,4 +27,4 @@ private:
     CursorSurfaceObservation observe_root(HWND window, RootCache& cache);
     std::array<RootCache, 2> roots_;
 };
-} // namespace gamepad
+} // namespace overworld

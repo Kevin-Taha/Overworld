@@ -1,6 +1,6 @@
 #include "NavigationFilter.h"
 
-namespace gamepad {
+namespace overworld {
 std::wstring_view navigation_gate_text(NavigationGate reason) noexcept
 {
     switch (reason) {
@@ -180,4 +180,4 @@ void NavigationFilter::abandon() noexcept
 {
     for (auto& entry : entries_) { if (entry.hold == Hold::Suppressed) { abandon_scope(entry, false); } }
 }
-} // namespace gamepad
+} // namespace overworld

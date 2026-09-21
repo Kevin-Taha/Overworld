@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(GamepadWhisperLibrary LANGUAGES C CXX)
+project(OverworldWhisperLibrary LANGUAGES C CXX)
 if(NOT WIN32 OR NOT MSVC OR NOT CMAKE_C_COMPILER_ID STREQUAL "Clang"
    OR NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
    OR NOT CMAKE_C_COMPILER_VERSION VERSION_EQUAL "20.1.8"
@@ -25,15 +25,15 @@ endforeach()
 set(GGML_CPU ON CACHE BOOL "" FORCE)
 set(GGML_CPU_ARM_ARCH "" CACHE STRING "" FORCE)
 include(FetchContent)
-if(NOT GAMEPAD_WHISPER_ARCHIVE)
-    set(GAMEPAD_WHISPER_ARCHIVE "https://codeload.github.com/ggml-org/whisper.cpp/zip/a8d002cfd879315632a579e73f0148d06959de36")
+if(NOT OVERWORLD_WHISPER_ARCHIVE)
+    set(OVERWORLD_WHISPER_ARCHIVE "https://codeload.github.com/ggml-org/whisper.cpp/zip/a8d002cfd879315632a579e73f0148d06959de36")
 endif()
 FetchContent_Declare(whisper
-    URL "${GAMEPAD_WHISPER_ARCHIVE}"
+    URL "${OVERWORLD_WHISPER_ARCHIVE}"
     URL_HASH SHA256=4f02191b61135324a80137e459cd239e037ef3852bad4e6a2ea69490f3d89490
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE TIMEOUT 60)
 FetchContent_MakeAvailable(whisper)
-add_custom_target(gamepad_whisper_package ALL
+add_custom_target(overworld_whisper_package ALL
     COMMAND "${CMAKE_COMMAND}"
         "-DPACKAGE_DIR=${CMAKE_BINARY_DIR}/package"
         "-DWHISPER_SOURCE=${whisper_SOURCE_DIR}"
@@ -41,7 +41,7 @@ add_custom_target(gamepad_whisper_package ALL
         "-DGGML_LIB=$<TARGET_FILE:ggml>"
         "-DGGML_CPU_LIB=$<TARGET_FILE:ggml-cpu>"
         "-DGGML_BASE_LIB=$<TARGET_FILE:ggml-base>"
-        "-DARCH=${GAMEPAD_WHISPER_ARCH}"
+        "-DARCH=${OVERWORLD_WHISPER_ARCH}"
         "-DLLVM_VERSION=${CMAKE_CXX_COMPILER_VERSION}"
         "-DMSVC_ABI_VERSION=${CMAKE_CXX_SIMULATE_VERSION}"
         -P "${CMAKE_CURRENT_SOURCE_DIR}/WritePackage.cmake"

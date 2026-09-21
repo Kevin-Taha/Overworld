@@ -37,12 +37,12 @@ $arguments = @(
     "-DCMAKE_MAKE_PROGRAM=$ninja",
     "-DCMAKE_TOOLCHAIN_FILE=$(Join-Path $PSScriptRoot 'WhisperLibrary\Toolchain.cmake')",
     '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded',
-    "-DGAMEPAD_LLVM_ROOT=$LlvmRoot", "-DGAMEPAD_WHISPER_ARCH=$Architecture"
+    "-DOVERWORLD_LLVM_ROOT=$LlvmRoot", "-DOVERWORLD_WHISPER_ARCH=$Architecture"
 )
-if ($WhisperArchive) { $arguments += "-DGAMEPAD_WHISPER_ARCHIVE=$((Resolve-Path $WhisperArchive).Path)" }
+if ($WhisperArchive) { $arguments += "-DOVERWORLD_WHISPER_ARCHIVE=$((Resolve-Path $WhisperArchive).Path)" }
 # vcvars is confined to this child cmd process; no persistent PATH or settings changes.
 $quoted = ($arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
-$command = "call `"$vcvars`" $target $SdkVersion -vcvars_ver=$VcToolsVersion >nul && `"$cmake`" $quoted && `"$cmake`" --build `"$BuildRoot`" --target gamepad_whisper_package --parallel 8"
+$command = "call `"$vcvars`" $target $SdkVersion -vcvars_ver=$VcToolsVersion >nul && `"$cmake`" $quoted && `"$cmake`" --build `"$BuildRoot`" --target overworld_whisper_package --parallel 8"
 & $env:ComSpec /d /s /c $command
 if ($LASTEXITCODE -ne 0) { throw "Isolated Whisper $Architecture build failed (exit $LASTEXITCODE)." }
 Write-Output "Whisper package: $(Join-Path $BuildRoot 'package')"

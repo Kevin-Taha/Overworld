@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gamepad {
+namespace overworld {
 enum class CursorStyle { Ring, Dot, Brackets, Arrow };
 inline constexpr int default_cursor_size = 28;
 inline constexpr CursorStyle default_cursor_style = CursorStyle::Arrow;
@@ -37,4 +37,4 @@ struct RingGeometry {
 [[nodiscard]] std::vector<std::uint32_t> ring_pixels(unsigned dpi, int diameter);
 [[nodiscard]] std::optional<RingGeometry> cursor_geometry(live::Point hotspot, unsigned dpi, int size, CursorStyle style);
 [[nodiscard]] std::vector<std::uint32_t> cursor_pixels(unsigned dpi, int size, CursorStyle style);
-} // namespace gamepad
+} // namespace overworld

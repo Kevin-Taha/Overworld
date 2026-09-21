@@ -3,7 +3,7 @@
 #include "Settings.h"
 #include <optional>
 
-namespace gamepad {
+namespace overworld {
 // These boundaries are fake-only in CTest. No platform visibility API is linked there.
 class CursorOverlay {
 public:
@@ -90,4 +90,4 @@ private:
     bool active_ = false;
     bool uncertain_ = false;
 };
-} // namespace gamepad
+} // namespace overworld

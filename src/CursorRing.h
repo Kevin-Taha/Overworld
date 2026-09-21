@@ -5,7 +5,7 @@
 #include <Windows.h>
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 // UI-thread-only visual. Never owns input, capture, or a system cursor.
 class CursorRing final : public CursorOverlay {
 public:
@@ -36,4 +36,4 @@ private:
     bool visible_ = false;
     std::wstring error_;
 };
-} // namespace gamepad
+} // namespace overworld

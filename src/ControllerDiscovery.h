@@ -6,7 +6,7 @@
 #include <atomic>
 #include <memory>
 
-namespace gamepad {
+namespace overworld {
 class ControllerDiscoverySource {
 public:
     virtual ~ControllerDiscoverySource() = default;
@@ -29,4 +29,4 @@ private:
     HANDLE thread_ = nullptr;
     bool started_ = false, stopped_ = false, stop_result_ = true;
 };
-} // namespace gamepad
+} // namespace overworld

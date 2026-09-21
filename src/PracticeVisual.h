@@ -5,7 +5,7 @@
 #include "Practice.h"
 #include "RingPixels.h"
 
-namespace gamepad::practice {
+namespace overworld::practice {
 enum ControlId {
     Title = 5000, InputStatus, Guidance, Feedback, Scene,
     StepFirst = 5010, Retry = 5020, Next, Help, Exit, Reset, OpenKeyboard, OneHanded,
@@ -51,4 +51,4 @@ private:
     std::unique_ptr<Resources> resources_;
     std::wstring error_;
 };
-} // namespace gamepad::practice
+} // namespace overworld::practice

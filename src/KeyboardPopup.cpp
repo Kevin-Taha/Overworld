@@ -3,9 +3,9 @@
 
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 namespace {
-constexpr wchar_t popup_class[] = L"GamepadDesktopKeyboard";
+constexpr wchar_t popup_class[] = L"OverworldKeyboard";
 constexpr DWORD popup_style = WS_POPUP;
 constexpr DWORD popup_extended = WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_LAYERED;
 }
@@ -27,7 +27,7 @@ bool KeyboardPopup::create(HWND host)
     }
     host_ = host;
     visual_ = std::make_unique<KeyboardVisual>(theme_source_);
-    window_ = CreateWindowExW(popup_extended, popup_class, L"Gamepad Desktop - keyboard",
+    window_ = CreateWindowExW(popup_extended, popup_class, L"Overworld - keyboard",
         popup_style, 0, 0, 1, 1, nullptr, nullptr, type.hInstance, this);
     if (!window_) {
         error_ = L"Keyboard window creation failed (error " + std::to_wstring(GetLastError()) + L")";
@@ -212,4 +212,4 @@ LRESULT CALLBACK KeyboardPopup::window_proc(HWND window, UINT message, WPARAM wp
     }
     return DefWindowProcW(window, message, wparam, lparam);
 }
-} // namespace gamepad
+} // namespace overworld

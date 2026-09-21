@@ -4,7 +4,7 @@
 #include <charconv>
 #include <Windows.h>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr std::array<std::string_view, 14> button_names{
     "dpup", "dpdown", "dpleft", "dpright", "start", "back", "leftstick", "rightstick",
@@ -279,4 +279,4 @@ std::string_view find_controller_mapping(std::string_view database, std::string_
     }
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace gamepad {
+namespace overworld {
 constexpr unsigned voice_sample_rate = 16000;
 constexpr unsigned voice_max_seconds = 25;
 constexpr std::size_t voice_max_samples = voice_sample_rate * voice_max_seconds;
@@ -26,4 +26,4 @@ private:
 [[nodiscard]] bool voice_has_signal(std::span<const float> samples);
 [[nodiscard]] bool decode_voice_wav(std::span<const std::uint8_t> bytes, std::vector<float>& samples, std::wstring& error);
 [[nodiscard]] bool normalize_dictation(std::string_view utf8, std::u32string& text, std::wstring& error);
-} // namespace gamepad
+} // namespace overworld

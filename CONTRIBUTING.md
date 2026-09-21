@@ -19,7 +19,7 @@ existing third-party notices.
 
 ## Development component harness
 
-`GamepadDesktopPractice` is an explicitly built development/demo target, not part
+`OverworldPractice` is an explicitly built development/demo target, not part
 of the shipping app or release packaging. See the
 [component map and launch instructions](docs/PRACTICE-HARNESS.md).
 

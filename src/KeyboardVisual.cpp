@@ -13,7 +13,7 @@
 #include <map>
 #include <vector>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr D2D1_POINT_2F wheel_center{196, 153};
@@ -779,4 +779,4 @@ bool KeyboardVisual::save_png(const wchar_t* path, std::optional<std::uint32_t> 
     error_.clear();
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

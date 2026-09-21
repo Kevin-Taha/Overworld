@@ -2,8 +2,8 @@
 
 #include "TextDelivery.h"
 
-namespace gamepad {
+namespace overworld {
 // Negative evidence only: Unknown never means verified safe/plain text.
 // No target messages, accessibility requests, text, length or caret reads.
 PredictionPrivacy prediction_target_privacy(TextWindow target);
-} // namespace gamepad
+} // namespace overworld

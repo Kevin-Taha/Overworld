@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 bool text_target_valid(const TextTarget& target)
 {
     return std::all_of(target.windows.begin(), target.windows.end(), [](const TextWindow& window) {
@@ -195,4 +195,4 @@ std::wstring TextDelivery::status() const
     result += L" App receipt is unconfirmed. " + reason_;
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

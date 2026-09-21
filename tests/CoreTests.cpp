@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-using namespace gamepad;
+using namespace overworld;
 
 namespace {
 void check(bool condition, const char* message)

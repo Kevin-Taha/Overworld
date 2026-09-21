@@ -5,6 +5,14 @@ in [Building](BUILDING.md).
 
 ## Default deterministic tests
 
+`overworld_branding_tests` reads the built executable as resource data, without
+launching it, and checks Overworld product/filename/manifest identity alongside
+the unchanged legacy settings directory, mutex name and input tag. It also
+checks dashboard/tray/harness labels. `overworld_build_options_tests` ensures
+old cache-option spellings fail explicitly instead of silently losing voice.
+Fake host lookups verify second-instance activation/recovery can still find a
+pre-rename mapper without contacting a real running instance.
+
 ```powershell
 cmake --build out\x64 --config Release
 ctest --test-dir out\x64 -C Release --output-on-failure
@@ -17,15 +25,15 @@ the native hook. Settings tests write only to their owned test-scratch directory
 ARM64 tests can be built by cross-compilation, but must be executed on an
 appropriate ARM64 environment.
 
-`gamepad_instance_guard_tests` uses uniquely named, test-owned mutexes/events,
+`overworld_instance_guard_tests` uses uniquely named, test-owned mutexes/events,
 never the mapper's global name. It verifies that a rejected launch retains no
 handle while its diagnostic object lives, successful destruction releases rather
 than abandons ownership, and creation failure is distinct from an existing
 instance. No Host, native windows, controller reader, or input boundary is used.
 
-`gamepad_launch_tests` verifies separate shipping/development argument parsers,
+`overworld_launch_tests` verifies separate shipping/development argument parsers,
 including invalid `--practice` and malformed flags never activating the mapper.
-`gamepad_practice_isolation_tests` checks the shared instance guard, separate
+`overworld_practice_isolation_tests` checks the shared instance guard, separate
 development entry, actual CMake shared-library dependency contracts, no shipping
 or default-ALL practice linkage, and forbidden native boundaries. Neither starts
 the app.
@@ -33,14 +41,14 @@ the app.
 For a focused shipping change:
 
 ```powershell
-ctest --test-dir out\x64 -C Release -R '^gamepad_(keyboard|delivery)_tests$' --output-on-failure
+ctest --test-dir out\x64 -C Release -R '^overworld_(keyboard|delivery)_tests$' --output-on-failure
 ```
 
 Retain regressions for accepted-down/up accounting, cancellation, stale samples,
 focus excursions, same-HWND field changes, expired capture leases, invalid model
 bytes, strict migration, and ambiguous injected-source handling.
 
-`gamepad_delivery_tests` also runs the Host's keyboard-eligibility helper against
+`overworld_delivery_tests` also runs the Host's keyboard-eligibility helper against
 a stateful fake mouse boundary. A blocked mouse recipient must not be observed
 while a desktop or native keyboard is already visible, including paused sessions.
 Closed native openers still require ordinary route validation; genuine text
@@ -48,18 +56,18 @@ target/context/physical/Auto changes and host failures still cancel, and accepte
 key-up recovery is retained. This reproduces the redundant-probe context bug,
 not Windows Start ordering or the source of touch-keyboard activation.
 
-`gamepad_release_tap_tests` exercises the default immediate path and opt-in
+`overworld_release_tap_tests` exercises the default immediate path and opt-in
 release-aware path with fake output and navigation events: 249/250-ms hold,
 drag-before-motion, both original-target dispatch pins, resolved/expired routing
 waits, repress while Primary is owned, scheduled tap-up and own-caption messages.
 It deliberately retains the modeled late-native-bridge limitation. These tests
 do not establish a fix for initial Start/Phone Link interaction.
-`gamepad_prediction_contracts` rejects target-text/caret/clipboard reads,
+`overworld_prediction_contracts` rejects target-text/caret/clipboard reads,
 fragment persistence, physical-keystroke collection and per-field consent UI.
 Settings tests cover schema 1-11 no-write loading and schema 12 strict opt-out;
 native UI checks measure the checkbox on Typing and both product title labels.
 
-`gamepad_controller_tests` is part of default CTest. It uses the shared configurable
+`overworld_controller_tests` is part of default CTest. It uses the shared configurable
 decoder, lifecycle and slot arbitration with fake backends only. It checks
 physical-position buttons, independent digital triggers, stick direction/ranges,
 hat diagonals/neutral, bounded parsing, name-CRC selection, opposing-half rejection,
@@ -75,7 +83,7 @@ The reader's message service runs without sampling authorization, but performs
 no controller reads. Fake teardown stalls verify that native cleanup remains
 inside the Practice worker's 250-ms terminal shutdown bound.
 
-`gamepad_discovery_tests` holds a fake metadata query in flight while feeding
+`overworld_discovery_tests` holds a fake metadata query in flight while feeding
 fresh snapshots through the real `ControllerDevicesReader` and `KeyboardDelivery`.
 Opening and repeated typing must continue across inventory refreshes; an actual
 101-ms sample gap must still interrupt without replay. It also covers explicit
@@ -90,12 +98,12 @@ default CTest so no development implementation is a transitive default build
 dependency. Build/run them deliberately without any live controller backend:
 
 ```powershell
-cmake --build out\x64 --config Release --target gamepad_practice_tests gamepad_practice_reader_tests --parallel 1 -- /nodeReuse:false
-.\out\x64\Release\gamepad_practice_tests.exe
-.\out\x64\Release\gamepad_practice_reader_tests.exe
+cmake --build out\x64 --config Release --target overworld_practice_tests overworld_practice_reader_tests --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\overworld_practice_tests.exe
+.\out\x64\Release\overworld_practice_reader_tests.exe
 ```
 
-`gamepad_practice_tests` exercises five-skill progress, local typing and
+`overworld_practice_tests` exercises five-skill progress, local typing and
 one-handed selection, real pointer precision/scaling, release-only clicks,
 drag cancellation, focus/physical takeover, stale/rollback samples, reconnects,
 multiple controllers, help, retry, reset, and fail-closed launch arguments.
@@ -105,7 +113,7 @@ non-reserved key values must still take over.
 Local fallback checks cover all four one-handed pages across button presses and
 idle gaps. The render helper delivers owned Space/Tab/focus-loss/help messages to
 the same message pretranslator to verify hold cancellation and matching release.
-`gamepad_practice_reader_tests` uses only fake slot/clock/focus backends: delayed
+`overworld_practice_reader_tests` uses only fake slot/clock/focus backends: delayed
 slot zero followed by revocation, focus loss, or lease expiry must not query
 slots 1-3 or publish a partial batch. It also tests the final publication gate,
 terminal stop, 250 ms shutdown failure, and retained state after destruction.
@@ -113,7 +121,7 @@ It has no XInput backend linked; all fake waits and stop operations are bounded.
 Exact Pointer response and production-layout typing contracts ensure
 the harness does not develop private motion/character behavior.
 
-Prediction regressions are part of `gamepad_delivery_tests`, not a native-input
+Prediction regressions are part of `overworld_delivery_tests`, not a native-input
 test. They cover the 10,000-word frequency vocabulary, case/boundary rules, bounded prefixes
 and choices, unknown Backspace, partial acceptance, stale generations/deadlines,
 target/context/physical/device changes, queue limits, both controller modes,
@@ -143,7 +151,7 @@ reserved-range policy, not guessed injection flags.
 
 ## Render-only checks
 
-Default `gamepad_keyboard_placement_tests` uses pure rectangles and process-name
+Default `overworld_keyboard_placement_tests` uses pure rectangles and process-name
 classification, not HWND creation or live metadata. It covers normal placement,
 Start/Search avoidance at 96/144/192 DPI, normal/prediction heights, stable anchors,
 negative monitor origins, integer edges, off-monitor obstructions, full-size
@@ -161,9 +169,9 @@ These targets are opt-in and excluded from default CTest because they create
 native windows. Run only in an authorized test session:
 
 ```powershell
-cmake --build out\x64 --config Release --target gamepad_keyboard_visual_tests gamepad_app_ui_tests
-.\out\x64\Release\gamepad_keyboard_visual_tests.exe .\out\visual-frames
-.\out\x64\Release\gamepad_app_ui_tests.exe .\out\app-frames
+cmake --build out\x64 --config Release --target overworld_keyboard_visual_tests overworld_app_ui_tests
+.\out\x64\Release\overworld_keyboard_visual_tests.exe .\out\visual-frames
+.\out\x64\Release\overworld_app_ui_tests.exe .\out\app-frames
 ```
 
 They use deterministic theme overrides rather than changing Windows preferences.
@@ -188,7 +196,7 @@ Absent production hints are tested as default-constructed string views, not only
 empty literals: quiet suppression and voice states must not pass a null text
 pointer to DirectWrite or fail with `E_INVALIDARG`.
 
-`gamepad_keyboard_popup_tests` is a separate opt-in target, not default CTest.
+`overworld_keyboard_popup_tests` is a separate opt-in target, not default CTest.
 Build it explicitly and run `--render-only` under a 120-second process watchdog.
 It links the actual production popup library, uses only hidden owned windows and
 a fake text boundary, and checks 96/144/192-DPI expansion/collapse, negative and
@@ -205,8 +213,8 @@ Start or other applications. Build/run authorization for this suite remains
 separate from the pure placement tests and live shell validation.
 
 For the separately authorized compact artwork regression, build
-`gamepad_keyboard_visual_tests` and run
-`gamepad_keyboard_visual_tests.exe --compact-shell-only <owned-artifact-directory>`
+`overworld_keyboard_visual_tests` and run
+`overworld_keyboard_visual_tests.exe --compact-shell-only <owned-artifact-directory>`
 under a 120-second process watchdog. It checks actual glyph ink, 4.5:1 contrast,
 nonoverlap, alpha and resource reuse across pages/modes/themes/DPI at 80%/91%,
 including candidate strips. Measurements use the renderer's actual centered
@@ -241,8 +249,8 @@ synthetic scenes, and has a two-minute process watchdog. It is never registered
 with default CTest:
 
 ```powershell
-cmake --build out\x64 --config Release --target gamepad_practice_visual_tests --parallel 1 -- /nodeReuse:false
-.\out\x64\Release\gamepad_practice_visual_tests.exe --render-only .\out\practice-frames
+cmake --build out\x64 --config Release --target overworld_practice_visual_tests --parallel 1 -- /nodeReuse:false
+.\out\x64\Release\overworld_practice_visual_tests.exe --render-only .\out\practice-frames
 ```
 
 The explicit flag is required. Frames cover all five skills, one-handed typing,
@@ -257,14 +265,14 @@ used as evidence of visibility. All PNGs
 are produced from the real renderer; inspect them rather than treating a paint
 return value as visibility evidence. Existing keyboard visual tests separately
 cover the reused keyboard's glyph geometry and alpha.
-The helper and development executable link the same `gamepad_practice_view`;
+The helper and development executable link the same `overworld_practice_view`;
 the shipping executable and harness link the same keyboard, cursor-pixel, and
 app appearance libraries. Harness keyboard/cursor buffers are compared exactly
 with production component pixels, not with copied expected artwork.
 
 Development device trials must be deliberate: explicitly build
-`GamepadDesktopPractice`, close all other instances, launch
-`GamepadDesktopPractice.exe`, select its window, center the controller, and
+`OverworldPractice`, close all other instances, launch
+`OverworldPractice.exe`, select its window, center the controller, and
 try the five skills. Point and tap A on Retry/Help/Reset, close the keyboard with
 View before navigating, and leave/return to the window during a drag to confirm
 neutral reacquisition. Practice itself never starts microphone capture or
@@ -275,7 +283,7 @@ This is not a product feature or release asset; see the
 
 ## Owned-message probes
 
-`gamepad_prediction_privacy_tests` is excluded from default builds/CTest. Build
+`overworld_prediction_privacy_tests` is excluded from default builds/CTest. Build
 it explicitly and run `--allow-owned-metadata` under a bounded watchdog only in
 an authorized session. It creates offscreen, nonactivating owned Edit, RichEdit,
 password, single-line, read-only and custom/browser-style controls. It tests
@@ -301,13 +309,13 @@ The generator validates the source SHA-256, 50,000 rows, descending rank and
 10,000 unique lowercase ASCII words of length 3..24. It never downloads at build
 or runtime. The source corpus stays untracked; attribution/license are tracked.
 
-The ordinary `gamepad_self_caption_tests` invocation is pure. Its
+The ordinary `overworld_self_caption_tests` invocation is pure. Its
 `--owned-messages` option creates owned windows and sends only window messages,
 not global mouse input. The `--tracker-baseline` option intentionally demonstrates
 a native non-client tracking stall and **must only run under an external bounded
 process watchdog**. It is not a routine smoke command.
 
-`gamepad_ring_smoke` is another explicit native-window probe. Review its source and
+`overworld_ring_smoke` is another explicit native-window probe. Review its source and
 invocation guard before running; do not assume an executable named "test" is safe
 to launch unattended.
 
@@ -316,8 +324,8 @@ to launch unattended.
 With a voice-enabled build and explicitly obtained verified assets:
 
 ```powershell
-cmake --build out\voice-x64 --config Release --target gamepad_voice_fixture
-.\out\voice-x64\Release\gamepad_voice_fixture.exe `
+cmake --build out\voice-x64 --config Release --target overworld_voice_fixture
+.\out\voice-x64\Release\overworld_voice_fixture.exe `
   .\out\voice-models\ggml-tiny.en.bin .\out\voice-models\jfk.wav
 ```
 
@@ -345,7 +353,7 @@ Normal application launch activates automatic controller mapping.
 real app window and reads settings/observers. Keyboard previews are no-output
 design modes. Do not start a second copy against someone else's running instance.
 
-`gamepad_text_smoke --allow-owned-text-smoke` (optionally `--one-handed`) is an
+`overworld_text_smoke --allow-owned-text-smoke` (optionally `--one-handed`) is an
 actual native input test. It must be separately approved, use only its disposable
 owned fields, and retain its PID/HWND, foreground, physical-input, deadline, and
 single-instance guards. Never bypass a blocked or locked-desktop result.

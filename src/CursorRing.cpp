@@ -4,9 +4,9 @@
 #include <cstring>
 #include <new>
 
-namespace gamepad {
+namespace overworld {
 namespace {
-constexpr wchar_t ring_class[] = L"GamepadDesktop.CursorRing";
+constexpr wchar_t ring_class[] = L"Overworld.CursorRing";
 }
 
 CursorRing::~CursorRing()
@@ -126,4 +126,4 @@ LRESULT CALLBACK CursorRing::window_proc(HWND window, UINT message, WPARAM wpara
     if (message == WM_DPICHANGED) { return 0; } // Next cursor update uses the hotspot's monitor, not the rectangle majority.
     return DefWindowProcW(window, message, wparam, lparam);
 }
-} // namespace gamepad
+} // namespace overworld

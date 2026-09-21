@@ -1,6 +1,6 @@
 #include "CursorPresentation.h"
 
-namespace gamepad {
+namespace overworld {
 void CursorPresentation::fail(std::wstring_view reason)
 {
     suspended_ = true;
@@ -156,4 +156,4 @@ std::wstring_view StartCursorFallback::status() const
     }
     return uncertain_ ? L"Cursor surface observation is inconclusive; presentation policy unchanged." : L"";
 }
-} // namespace gamepad
+} // namespace overworld

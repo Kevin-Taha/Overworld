@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <algorithm>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 Controller state(Connection connection, std::uint32_t error)
 {
@@ -98,4 +98,4 @@ Controller ControllerDevicesReader::read(unsigned slot, Tick now, ControllerRead
     }
     return finish(slot, value);
 }
-} // namespace gamepad
+} // namespace overworld

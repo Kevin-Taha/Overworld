@@ -38,7 +38,7 @@ if(NOT original MATCHES "0\\.2\\.0\\+unversioned\\.src\\.[0-9a-f]+\\.x64\\.Relea
    OR NOT warnings MATCHES "unversioned")
     message(FATAL_ERROR "Missing Git must yield an explicit unversioned label and warning.")
 endif()
-if(NOT original MATCHES "#define GAMEPAD_BUILD_VERSION 0,2,0,0")
+if(NOT original MATCHES "#define OVERWORLD_BUILD_VERSION 0,2,0,0")
     message(FATAL_ERROR "The numeric resource version must preserve the semantic version.")
 endif()
 file(TIMESTAMP "${header}" original_time "%s" UTC)

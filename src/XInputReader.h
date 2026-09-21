@@ -8,7 +8,7 @@
 #include <memory>
 #include <thread>
 
-namespace gamepad {
+namespace overworld {
 
 [[nodiscard]] Tick monotonic_now();
 
@@ -43,4 +43,4 @@ private:
     std::jthread thread_; // Joins before the mailbox and wait primitives are destroyed.
 };
 
-} // namespace gamepad
+} // namespace overworld

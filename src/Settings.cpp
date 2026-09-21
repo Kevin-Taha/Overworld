@@ -1,4 +1,5 @@
 #include "Settings.h"
+#include "Compatibility.h"
 
 #include <Windows.h>
 #include <ShlObj.h>
@@ -11,7 +12,7 @@
 #include <limits>
 #include <utility>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr std::array<std::wstring_view, 24> keys{
     L"version", L"speed", L"precision", L"scroll", L"left_exit", L"left_enter",
@@ -321,7 +322,7 @@ std::wstring settings_path(std::filesystem::path& result)
     PWSTR folder = nullptr;
     const auto hr = SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, nullptr, &folder);
     if (FAILED(hr)) { return L"Cannot locate LocalAppData (HRESULT " + std::to_wstring(hr) + L")."; }
-    result = std::filesystem::path{folder} / L"GamepadDesktop" / L"settings.ini";
+    result = std::filesystem::path{folder} / settings_directory / L"settings.ini";
     CoTaskMemFree(folder);
     return {};
 }
@@ -408,4 +409,4 @@ std::wstring save_settings(const std::filesystem::path& path, const Settings& se
     baseline = {LoadState::Loaded, settings, std::move(bytes), {}};
     return {};
 }
-} // namespace gamepad
+} // namespace overworld

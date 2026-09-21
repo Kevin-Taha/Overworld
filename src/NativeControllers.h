@@ -9,7 +9,7 @@
 #include <dinput.h>
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 class NativeControllers final : public ControllerBackend {
 public:
     ~NativeControllers() override;
@@ -38,4 +38,4 @@ private:
     bool mappings_loaded_ = false;
     std::unique_ptr<ControllerDiscovery> discovery_;
 };
-} // namespace gamepad
+} // namespace overworld

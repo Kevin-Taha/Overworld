@@ -4,7 +4,7 @@
 #include <atomic>
 #include <new>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 constexpr std::uintptr_t own_output_tag = 0x47445031;
 enum class Phase : unsigned { Starting, Observing, Draining, Off, Failed };
@@ -269,4 +269,4 @@ std::wstring NativeNavigationFilter::status() const
     }
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

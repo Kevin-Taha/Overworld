@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace gamepad {
+namespace overworld {
 bool decode_audio_frame(std::span<const std::uint8_t> frame, unsigned channels,
     unsigned bytes_per_sample, bool floating, float& mono)
 {
@@ -124,4 +124,4 @@ bool normalize_dictation(std::string_view utf8, std::u32string& text, std::wstri
     error.clear();
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

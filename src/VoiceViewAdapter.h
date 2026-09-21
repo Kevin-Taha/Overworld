@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace gamepad {
+namespace overworld {
 [[nodiscard]] inline VoicePresentation voice_presentation(const VoiceUpdate& update) noexcept
 {
     switch (update.phase) {
@@ -20,4 +20,4 @@ namespace gamepad {
     }
     return {VoicePhase::Error, 0, L"Voice state unavailable"};
 }
-} // namespace gamepad
+} // namespace overworld

@@ -5,7 +5,7 @@
 
 #include <bitset>
 
-namespace gamepad::practice {
+namespace overworld::practice {
 constexpr int world_width = 620;
 constexpr int world_height = 380;
 constexpr int canvas_width = 1000, canvas_height = 740;
@@ -123,4 +123,4 @@ public:
 private:
     std::bitset<256> held_;
 };
-} // namespace gamepad::practice
+} // namespace overworld::practice

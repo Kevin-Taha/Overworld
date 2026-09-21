@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 
 struct Settings {
     live::PointerSettings pointer;
@@ -56,4 +56,4 @@ struct SettingsFile {
 [[nodiscard]] std::wstring save_settings(const std::filesystem::path& path,
     const Settings& settings, SettingsFile& baseline);
 
-} // namespace gamepad
+} // namespace overworld

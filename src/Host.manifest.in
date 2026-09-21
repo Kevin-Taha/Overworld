@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
-  <assemblyIdentity version="0.2.0.0" processorArchitecture="@GAMEPAD_MANIFEST_ARCHITECTURE@" name="GamepadDesktop" type="win32" />
-  <description>Gamepad Desktop controller utility</description>
+  <assemblyIdentity version="0.2.0.0" processorArchitecture="@OVERWORLD_MANIFEST_ARCHITECTURE@" name="Overworld" type="win32" />
+  <description>Overworld controller utility</description>
   <dependency>
     <dependentAssembly>
       <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0"

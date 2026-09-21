@@ -4,7 +4,7 @@
 #include <cmath>
 #include <limits>
 
-namespace gamepad {
+namespace overworld {
 namespace {
 struct Paint { unsigned red; unsigned green; unsigned blue; };
 constexpr Paint modern_body{246, 243, 236};
@@ -183,4 +183,4 @@ std::vector<std::uint32_t> cursor_pixels(unsigned dpi, int size, CursorStyle sty
     }
     return pixels;
 }
-} // namespace gamepad
+} // namespace overworld

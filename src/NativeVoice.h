@@ -5,7 +5,7 @@
 #include <filesystem>
 #include <memory>
 
-namespace gamepad {
+namespace overworld {
 class NativeVoice final : public VoiceBoundary {
 public:
     NativeVoice() = default;
@@ -26,4 +26,4 @@ private:
     HANDLE thread_ = nullptr;
     VoiceUpdate error_;
 };
-} // namespace gamepad
+} // namespace overworld

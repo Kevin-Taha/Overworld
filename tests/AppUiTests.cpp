@@ -8,7 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 
-using namespace gamepad;
+using namespace overworld;
 namespace {
 void check(bool value, const char* reason) { if (!value) { throw std::runtime_error(reason); } }
 struct Ui {
@@ -133,7 +133,7 @@ void dashboard_frames(const std::filesystem::path& output)
 {
     AppUi appearance;
     WNDCLASSW type{}; type.lpfnWndProc = dashboard_proc; type.hInstance = GetModuleHandleW(nullptr);
-    type.lpszClassName = L"GamepadDesktop.RenderOnlyDashboard";
+    type.lpszClassName = L"Overworld.RenderOnlyDashboard";
     check(RegisterClassW(&type), "dashboard render class");
     for (const int dpi : {96, 144, 192}) {
         const auto window = CreateWindowExW(0, type.lpszClassName, L"Render-only dashboard", WS_POPUP | WS_CLIPCHILDREN,
@@ -420,7 +420,7 @@ void reference_creation(SIZE expected)
 int wmain(int argc, wchar_t** argv)
 {
     try {
-        check(argc == 2, "usage: gamepad_app_ui_tests owned-artifact-directory");
+        check(argc == 2, "usage: overworld_app_ui_tests owned-artifact-directory");
         const std::filesystem::path output(argv[1]); std::filesystem::create_directories(output);
         INITCOMMONCONTROLSEX common{sizeof(common), ICC_UPDOWN_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES};
         check(InitCommonControlsEx(&common), "common controls");

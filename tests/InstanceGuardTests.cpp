@@ -23,18 +23,18 @@ std::wstring unique_name(std::wstring_view suffix)
 {
     LARGE_INTEGER counter{};
     check(QueryPerformanceCounter(&counter) != FALSE, "unique-name clock unavailable");
-    return L"Local\\GamepadDesktop.OwnedMutexTests." + std::to_wstring(GetCurrentProcessId())
+    return L"Local\\Overworld.OwnedMutexTests." + std::to_wstring(GetCurrentProcessId())
         + L"." + std::to_wstring(counter.QuadPart) + L"." + std::wstring(suffix);
 }
 void rejected_guard_does_not_retain_name()
 {
     const auto name = unique_name(L"rejected");
-    auto owner = std::make_unique<gamepad::MapperInstanceGuard>(name.c_str());
+    auto owner = std::make_unique<overworld::MapperInstanceGuard>(name.c_str());
     check(owner->acquired() && !owner->already_running(), "first uniquely named owner acquires");
-    gamepad::MapperInstanceGuard rejected(name.c_str());
+    overworld::MapperInstanceGuard rejected(name.c_str());
     check(!rejected.acquired() && rejected.already_running(), "second guard rejects while owner exists");
     owner.reset();
-    gamepad::MapperInstanceGuard replacement(name.c_str());
+    overworld::MapperInstanceGuard replacement(name.c_str());
     check(replacement.acquired() && !replacement.already_running(),
         "replacement must acquire while the rejected guard object is still alive");
     check(rejected.already_running() && !rejected.acquired(), "rejected object retains diagnostic state only");
@@ -42,7 +42,7 @@ void rejected_guard_does_not_retain_name()
 void ownership_is_released_not_abandoned()
 {
     const auto name = unique_name(L"ownership");
-    auto owner = std::make_unique<gamepad::MapperInstanceGuard>(name.c_str());
+    auto owner = std::make_unique<overworld::MapperInstanceGuard>(name.c_str());
     check(owner->acquired(), "owner acquires for release test");
     Handle observer(OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, name.c_str()));
     check(observer.get() != nullptr, "owned observer opens mutex");
@@ -66,10 +66,10 @@ void failure_is_not_an_existing_instance()
     {
         Handle event(CreateEventW(nullptr, FALSE, FALSE, name.c_str()));
         check(event.get() != nullptr, "owned named event created");
-        gamepad::MapperInstanceGuard failed(name.c_str());
+        overworld::MapperInstanceGuard failed(name.c_str());
         check(!failed.acquired() && !failed.already_running(), "CreateMutex failure is distinct from another mapper");
     }
-    gamepad::MapperInstanceGuard replacement(name.c_str());
+    overworld::MapperInstanceGuard replacement(name.c_str());
     check(replacement.acquired() && !replacement.already_running(), "failed creation retains no name or ownership");
 }
 }

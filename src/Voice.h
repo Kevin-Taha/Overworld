@@ -4,7 +4,7 @@
 #include "Core.h"
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 constexpr Tick voice_capture_lease_ms = 100;
 [[nodiscard]] constexpr bool voice_capture_authorized(Tick expires, Tick now) noexcept
 {
@@ -32,4 +32,4 @@ public:
     virtual void cancel() = 0;
     virtual VoiceUpdate poll() = 0;
 };
-} // namespace gamepad
+} // namespace overworld

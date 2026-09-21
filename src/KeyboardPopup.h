@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-namespace gamepad {
+namespace overworld {
 class KeyboardVisual;
 class KeyboardThemeSource;
 constexpr UINT keyboard_popup_message = WM_APP + 4;
@@ -53,4 +53,4 @@ private:
     int logical_height_ = 0;
     UINT dpi_ = 96;
 };
-} // namespace gamepad
+} // namespace overworld

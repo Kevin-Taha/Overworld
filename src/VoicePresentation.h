@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 enum class VoicePhase { Idle, Loading, Listening, Transcribing, Error };
 
 // Presentation snapshot only. No microphone, recognizer, transcript or ownership.
@@ -11,4 +11,4 @@ struct VoicePresentation {
     float level = 0;
     std::wstring_view hint{};
 };
-} // namespace gamepad
+} // namespace overworld

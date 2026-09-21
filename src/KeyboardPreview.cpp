@@ -9,10 +9,10 @@
 #include <string_view>
 #include <system_error>
 
-namespace gamepad {
+namespace overworld {
 namespace {
-constexpr wchar_t window_class[] = L"GamepadDesktop.KeyboardPreview";
-constexpr wchar_t window_title[] = L"Keyboard preview - Gamepad Desktop";
+constexpr wchar_t window_class[] = L"Overworld.KeyboardPreview";
+constexpr wchar_t window_title[] = L"Keyboard preview - Overworld";
 constexpr UINT_PTR refresh_timer = 1;
 constexpr DWORD window_style = WS_POPUP;
 constexpr DWORD window_ex_style = WS_EX_APPWINDOW | WS_EX_LAYERED;
@@ -313,4 +313,4 @@ int run_keyboard_preview(HINSTANCE instance, int show, KeyboardInputMode mode) {
     }
     return result;
 }
-} // namespace gamepad
+} // namespace overworld

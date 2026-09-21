@@ -5,7 +5,7 @@
 #include <string>
 #include <string_view>
 
-namespace gamepad {
+namespace overworld {
 constexpr unsigned controller_axes = 8, controller_buttons = 128, controller_hats = 4;
 struct ControllerLayout {
     unsigned axes = 0, buttons = 0, hats = 0;
@@ -37,4 +37,4 @@ struct ControllerMapping {
 [[nodiscard]] Controller mapped_controller(const ControllerMapping& mapping, const RawController& raw);
 // Empty means no mapping. A malformed selected line is returned for explicit rejection.
 [[nodiscard]] std::string_view find_controller_mapping(std::string_view database, std::string_view guid, std::uint16_t crc = 0);
-} // namespace gamepad
+} // namespace overworld

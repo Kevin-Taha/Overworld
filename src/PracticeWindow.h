@@ -2,7 +2,7 @@
 
 #include "PracticeVisual.h"
 
-namespace gamepad::practice {
+namespace overworld::practice {
 class ControllerSource {
 public:
     virtual ~ControllerSource() = default;
@@ -29,4 +29,4 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 int run(HINSTANCE instance, int show, ControllerSource& source);
-} // namespace gamepad::practice
+} // namespace overworld::practice

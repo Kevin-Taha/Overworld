@@ -3,7 +3,7 @@
 #include "PracticeWindow.h"
 #include "ControllerReadScope.h"
 
-namespace gamepad::practice {
+namespace overworld::practice {
 class ReaderBackend {
 public:
     virtual ~ReaderBackend() = default;
@@ -37,4 +37,4 @@ private:
     bool start_attempted_ = false, stop_attempted_ = false, stop_result_ = false;
     std::wstring error_;
 };
-} // namespace gamepad::practice
+} // namespace overworld::practice

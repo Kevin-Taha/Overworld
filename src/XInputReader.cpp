@@ -6,7 +6,7 @@
 #include <chrono>
 #include <new>
 
-namespace gamepad {
+namespace overworld {
 struct ControllerReader::Hid {
     NativeControllers backend;
     ControllerDevicesReader reader{backend};
@@ -104,4 +104,4 @@ Snapshot ControllerPoller::latest()
 }
 
 void ControllerPoller::stop() { thread_.request_stop(); }
-} // namespace gamepad
+} // namespace overworld

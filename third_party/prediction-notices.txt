@@ -19,7 +19,7 @@ Corpus: http://opus.nlpl.eu/OpenSubtitles2018.php
 License: https://creativecommons.org/licenses/by-sa/4.0/
 Full license text accompanies this notice in prediction-CC-BY-SA-4.0.txt.
 
-Modifications for Gamepad Desktop: validate the pinned source hash and descending
+Modifications for Overworld: validate the pinned source hash and descending
 frequency order; retain the first 10000 distinct lowercase ASCII a-z words of
 length 3 through 24 in original rank order; remove occurrence counts; encode as
 an embedded static string array. Reproduce using

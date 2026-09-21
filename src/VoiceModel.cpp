@@ -5,7 +5,7 @@
 #include <array>
 #include <fstream>
 
-namespace gamepad {
+namespace overworld {
 bool verified_voice_model(std::span<std::uint8_t> bytes, std::wstring& error)
 {
     if (bytes.size() != voice_model_bytes) {
@@ -43,4 +43,4 @@ bool load_voice_model(const std::filesystem::path& path, std::vector<std::uint8_
     if (!verified_voice_model(bytes, error)) { bytes.clear(); return false; }
     return true;
 }
-} // namespace gamepad
+} // namespace overworld

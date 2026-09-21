@@ -2,7 +2,7 @@
 
 #include "KeyboardDelivery.h"
 
-namespace gamepad {
+namespace overworld {
 // An owned, bounded toy field: deliberately no Windows/native delivery dependency.
 class PredictionPractice final : public TextBoundary {
 public:
@@ -88,4 +88,4 @@ inline void seed_prediction_demo(PredictionPractice& practice, KeyboardInputMode
         }
     }
 }
-} // namespace gamepad
+} // namespace overworld

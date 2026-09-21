@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace gamepad::live {
+namespace overworld::live {
 namespace {
 double magnitude(std::int16_t x, std::int16_t y)
 {
@@ -178,4 +178,4 @@ Motion Pointer::step(const Controller& controller, Point actual, Rect bounds, Ti
     return {next, wheel};
 }
 
-} // namespace gamepad::live
+} // namespace overworld::live

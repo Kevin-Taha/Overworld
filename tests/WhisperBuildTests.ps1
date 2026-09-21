@@ -55,10 +55,10 @@ foreach ($file in $binaries) {
         foreach ($name in $names) { $report.Add($name.Line.Trim()) }
     }
 }
-$exe = Join-Path $AppBuild 'Release\GamepadDesktop.exe'
+$exe = Join-Path $AppBuild 'Release\Overworld.exe'
 $version = (Get-Item $exe).VersionInfo.ProductVersion
 Require ($version.EndsWith(".$Architecture.Release.voice-portable")) "voice-enabled native build identity: $version"
-$map = Get-Content (Join-Path $AppBuild 'Release\GamepadDesktop.map') -Raw
+$map = Get-Content (Join-Path $AppBuild 'Release\Overworld.map') -Raw
 Require ($map -match 'whisper_init_from_buffer_with_params\s+[0-9a-f]+\s+f\s+whisper:' -and $map -match 'whisper_full\s+[0-9a-f]+\s+f\s+whisper:') 'Whisper initialization and decode symbols linked from static backend'
 $reportPath = Join-Path $AppBuild 'whisper-build-audit.txt'
 $report | Set-Content $reportPath -Encoding UTF8
