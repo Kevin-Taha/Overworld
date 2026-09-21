@@ -9,8 +9,12 @@ and optional offline dictation.
 
 - XInput and mapped DirectInput/HID sampling, with automatic controller
   acquisition after fresh neutral input.
+- SDL-format community mappings and file-based overrides, generic repeated-axis
+  handling, and metadata discovery isolated from controller sampling.
 - Pointer movement, click/drag, scrolling, custom cursor, and manual mode control.
 - Immediate controller keyboard edits and opt-in one-handed selection.
+- Start/Search region-aware popup placement, including focused non-drawing Search
+  windows and a shell-only compact fallback bounded to 20%.
 - Broad local word suggestions enabled by default, with Settings opt-out and
   explicit append-only suffix acceptance. Hidden/empty suggestions collapse.
 - Optional original-target-safe local Whisper tiny.en dictation on x64 and ARM64.
@@ -58,7 +62,7 @@ The entries below are dispositions, not an automatically scheduled work queue.
 | Aim/flick assistance and UIA helper experiments | **Parked.** Published history ends at `cfa17469bfe4f74bfe32c71375e49d0f2f6a111b` on `kevin-taha-aim-assist-and-flicks`. | Do not add to the product or resume automatically. Local-only diagnostic work is not a portable dependency or a newer published checkpoint. |
 | Start/Phone Link initial interaction and late native bridge events | **Unresolved.** | Release-aware taps are opt-in, not a verified universal fix. Preserve conservative mixed-source filtering and original-target cancellation. |
 | Windows touch keyboard appearing during search | **Unresolved OS interaction.** | The app does not own or suppress the Windows keyboard and must not change its settings. |
-| Floating keyboard underneath Start | **Region-aware placement and bounded compact mitigation; live validation outstanding.** | Avoid verified foreground Start/Search window-region bounds. Prefer full size, then at most 20% smaller without going below baseline pixel size; pause when none fits. No force-focus or privileged window-band workaround. |
+| Floating keyboard underneath Start | **Region-aware placement and bounded compact mitigation accepted for the current device checkpoint.** | User trials cover explicit Search and Start's initial search focus. Avoid verified visible Start/Search peer regions; at most 20% smaller without going below baseline pixel size. Broader shell versions, DPI configurations and compositor behavior remain unverified. No force-focus or privileged window-band workaround. |
 | Teams/Explorer keyboard opening or dismissal | **App-specific validation outstanding.** | The null-hint renderer failure and visible-session mouse-probe bug have concrete fixes, but neither establishes the cause or resolution of every reported app interaction. |
 
 Select one small investigation only after a deterministic baseline and an explicit

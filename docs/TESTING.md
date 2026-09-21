@@ -340,33 +340,6 @@ and symbols; they do not run an ARM64 executable.
 
 ## Interactive checks: explicit authorization required
 
-### User-run keyboard placement diagnostic
-
-Build `gamepad_keyboard_placement_probe` explicitly; it is excluded from ALL,
-CTest and release packaging. Copy `tests\CollectKeyboardPlacement.ps1` beside
-its EXE, or supply `-ProbePath` to the script. The user runs the script when
-ready, with Gamepad Desktop already running. It gives a five-second delay and
-records for 20 seconds while the user opens Start and invokes the keyboard.
-The launcher enforces a 35-second process watchdog and writes reports only to
-the selected local output directory.
-
-The probe records the running application's version and its own bounded status
-control, plus app/keyboard/Start/Search class, bounds, DPI, visibility, cloak,
-topmost flags and enumeration order. A popup point-hit grid reports only
-keyboard/app/shell/other/none, never unrelated window identities or text.
-Version 2 also reads the foreground root directly because `EnumWindows` can
-omit immersive shell windows. Up to 32 children of an identified foreground
-shell contribute geometry only; a 7-by-5 work-area hit grid helps distinguish
-window-frame extent from hit-tested shell coverage. This is not pixel visibility.
-Version 4 also records the identified foreground shell's GUI flags and whether
-active/focus/capture/menu windows exist, plus a role-only focus classification.
-It still reads no field contents. For an opener failure, hold Y for two seconds
-during the user-run recording so the transient application status is captured.
-It does not read window titles, target/search content, input state, screenshots,
-audio or clipboard, and never injects input or changes focus/settings. It stops
-on a protected/locked desktop. A hit test or HWND flag is not proof of compositor
-visibility; cropped user-provided visual evidence may still be needed.
-
 Normal application launch activates automatic controller mapping.
 `--inspect` disables external input and the optional filter, but still creates a
 real app window and reads settings/observers. Keyboard previews are no-output
