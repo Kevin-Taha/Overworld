@@ -1,4 +1,5 @@
 #include "KeyboardVisual.h"
+#include "KeyboardAppearance.h"
 #include "Keyboard.h"
 
 #include <d2d1.h>
@@ -53,61 +54,13 @@ D2D1_COLOR_F color(std::uint32_t rgb, float alpha = 1)
     return D2D1::ColorF(rgb, alpha);
 }
 
-std::uint32_t rgb(COLORREF value)
-{
-    return (static_cast<std::uint32_t>(GetRValue(value)) << 16)
-        | (static_cast<std::uint32_t>(GetGValue(value)) << 8) | GetBValue(value);
-}
-
 class WindowsThemeSource final : public KeyboardThemeSource {
 public:
     HRESULT read(KeyboardTheme& theme) override
     {
-        HIGHCONTRASTW contrast{sizeof(contrast)};
-        if (!SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof(contrast), &contrast, 0)) {
-            const auto error = GetLastError();
-            return error ? HRESULT_FROM_WIN32(error) : E_FAIL;
-        }
-        theme = {};
-        theme.high_contrast = (contrast.dwFlags & HCF_HIGHCONTRASTON) != 0;
-        if (theme.high_contrast) {
-            theme.window = rgb(GetSysColor(COLOR_WINDOW));
-            theme.window_text = rgb(GetSysColor(COLOR_WINDOWTEXT));
-            theme.highlight = rgb(GetSysColor(COLOR_HIGHLIGHT));
-            theme.highlight_text = rgb(GetSysColor(COLOR_HIGHLIGHTTEXT));
-            return S_OK;
-        }
-        DWORD light = 1, size = sizeof(light);
-        const auto result = RegGetValueW(HKEY_CURRENT_USER,
-            L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
-            L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size);
-        // An absent preference is Windows' default light app theme, not a failed read.
-        if (result != ERROR_SUCCESS && result != ERROR_FILE_NOT_FOUND && result != ERROR_PATH_NOT_FOUND) {
-            return HRESULT_FROM_WIN32(result);
-        }
-        theme.dark = result == ERROR_SUCCESS && light == 0;
-        return S_OK;
+        return read_keyboard_theme(theme);
     }
 };
-
-struct Palette {
-    std::uint32_t surface, ink, secondary, selected, selected_ink, outline, error;
-    float alpha, edge_alpha, shadow_alpha;
-};
-
-Palette palette(const KeyboardTheme& theme)
-{
-    if (theme.high_contrast) {
-        return {theme.window, theme.window_text, theme.window_text, theme.highlight,
-            theme.highlight_text, theme.window_text, theme.window_text, 1, 1, 0};
-    }
-    if (theme.dark) {
-        return {0x242A32, 0xF0F3F7, 0xC0C9D4, 0x304F70, 0xF1F7FF, 0xACBCD0, 0xFFC1AD,
-            0.97f, 0.32f, 0.018f};
-    }
-    return {0xF9F9F6, 0x303640, 0x58616C, 0xDCE9F7, 0x194E83, 0x7F8F9E, 0x8D3826,
-        0.97f, 0.26f, 0.012f};
-}
 
 struct CachedGlyph {
     ComPtr<IDWriteTextLayout> layout;
@@ -521,7 +474,7 @@ bool KeyboardVisual::render(int width, int height, const Daisywheel& model, cons
         static_cast<float>(height) / logical_height);
     const float left = (width - keyboard_visual_width * scale) / 2;
     const float top = (height - logical_height * scale) / 2;
-    const auto colors = palette(r.theme);
+    const auto colors = keyboard_palette(r.theme);
     const auto contour = character_stage ? r.character_contour.Get() : r.contour.Get();
     const auto transform = D2D1::Matrix3x2F::Scale(scale, scale)
         * D2D1::Matrix3x2F::Translation(left, top);

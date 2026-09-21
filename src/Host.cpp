@@ -19,6 +19,7 @@
 #include "SelfCaption.h"
 #include "LaunchMode.h"
 #include "InstanceGuard.h"
+#include "ControllerViewWindow.h"
 
 #include <Windows.h>
 #include <Shellapi.h>
@@ -29,6 +30,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <memory>
 #include <new>
 #include <sstream>
 #include <string>
@@ -117,6 +119,7 @@ public:
     ~Host()
     {
         poller_.stop();
+        if (controller_view_ && !controller_view_->stop()) { OutputDebugStringW(controller_view_->error().c_str()); }
         if (font_) {
             DeleteObject(font_);
         }
@@ -126,9 +129,23 @@ public:
         if (title_font_) { DeleteObject(title_font_); }
     }
 
-    bool create(HINSTANCE instance, int show)
+    bool create(HINSTANCE instance, int show, bool show_controller_view)
     {
         instance_ = instance;
+        if (show_controller_view) {
+            try {
+                controller_view_ = std::make_unique<ControllerViewWindow>();
+                if (!controller_view_->start(instance)) {
+                    MessageBoxW(nullptr, controller_view_->error().c_str(),
+                        L"Overworld - controller view unavailable", MB_OK | MB_ICONERROR);
+                    return false;
+                }
+            } catch (const std::bad_alloc&) {
+                MessageBoxW(nullptr, L"Not enough memory to start the controller view. No desktop input was started.",
+                    L"Overworld - controller view unavailable", MB_OK | MB_ICONERROR);
+                return false;
+            }
+        }
         WNDCLASSEXW klass{sizeof(klass)};
         klass.lpfnWndProc = window_proc;
         klass.hInstance = instance;
@@ -562,6 +579,7 @@ private:
         }
         update_navigation();
         render_live();
+        update_controller_view();
         // Keep diagnostics rendering out of most input-loop iterations.
         if (now - rendered_at_ < 100) { return; }
         rendered_at_ = now;
@@ -597,6 +615,26 @@ private:
                 + L"\r\nKeyboard: " + keyboard_.delivery().status()
                 + L"\r\nMaximum controller-sample to dispatch: "
                 + std::to_wstring(keyboard_.delivery().maximum_dispatch_ms()) + L" ms (software only)");
+        }
+    }
+
+    void update_controller_view()
+    {
+        if (!controller_view_) { return; }
+        if (!controller_view_->running()) {
+            const auto error = controller_view_->error();
+            if (!controller_view_failed_ && !error.empty()) { add_event(L"Controller view stopped: " + error); }
+            controller_view_.reset();
+            return;
+        }
+        if (controller_view_failed_) { return; }
+        const auto slot = keyboard_.visible() ? keyboard_.selected_slot() : live_.selected_slot();
+        const auto route = keyboard_.visible()
+            ? (keyboard_.accepts_typing() ? ControllerViewRoute::Keyboard : ControllerViewRoute::Paused)
+            : (live_.armed() ? ControllerViewRoute::Desktop : ControllerViewRoute::Paused);
+        if (!controller_view_->publish(controller_view_frame(snapshot_, monotonic_now(), slot, route))) {
+            add_event(L"Controller view stopped: " + controller_view_->error());
+            controller_view_failed_ = true;
         }
     }
 
@@ -1710,6 +1748,8 @@ private:
     std::array<std::optional<Connection>, slot_count> slot_labels_;
     Snapshot snapshot_;
     ControllerPoller poller_;
+    std::unique_ptr<ControllerViewWindow> controller_view_;
+    bool controller_view_failed_ = false;
     Tick started_at_ = monotonic_now();
     Tick rendered_at_ = 0;
     std::wstring last_live_status_;
@@ -1738,8 +1778,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             L"Overworld", MB_OK | MB_ICONERROR);
         return 1;
     }
-    const std::array<std::wstring_view, 1> argument{argc == 2 ? argv[1] : L""};
-    const auto mode = argc == 1 ? LaunchMode::Desktop : argc == 2 ? launch_mode(argument) : LaunchMode::Invalid;
+    const std::array<std::wstring_view, 2> arguments{argc >= 2 ? argv[1] : L"", argc >= 3 ? argv[2] : L""};
+    const auto mode = argc >= 1 && argc <= 3
+        ? launch_mode(std::span{arguments}.first(static_cast<std::size_t>(argc - 1))) : LaunchMode::Invalid;
     const bool restore = mode == LaunchMode::RestoreCursor;
     const bool inspection = mode == LaunchMode::Inspect;
     const bool one_hand_preview = mode == LaunchMode::OneHandedKeyboard;
@@ -1747,12 +1788,23 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
     const bool valid_arguments = mode != LaunchMode::Invalid;
     LocalFree(argv);
     if (!valid_arguments) {
-        MessageBoxW(nullptr, L"Usage: Overworld.exe [--release-tap | --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor]\r\nRelease-tap keeps the custom cursor and delays short A clicks until release. Word suggestions are configured in Settings > Typing. Previews have no external output.",
+        MessageBoxW(nullptr,
+            L"Usage: Overworld.exe [--controller-view] [--release-tap]\r\n"
+            L"Or one of: --inspect | --keyboard-preview | --keyboard-preview-one-handed | --restore-cursor\r\n\r\n"
+            L"Controller view is an optional read-only input visualization; desktop mapping remains live.\r\n"
+            L"Release-tap delays short A clicks until release. Previews have no external output.",
             L"Overworld", MB_OK | MB_ICONERROR);
         return 2;
     }
     MapperInstanceGuard singleton;
     if (singleton.already_running()) {
+        if (launch_uses_controller_view(mode)) {
+            MessageBoxW(nullptr,
+                L"Exit the running Overworld instance, then restart with --controller-view.\r\n"
+                L"The controller view shares the mapper's snapshots; the running instance was not changed.",
+                L"Overworld - controller view", MB_OK | MB_ICONINFORMATION);
+            return 1;
+        }
         if (keyboard_preview || inspection || launch_uses_release_tap(mode)) {
             MessageBoxW(nullptr,
                 L"Exit the running Overworld instance before opening a no-output mode or changing click timing.\r\n"
@@ -1807,7 +1859,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show)
             one_hand_preview ? KeyboardInputMode::OneHanded : KeyboardInputMode::FaceButtons);
     } else {
         Host host(inspection, launch_uses_release_tap(mode));
-        result = host.create(instance, show) ? host.run() : 1;
+        result = host.create(instance, show, launch_uses_controller_view(mode)) ? host.run() : 1;
     }
     return result;
 }

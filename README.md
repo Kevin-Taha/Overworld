@@ -85,6 +85,26 @@ tap, and accepted button releases retain normal cleanup ownership.
 Normal launch still clicks on A-down. This experiment does not establish a fix
 for initial Start/Phone Link interaction or late native-navigation bridge events.
 
+## Optional controller view
+
+For demos or recordings, close the running instance and launch
+`Overworld.exe --controller-view`. This adds a small, borderless, transparent
+controller visualization using the same input snapshots as the mapper.
+It is **off by default**: normal launch creates no view worker, timer, window or
+graphics resources. No additional downloads, controller reader or settings
+changes are required. It can also be combined with `--release-tap`.
+
+The label-free view shows stick movement, trigger travel and button presses.
+Drag blank controller body to move it, drag its painted outer edges/grip corners
+to resize, and right-click to close only the view. Closing releases its rendering
+resources and leaves Overworld running; restart with the flag to reopen it.
+Transparent margins are not drag/resize handles.
+
+The view is read-only, but the app still maps desktop input normally. It shows
+observed controls, not proof that an application accepted an action. Stale or
+unavailable samples clear held highlights. Recordings can reveal input activity,
+so do not enable it when that would expose sensitive interactions.
+
 ## Floating keyboard
 
 Focus a text field, release the controls, and press Y. The keyboard does not take

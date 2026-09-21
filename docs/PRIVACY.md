@@ -21,6 +21,20 @@ Microphone access requires opt-in, a deliberate held control, a valid original
 target, and an unexpired capture lease. Windows microphone privacy/device settings
 remain authoritative and are not changed by the app.
 
+## Optional controller view
+
+`--controller-view` is off by default and persists no preference. When requested,
+it displays mapped controls from the same batches the app already consumes,
+plus coarse controller/routing status. It does not read field text, target
+identity, device descriptions, audio or additional controllers; it has no event
+history, recording, network transport or file output. Rendering exports exist
+only in explicitly built synthetic test fixtures.
+
+Visible presses and stick movement can reveal input activity in a recording,
+including interactions that should remain private. Enable the view only when
+showing that activity is appropriate. Closing it releases the view resources
+without changing mapper authorization or the app's normal privacy boundaries.
+
 ## Local word suggestions
 
 Word suggestions are on by default for eligible controller-keyboard sessions.

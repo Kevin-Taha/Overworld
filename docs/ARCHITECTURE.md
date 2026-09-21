@@ -21,6 +21,7 @@ use `OVERWORLD_*`. These are compatibility contracts, not stale UI branding.
 | Area | Implementation | Responsibility |
 | --- | --- | --- |
 | Controller sampling | `XInputReader.*`, `NativeControllers.*`, `ControllerMapping.*` | Shared XInput and mapped DirectInput reader; no desktop output |
+| Optional controller view | `ControllerView.h`, `ControllerViewWindow.*`, `ControllerViewVisual.*` | Default-off read-only snapshot visualization; lazy independent UI worker |
 | Pointer model | `Pointer.*`, `Live.*` | Movement, buttons, handoff, mode state, accepted-output ownership |
 | Native boundary | `Desktop.*` | Session, integrity, focus, routing, physical-input checks and tagged `SendInput` |
 | Cursor | `CursorPresentation.*`, `CursorRing.*`, `NativeCursor*` | Layered pixels and ownership-safe native hiding |
@@ -124,6 +125,39 @@ tab order, status, and keyboard actions while presenting the same pixels.
 The scene's native accessible name also exposes its bounded local typing sample.
 Theme reads reuse `AppUi`; no system preference is written. With no controller
 source, the window stays hidden/offscreen for the opt-in render-only helper.
+
+## Optional controller view
+
+The normal product accepts `--controller-view`, optionally combined with
+`--release-tap` in either order. Existing launch modes stay unchanged; previews,
+inspection and recovery cannot combine with the view. The strict parser and
+instance guard run before any view construction. There is no separate demo
+executable, persisted preference or settings migration.
+
+Host owns a null `unique_ptr` on normal launch. Only the explicit flag constructs
+`ControllerViewWindow` and starts its nonactivating independent UI worker;
+the off path never constructs a frame, reads a theme, starts another timer or
+allocates graphics resources. Manual close tears down worker-owned window,
+rendering and COM resources; Host reaps the completed object and returns to the
+same inactive path. Runtime display failure is reported once without waiting on
+renderer teardown in the input loop. Exit retains bounded terminal shutdown.
+
+The Host publishes only the exact consumed batch's controller controls,
+sample timestamp/sequence, selected slot, and coarse routing state after updating
+the keyboard/pointer models. No target identity, typed content or device metadata
+crosses this boundary. The latest-value mailbox may drop visual updates, never
+delay delivery to preserve them. The viewer uses the same monotonic clock and
+blanks stale input independently of Host publication. Rendering, resizing and
+closing it cannot select a controller or grant output permission.
+
+The view is built against shared keyboard appearance, not a private theme.
+Its per-pixel layered surface has transparent exterior pixels, a mildly
+translucent body and opaque controls; high contrast keeps surfaces opaque.
+It has no controller-reader/output/microphone/settings boundary. Default pure
+tests cover view-state projection and launch isolation; opt-in offscreen and
+hidden-window fixtures use the same compiled renderer/window libraries as the
+product. These fixtures establish neither real-controller timing nor visible
+compositor/capture-tool compatibility.
 
 ## Input authorization and ownership
 

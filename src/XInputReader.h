@@ -2,6 +2,7 @@
 
 #include "Core.h"
 #include "ControllerDevices.h"
+#include "MonotonicClock.h"
 
 #include <condition_variable>
 #include <mutex>
@@ -9,8 +10,6 @@
 #include <thread>
 
 namespace overworld {
-
-[[nodiscard]] Tick monotonic_now();
 
 // Reader-only adapter. Call from one thread; epochs preserve observed connection
 // changes even when the UI skips intermediate snapshots in its latest-value mailbox.

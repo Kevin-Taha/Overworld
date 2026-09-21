@@ -99,6 +99,19 @@ practice scene. `overworld_delivery_tests` exercises its shared
 `KeyboardDelivery` model. Neither that fixture nor practice establishes shell
 overlay ordering, native navigation exclusivity, or touch-keyboard behavior.
 
+The opt-in `Overworld.exe --controller-view` companion is not a Practice scene:
+Practice's exclusive, foreground-scoped reader cannot safely accompany a live
+mapper. The default deterministic `overworld_controller_view_tests` fixture
+feeds bounded snapshots through the same `ControllerView.h` view adapter,
+including selected-slot identity, raw axes/triggers, ambiguous controllers,
+disconnects and expired samples. The opt-in render fixture uses the actual demo
+renderer and shared compiled keyboard appearance at multiple themes and DPI;
+the owned hidden-window fixture also covers the actual product window's lazy
+initialization, running/closed lifecycle and terminal resource cleanup.
+These fixtures establish no real-device synchronization or external delivery.
+Both renderers, including Practice's existing keyboard, use `KeyboardAppearance`
+from the single `overworld_keyboard_visual` compilation owner.
+
 ## Try a component change
 
 Five scenes exercise aiming, A/X clicks, hold-and-drag, scrolling, and local

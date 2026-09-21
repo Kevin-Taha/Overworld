@@ -35,6 +35,9 @@ public:
             && !delivery_.recovery_required() && text_eligible(observation) && observation.target == target_;
     }
     [[nodiscard]] bool visible() const { return phase_ != DesktopKeyboardPhase::Closed; }
+    [[nodiscard]] std::optional<unsigned> selected_slot() const {
+        return visible() ? std::optional<unsigned>{slot_} : std::nullopt;
+    }
     [[nodiscard]] bool accepts_typing() const {
         return phase_ == DesktopKeyboardPhase::Composing && keyboard_.phase() == KeyboardPhase::Typing
             && delivery_.phase() == TextPhase::Ready;

@@ -12,6 +12,8 @@ and optional offline dictation.
 - SDL-format community mappings and file-based overrides, generic repeated-axis
   handling, and metadata discovery isolated from controller sampling.
 - Pointer movement, click/drag, scrolling, custom cursor, and manual mode control.
+- Default-off `--controller-view` visualization for recordings, isolated from
+  input delivery with lazy native resources and no additional controller reader.
 - Immediate controller keyboard edits and opt-in one-handed selection.
 - Start/Search region-aware popup placement, including focused non-drawing Search
   windows and a shell-only compact fallback bounded to 20%.

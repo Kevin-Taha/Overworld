@@ -139,6 +139,59 @@ The shipping `Overworld` target never links practice modules and rejects
 `--practice` instead of starting the mapper. See the
 [harness component map](PRACTICE-HARNESS.md) before interpreting demo results.
 
+## Optional controller view
+
+The normal `Overworld` target includes a default-off controller visualization.
+No extra executable, build option, dependency package or settings migration is
+required. Normal launch does not construct its worker, window, timer or renderer.
+Only explicit `--controller-view` launches allocate those resources.
+
+```powershell
+cmake --build out\arm64 --config Release --target Overworld --parallel 1 -- /nodeReuse:false
+# Deliberate interactive use only; close any running mapper/Practice first:
+.\out\arm64\Release\Overworld.exe --controller-view
+# If release-aware clicks are also wanted, request them explicitly:
+.\out\arm64\Release\Overworld.exe --controller-view --release-tap
+```
+
+Keep the same controller data, optional verified voice model, and licenses beside
+the executable as usual. The optional view preserves normal settings and
+single-instance protection; it cannot attach to an already-running instance.
+Both flag orders are accepted with `--release-tap`; duplicates and combinations
+with inspection, keyboard previews or cursor recovery are rejected before
+starting input. This is a live app, **not** a no-output preview. No build/test
+step launches it automatically.
+
+The borderless, movable, resizable, nonactivating controller window is intended
+for recordings. Its compact, rounded controller artwork is intentionally label-free:
+thumbstick movement, trigger fill and restrained press highlights show activity
+without diagnostic headings or a legend. The rectangular background is fully
+transparent; the controller body is about 90% opaque while input indicators
+remain opaque. High contrast keeps the controller surfaces opaque. The native
+title bar is not drawn, but the accessible window name retains status information.
+Its independent rendering thread
+receives the exact batch already consumed by the Host; it never opens another
+controller reader. It follows the keyboard's pinned slot while typing and the
+pointer's selected slot otherwise.
+When no slot is selected it shows a sole connected controller as observation
+only, or reports ambiguity in its accessible name if several are connected.
+Buttons/sticks/triggers show mapped raw values, not deadzone-filtered pointer
+motion or proof of delivered input. Guide is not exposed by the reader and is
+not fabricated.
+
+Drag a blank painted part of the controller to move it. Drag its visible outer
+edges/grip corners to resize; transparent window margins are not resize handles.
+Right-click the controller to close just the companion, leaving the mapper
+running and releasing view resources. Restart with the flag to reopen it. The
+flag is not persisted in Settings. There is no popup menu or permanent
+close button. Moving it with a physical mouse still invokes normal mouse takeover.
+Old/unavailable samples clear pressed controls rather than appearing stuck.
+Controller availability and routing details are not drawn over the controller.
+There is no recording, event history, network transport, settings write, or
+change to output authorization from this view. Transparent-window capture and
+visible mouse interactions still depend on the desktop/capture environment;
+the synthetic checks do not establish those integrations.
+
 ## Alternative x64 local voice without an imported package
 
 When voice is explicitly ON and `OVERWORLD_WHISPER_ROOT` is empty, the x64

@@ -67,7 +67,7 @@ target_compile_definitions(overworld_controller_model PRIVATE WIN32_LEAN_AND_MEA
 add_library(overworld_xinput src/XInputReader.cpp src/NativeControllers.cpp)
 target_link_libraries(overworld_xinput PUBLIC overworld_core overworld_controller_model PRIVATE Xinput Dinput8 Dxguid User32)
 target_compile_definitions(overworld_xinput PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
-add_library(overworld_keyboard_visual src/KeyboardVisual.cpp)
+add_library(overworld_keyboard_visual src/KeyboardVisual.cpp src/KeyboardAppearance.cpp)
 target_link_libraries(overworld_keyboard_visual PUBLIC overworld_keyboard PRIVATE
     User32 Gdi32 D2d1 Dwrite Windowscodecs Ole32 Advapi32)
 target_compile_definitions(overworld_keyboard_visual PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -97,13 +97,22 @@ target_compile_options(OverworldPractice PRIVATE /W4 /WX /permissive- /utf-8)
 target_link_options(OverworldPractice PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
 overworld_stage_controller_data(OverworldPractice)
 
+add_library(overworld_controller_view_visual src/ControllerViewVisual.cpp)
+target_link_libraries(overworld_controller_view_visual PUBLIC overworld_keyboard_visual
+    PRIVATE User32 Gdi32 D2d1 Windowscodecs Ole32)
+target_compile_definitions(overworld_controller_view_visual PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(overworld_controller_view_visual PRIVATE /W4 /WX /permissive- /utf-8)
+add_library(overworld_controller_view_window src/ControllerViewWindow.cpp)
+target_link_libraries(overworld_controller_view_window PUBLIC overworld_controller_view_visual)
+target_compile_definitions(overworld_controller_view_window PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(overworld_controller_view_window PRIVATE /W4 /WX /permissive- /utf-8)
+
 add_executable(Overworld WIN32 src/Host.cpp src/Desktop.cpp src/NativeCursorVisibility.cpp
     src/KeyboardPreview.cpp src/NativeNavigationFilter.cpp src/NativeCursorSurface.cpp src/Host.rc)
-target_link_libraries(Overworld PRIVATE overworld_keyboard_popup overworld_app_ui overworld_xinput)
-target_link_libraries(Overworld PRIVATE overworld_ring overworld_keyboard overworld_voice overworld_navigation Xinput Shell32 User32 Gdi32 Wtsapi32 Advapi32 Comctl32 Magnification D2d1 Dwrite Windowscodecs Ole32)
-target_link_libraries(Overworld PRIVATE Dwmapi)
-target_link_libraries(Overworld PRIVATE Uxtheme)
-target_link_libraries(Overworld PRIVATE Comdlg32)
+target_link_libraries(Overworld PRIVATE overworld_keyboard_popup overworld_app_ui overworld_xinput
+    overworld_controller_view_window overworld_ring overworld_keyboard overworld_voice overworld_navigation
+    Xinput Shell32 User32 Gdi32 Wtsapi32 Advapi32 Comctl32 Magnification D2d1 Dwrite Windowscodecs Ole32
+    Dwmapi Uxtheme Comdlg32)
 target_compile_definitions(Overworld PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_link_options(Overworld PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
 overworld_stage_controller_data(Overworld)
@@ -135,6 +144,20 @@ target_include_directories(Overworld PRIVATE "${overworld_build_info_dir}")
 
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(overworld_controller_view_tests tests/ControllerViewTests.cpp)
+    target_include_directories(overworld_controller_view_tests PRIVATE src)
+    target_compile_features(overworld_controller_view_tests PRIVATE cxx_std_20)
+    target_compile_options(overworld_controller_view_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    add_test(NAME overworld_controller_view_tests COMMAND overworld_controller_view_tests)
+    add_executable(overworld_controller_view_visual_tests EXCLUDE_FROM_ALL tests/ControllerViewVisualTests.cpp)
+    target_link_libraries(overworld_controller_view_visual_tests PRIVATE overworld_controller_view_visual)
+    target_compile_definitions(overworld_controller_view_visual_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(overworld_controller_view_visual_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    add_executable(overworld_controller_view_window_tests EXCLUDE_FROM_ALL tests/ControllerViewWindowTests.cpp)
+    target_link_libraries(overworld_controller_view_window_tests PRIVATE overworld_controller_view_window)
+    target_compile_definitions(overworld_controller_view_window_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    target_compile_options(overworld_controller_view_window_tests PRIVATE /W4 /WX /permissive- /utf-8)
+    target_link_options(overworld_controller_view_window_tests PRIVATE /MANIFEST:EMBED "/MANIFESTINPUT:${CMAKE_CURRENT_BINARY_DIR}/Host.manifest")
     add_executable(overworld_branding_tests tests/BrandingTests.cpp)
     target_link_libraries(overworld_branding_tests PRIVATE overworld_app_ui overworld_settings Version)
     target_compile_definitions(overworld_branding_tests PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
@@ -296,6 +319,7 @@ if(BUILD_TESTING)
 endif()
 
 include(cmake/PracticeContracts.cmake)
+include(cmake/ControllerViewContracts.cmake)
 
 if(BUILD_TESTING)
     add_test(NAME overworld_build_info_tests COMMAND "${CMAKE_COMMAND}"

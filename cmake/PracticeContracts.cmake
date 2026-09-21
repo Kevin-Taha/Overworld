@@ -59,7 +59,8 @@ foreach(target IN LISTS local_targets)
     endif()
 endforeach()
 foreach(spec "Pointer.cpp|overworld_core" "Keyboard.cpp|overworld_keyboard" "WordPrediction.cpp|overworld_keyboard"
-    "KeyboardVisual.cpp|overworld_keyboard_visual" "KeyboardPopup.cpp|overworld_keyboard_popup"
+    "KeyboardVisual.cpp|overworld_keyboard_visual" "KeyboardAppearance.cpp|overworld_keyboard_visual"
+    "KeyboardPopup.cpp|overworld_keyboard_popup"
     "KeyboardShell.cpp|overworld_keyboard_popup" "KeyboardPlacement.cpp|overworld_keyboard_placement" "AppUi.cpp|overworld_app_ui"
     "RingPixels.cpp|overworld_cursor_pixels" "XInputReader.cpp|overworld_xinput" "NativeControllers.cpp|overworld_xinput"
     "ControllerMapping.cpp|overworld_controller_model" "ControllerDevices.cpp|overworld_controller_model"

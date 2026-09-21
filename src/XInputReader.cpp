@@ -16,12 +16,6 @@ ControllerReader::~ControllerReader() = default;
 void ControllerReader::service_messages() { if (hid_) { hid_->backend.service_messages(); } }
 bool ControllerReader::shutdown() { return !hid_ || hid_->backend.shutdown(); }
 
-Tick monotonic_now()
-{
-    return static_cast<Tick>(std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::steady_clock::now().time_since_epoch()).count());
-}
-
 Snapshot ControllerReader::read()
 {
     Snapshot snapshot;

@@ -137,6 +137,7 @@ struct Fixture {
     {
         tick(); tick(); button(0x8000);
         check(keyboard.visible() && fake.accepted.empty(), "safe Y opens without output");
+        check(keyboard.selected_slot() == 0u, "observers see the keyboard's original controller");
         pad().left_y = 28000;
         button(0);
         check(keyboard.accepts_typing(), "Y release permits typing with the stick already positioned");
@@ -1719,16 +1720,19 @@ int main()
             f.snapshot.slots[1].buttons = 0; f.button(0); f.tick(); f.button(0x8000); f.button(0);
             f.snapshot.slots[1].left_y = 28000; f.snapshot.slots[1].buttons = 0x1000; f.tick();
             check(f.fake.accepted.empty() && f.keyboard.model().selected_slot() == 0u, "other pad cannot type");
+            check(f.keyboard.selected_slot() == 0u, "read-only observer follows invocation rather than other pad activity");
             Fixture g; g.eligibility.preferred = 1; g.tick(); g.tick(); g.button(0x8000);
             check(!g.keyboard.visible(), "controller preference must govern invocation");
         });
         test("disconnect does not retarget and reconnected View can dismiss", [] {
             Fixture f; f.open(); f.tap(0x1000); f.pad().connection = Connection::Disconnected; f.tick();
             check(!f.keyboard.accepts_typing(), "disconnect stops session");
+            check(f.keyboard.selected_slot() == 0u, "paused session retains original slot for observation");
             f.pad().connection = Connection::Connected; ++f.pad().connection_epoch; f.button(0x0020);
             check(f.keyboard.visible(), "reconnect-held View is not a fresh edge");
             f.button(0); f.button(0x0020);
             check(!f.keyboard.visible() && f.fake.field == L"a", "new View safely closes without rollback");
+            check(!f.keyboard.selected_slot(), "closed keyboard relinquishes observed selection");
         });
         test("Menu View chord closes without Enter or character", [] {
             Fixture f; f.open(); f.button(0x0030);

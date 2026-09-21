@@ -151,6 +151,42 @@ reserved-range policy, not guessed injection flags.
 
 ## Render-only checks
 
+`overworld_controller_view_tests` is part of default CTest and uses only synthetic
+snapshots. `overworld_launch_tests` verifies default-off behavior, both explicit
+view/release-tap orders, duplicate/extra-flag rejection and no-output-mode
+isolation. The following renderer/window fixtures remain explicit opt-in targets:
+
+```powershell
+cmake --build out\arm64 --config Release --target overworld_controller_view_visual_tests overworld_controller_view_window_tests --parallel 1 -- /nodeReuse:false
+# Separately authorized synthetic render check, under a 120-second watchdog:
+.\out\arm64\Release\overworld_controller_view_visual_tests.exe --render-only .\out\controller-view-frames
+.\out\arm64\Release\overworld_controller_view_window_tests.exe --render-only
+```
+
+The pure fixture preserves the consumed sample's timestamp/sequence and mapper's
+selected slot, prevents merging multiple controllers, checks every signed stick
+value and reserved-button masking, and clears disconnected/error/stale controls.
+Rendering independently checks original sample age so a stalled Host cannot
+leave a pressed button lit forever. The visual fixture uses synthetic controls
+and themes only, without creating the live Host or linking the native reader.
+The minimalist renderer checks label-free frames, compact silhouette geometry,
+per-control pixel changes, raw stick directions and trigger travel at multiple
+themes, DPI and the minimum window size. It checks fully transparent exterior
+pixels, translucent body alpha, opaque high-contrast surfaces, premultiplied
+color channels, stale clearing and idle resource reuse.
+Configure-time contracts require the exact view libraries in the product,
+keep native-input boundaries out of the view and retain explicit-only rendering
+fixtures. A source contract guards the single CLI-gated lazy construction site
+and the inactive Host update fast path.
+The separately authorized window fixture creates only its own hidden companion
+worker, publishes synthetic values, and exercises layered/borderless window
+styles, construction without native work, running/closed transitions,
+resize/paint, manual close, bounded shutdown and unchanged foreground
+identity. Drag/resize hit-test probes must intersect painted pixels: transparent
+outer margins alone cannot receive real mouse hits. It does not run the mapper
+or read a controller. Hidden-window success is not proof of visible compositor
+behavior, capture-tool compatibility or real-device synchronization.
+
 Default `overworld_keyboard_placement_tests` uses pure rectangles and process-name
 classification, not HWND creation or live metadata. It covers normal placement,
 Start/Search avoidance at 96/144/192 DPI, normal/prediction heights, stable anchors,
