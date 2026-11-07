@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible Overworld problem using redacted details.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check docs/TROUBLESHOOTING.md first. Report sensitive vulnerabilities using SECURITY.md, not a public issue.
+        Do not attach credentials, raw audio/transcripts, personal paths, dumps, or screenshots of unrelated applications.
+        Do not run live input, microphone, hook, or cursor probes just to complete this form.
+  - type: input
+    id: build
+    attributes:
+      label: Build identity
+      description: Version or commit, architecture, and voice flavor from Details or file properties.
+      placeholder: 0.2.0, x64, voice-off
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Relevant environment
+      description: Windows version, controller model/connection, and relevant app/settings. Omit account names and private paths.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps with a disposable target and synthetic text, if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Takeover and recovery
+      description: State what you already observed about physical takeover and emergency pause. Write "not exercised" if unknown.
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Optional category/error codes only. Review any shared data for personal information first.

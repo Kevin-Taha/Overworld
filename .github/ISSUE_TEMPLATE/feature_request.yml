@@ -1,0 +1,27 @@
+name: Feature request
+description: Propose a focused change within Overworld's product boundaries.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read docs/PLAN.md before proposing a feature. Declined and parked experiments need a new explicit product decision.
+        Avoid personal information, raw diagnostics, and screenshots of unrelated applications.
+  - type: textarea
+    id: scenario
+    attributes:
+      label: User scenario
+      description: What are you trying to accomplish, and what is difficult today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change and alternatives
+      description: Describe one focused improvement and any existing workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Safety and validation
+      description: Note relevant takeover, target identity, privacy, accessibility, or development-harness constraints and what remains untested.

@@ -18,11 +18,15 @@ disabling requested features. Use `PackageOverworldArm64.ps1` to stage ARM64 fil
 - Windows with Visual Studio 2022 and the C++ desktop workload. The checked
   release configuration uses the v143 14.44.35207 toolset.
 - MSVC x64 tools and, for the ARM64 target, the ARM64 C++ tools.
-- Windows SDK 10.0.26100.0 for the pinned configuration.
+- Windows SDK; the pinned release configuration uses 10.0.26100.0.
 - CMake 3.24 or newer, Git for revision labels, and PowerShell for helper scripts.
 
 The application is compiled with MSVC, not a whole-app Clang toolchain.
 Project targets retain `/W4 /WX /permissive- /utf-8`.
+For ordinary voice-off development, omit the explicit toolset/SDK pins to use
+the installed VS 2022 tools and SDK, or specify an installed SDK with
+`-DCMAKE_SYSTEM_VERSION=<version>`. The pinned voice-release/package recipes
+below remain separate; do not claim an ordinary build reproduced those inputs.
 Builds without a local Git repository remain usable and report an explicit
 `unversioned` source fingerprint instead of inheriting an enclosing repository's
 revision.
@@ -36,9 +40,8 @@ Compilation and deterministic tests do not establish live device compatibility.
 ## Fresh clone and relocated static packages
 
 The repository contains source, tests and notices, not compilers, static dependency
-packages, model weights or generated binaries. Authenticate to the private
-repository using the new machine's normal Git setup; do not copy credentials or
-an old agent directory:
+packages, model weights or generated binaries. Clone using the new machine's
+normal Git setup; do not copy credentials or an old agent directory:
 
 ```powershell
 git clone https://github.com/Kevin-Taha/overworld.git
@@ -111,9 +114,12 @@ This route needs no speech dependency or model download:
 
 ```powershell
 cmake -S . -B out\x64 -G "Visual Studio 17 2022" -A x64 `
-  '-DCMAKE_SYSTEM_VERSION=10.0.26100.0' -DOVERWORLD_VOICE_WHISPER=OFF
+  -DOVERWORLD_VOICE_WHISPER=OFF
+if ($LASTEXITCODE) { throw 'Application configure failed.' }
 cmake --build out\x64 --config Release --parallel 1 -- /nodeReuse:false
+if ($LASTEXITCODE) { throw 'Application build failed.' }
 ctest --test-dir out\x64 -C Release --output-on-failure
+if ($LASTEXITCODE) { throw 'Deterministic tests failed.' }
 ```
 
 Use `-A ARM64` and a separate `out\arm64` directory for ARM64.
@@ -265,6 +271,12 @@ app launch enables live controller handling, so it is not a build smoke test.
 
 ## Release files
 
+Every distribution includes the repository's `LICENSE` beside `Overworld.exe`.
+It grants MIT terms for original application code and documentation, not for
+separately identified third-party material. The ARM64 packager includes it and
+uses [the standalone release readme](RELEASE-README.md), rather than a dependency
+build recipe, as the release's `README.md`.
+
 Every flavor needs `controllers\gamecontrollerdb.txt` beside the EXE and
 `controller-licenses\SDL_GameControllerDB-LICENSE.txt` from the build staged as
 `licenses\SDL_GameControllerDB-LICENSE.txt`. The ARM64 packager includes both.
@@ -292,7 +304,7 @@ The vocabulary data's ShareAlike license is separate from application code.
 
 Include `voice-licenses\whisper.cpp-LICENSE.txt` from the build and
 `third_party\voice-notices.txt` with voice-enabled distributions. These cover the
-named third-party code/model, not a new license for this application's source.
+named third-party code/model independently of the application's MIT license.
 LLVM, SDK, MSVC, static libraries, headers, PDBs, compiler logs, fixture audio, and
 model caches are not application release assets.
 `OverworldPractice.exe` and all probe/test executables are development-only

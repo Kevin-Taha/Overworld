@@ -1,0 +1,2 @@
+# Recognize existing Windows line endings without renormalizing source bytes.
+* whitespace=trailing-space,space-before-tab,cr-at-eol

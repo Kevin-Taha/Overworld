@@ -1,4 +1,4 @@
-/# Generated builds, dependencies, models, and publication staging.
+# Generated builds, dependencies, models, and publication staging.
 /out/
 /build/
 /build-*/
@@ -9,6 +9,7 @@
 /_deps/
 /.vs/
 /.cache/
+/.copilot/
 /CMakeUserPresets.json
 CMakeCache.txt
 CMakeFiles/
@@ -58,3 +59,11 @@ settings.ini.tmp
 *.suo
 Thumbs.db
 .DS_Store
+
+# Local secrets are not repository inputs; ignoring is not a history scrub.
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12

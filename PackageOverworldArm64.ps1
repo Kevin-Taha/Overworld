@@ -56,14 +56,15 @@ if ($model.Length -ne 77704715 -or
     throw 'Model does not match the pinned Whisper tiny.en weights.'
 }
 $license = Join-Path $build 'voice-licenses\whisper.cpp-LICENSE.txt'
+$applicationLicense = Join-Path $PSScriptRoot 'LICENSE'
 $notice = Join-Path $PSScriptRoot 'third_party\voice-notices.txt'
 $predictionNotice = Join-Path $PSScriptRoot 'third_party\prediction-notices.txt'
 $predictionLicense = Join-Path $PSScriptRoot 'third_party\prediction-CC-BY-SA-4.0.txt'
-$readme = Join-Path $PSScriptRoot 'docs\ARM64-WHISPER.md'
+$readme = Join-Path $PSScriptRoot 'docs\RELEASE-README.md'
 $controllerDatabase = Join-Path $build 'Release\controllers\gamecontrollerdb.txt'
 $controllerLicense = Join-Path $build 'controller-licenses\SDL_GameControllerDB-LICENSE.txt'
 $controllerGuide = Join-Path $PSScriptRoot 'docs\CONTROLLERS.md'
-foreach ($path in @($license, $notice, $predictionNotice, $predictionLicense, $readme, $controllerDatabase, $controllerLicense, $controllerGuide)) {
+foreach ($path in @($applicationLicense, $license, $notice, $predictionNotice, $predictionLicense, $readme, $controllerDatabase, $controllerLicense, $controllerGuide)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing package input: $path" }
 }
 if ((Get-FileHash -LiteralPath $controllerDatabase -Algorithm SHA256).Hash -ine
@@ -76,6 +77,7 @@ $bundle = Join-Path $build "packages\Overworld-ARM64-Whisper-$revision-$(Get-Dat
 if (Test-Path -LiteralPath $bundle) { throw 'Refusing to overwrite an existing package.' }
 New-Item -ItemType Directory -Path "$bundle\models", "$bundle\licenses", "$bundle\controllers" | Out-Null
 Copy-Item -LiteralPath $exe.FullName -Destination "$bundle\Overworld.exe"
+Copy-Item -LiteralPath $applicationLicense -Destination "$bundle\LICENSE"
 Copy-Item -LiteralPath $model.FullName -Destination "$bundle\models\ggml-tiny.en.bin"
 Copy-Item -LiteralPath $license, $notice, $predictionNotice, $predictionLicense, $controllerLicense -Destination "$bundle\licenses"
 Copy-Item -LiteralPath $controllerDatabase -Destination "$bundle\controllers\gamecontrollerdb.txt"

@@ -1,9 +1,21 @@
 # Contributing
 
 This is a native Windows project. Read the [README](README.md) and
-[architecture](docs/ARCHITECTURE.md) before proposing changes. The absence of an
-application license does not grant redistribution or reuse rights; preserve all
-existing third-party notices.
+[architecture](docs/ARCHITECTURE.md) before proposing changes. Original code and
+documentation use the [MIT License](LICENSE); preserve the separate licenses and
+attribution for third-party material, especially the CC BY-SA vocabulary data.
+Submit only contributions you have the right to provide under the applicable
+license. No separate contributor license agreement is required.
+
+## Reports and proposals
+
+Search existing issues and [known limits](docs/TROUBLESHOOTING.md) first.
+For bugs, include the build version, architecture/flavor, controller type,
+minimal reproduction, expected/actual behavior, and whether physical takeover
+and emergency pause still work. Keep feature proposals focused on a real user
+scenario and the product boundaries in [the roadmap](docs/PLAN.md).
+Sensitive vulnerability reports belong in the [security process](SECURITY.md),
+not public issues, pull requests, or attachments.
 
 ## Development workflow
 
@@ -71,7 +83,7 @@ Track source, tests, build scripts, generic documentation, and required notices.
 Do not commit executables, PDBs, toolchains, dependency caches, model weights,
 recordings, fixture downloads, logs, or user configuration.
 
-When creating a new standalone repository from a source snapshot, copy only the
-approved application files. Do not copy an enclosing repository's `.git`,
-configuration, hooks, unrelated directories, or history. Review the complete
-snapshot before publishing it. Release assets are loose files, not ZIPs.
+Review new files as well as the diff: `.gitignore` does not remove files already
+tracked or erase history. Preserve third-party attribution and include `LICENSE`
+with distributions. See [Publication readiness](docs/PUBLISHING.md) for history,
+visibility, and release checks. Release assets are loose files, not ZIPs.

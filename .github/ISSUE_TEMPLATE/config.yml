@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Troubleshooting and known limits
+    url: https://github.com/Kevin-Taha/overworld/blob/main/docs/TROUBLESHOOTING.md
+    about: Check recovery instructions and known app/OS limitations before filing a report.
+  - name: Security reporting policy
+    url: https://github.com/Kevin-Taha/overworld/blob/main/SECURITY.md
+    about: Use the private reporting process for sensitive vulnerabilities, not a public issue.
