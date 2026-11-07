@@ -1,58 +1,128 @@
-# Overworld
+<h1 align="center">Overworld</h1>
 
-A native Windows utility for controlling the desktop with a game controller:
-move the pointer, click and scroll, type with a floating controller keyboard,
-and optionally dictate short text offline.
+<p align="center">
+  <b>Use your Windows PC with a game controller.</b><br>
+  Move the pointer, click, scroll, and type on the desktop without reaching for a mouse or keyboard.
+</p>
 
-**Windows only | x64 and ARM64 | early development.** Overworld is not a
-replacement shell, universal game detector, or accessibility guarantee.
-It installs no driver, service, startup entry, or external remapper.
+<p align="center">
+  <a href="https://github.com/Kevin-Taha/overworld/releases">Download</a> ·
+  <a href="docs/USAGE.md">Usage guide</a> ·
+  <a href="#build-from-source">Build from source</a> ·
+  <a href="docs/TROUBLESHOOTING.md">Troubleshooting</a>
+</p>
+
+<p align="center">
+  <img src="docs/images/hero.png" width="900"
+    alt="A Windows desktop with a message window. Overworld's round on-screen keyboard floats beside the text field showing the word suggestions here, her, and hey, and a game controller sits in front of the screen.">
+</p>
+
+<p align="center">
+  Windows · x64 and ARM64 · early development
+</p>
 
 ## Features
 
-- **Controller-to-desktop handoff:** XInput and mapped DirectInput/HID controllers,
-  neutral-before-activation, immediate physical mouse/keyboard takeover, and an
-  emergency pause.
-- **Pointer and typing:** adjustable pointer profiles, precision movement,
-  scrolling, a non-focus-stealing floating keyboard, and optional one-handed flicks.
-- **Local word suggestions:** an embedded English frequency list, enabled by
-  default with a Settings opt-out. No field-text reads, learning, or history.
-- **Optional offline voice:** opt-in, push-to-talk Whisper tiny.en recognition.
-  No runtime downloads, cloud fallback, transcript logging, or automatic Enter.
-- **Native settings:** keyboard navigation, system light/dark appearance,
-  high contrast, application exclusions, and explicit recovery feedback.
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/pointer-dark.png">
+        <img src="docs/images/pointer-light.png" alt="Overworld's four cursor styles: pointer, ring, precision dot, and open brackets.">
+      </picture>
+      <h3>Pointer</h3>
+      The left stick moves a custom cursor. A clicks, X right-clicks, and the
+      right stick scrolls. Hold LB for fine movement. Pick from four cursor
+      styles and adjust speed in Settings.
+    </td>
+    <td width="33%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/keyboard-dark.png">
+        <img src="docs/images/keyboard-light.png" alt="Overworld's round on-screen keyboard with eight letter groups and a button legend.">
+      </picture>
+      <h3>Keyboard</h3>
+      Press Y in a text field to open a floating keyboard. Point the stick at a
+      group and press the matching face button. Letters go straight into the
+      field without taking focus away. Word suggestions and a one-handed mode are
+      included.
+    </td>
+    <td width="33%" valign="top">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="docs/images/voice-dark.png">
+        <img src="docs/images/voice-light.png" alt="The on-screen keyboard showing a microphone and the word Listening in its center.">
+      </picture>
+      <h3>Voice typing (optional)</h3>
+      In voice-enabled builds, turn on local voice input, then click and hold
+      the right stick, speak, and release. Speech is recognized on your PC with
+      Whisper tiny.en. Nothing is uploaded.
+    </td>
+  </tr>
+</table>
+
+## Controls
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/controls-dark.png">
+    <img src="docs/images/controls-light.png" width="820"
+      alt="Controller diagram. LB: precision movement. Left stick: move the pointer. D-pad: choose a word suggestion. View plus Menu: switch between desktop and game. A: click, hold to drag. B: Escape. X: right-click. Y: open the keyboard. Right stick: scroll.">
+  </picture>
+</p>
+
+While the keyboard is open:
+
+| Input | Action |
+| --- | --- |
+| Left stick | Choose one of eight letter groups |
+| A / B / X / Y | Type the bottom / right / left / top character |
+| LB / RB | Backspace / Space |
+| Hold LT / RT | Capitals / numbers and symbols |
+| Menu | Enter |
+| View | Close the keyboard |
+
+Moving the physical mouse or typing on the keyboard takes over immediately.
+**Ctrl+Alt+F10** or **Pause** in the tray menu stops controller input. The
+[usage guide](docs/USAGE.md) covers every mapping, one-handed typing, and
+Settings.
 
 ## Get started
 
-Build from source using the [quick build below](#build-from-source), or use a
-matching architecture/flavor from [Releases](https://github.com/Kevin-Taha/overworld/releases)
-when one is available. Keep the supplied controller database and licenses
-alongside the executable; voice-enabled builds also require the verified model.
-Release files are distributed individually, not as ZIP archives.
-See the [file layout and full usage guide](docs/USAGE.md#get-started).
+1. Download the build for your PC (x64 or ARM64) from
+   [Releases](https://github.com/Kevin-Taha/overworld/releases) when one is
+   available. Release files are individual, not a ZIP. Keep the `controllers`
+   and `licenses` folders, and `models` for voice builds, next to
+   `Overworld.exe`.
+2. Close any running copy of Overworld or Gamepad Desktop, then start
+   `Overworld.exe`.
+3. Let go of the controller, then move a stick to begin.
 
-Close any existing Overworld or legacy Gamepad Desktop instance before launching.
-Release all controller inputs, then move a stick deliberately to begin.
-Left stick moves, A clicks, X right-clicks, right stick scrolls, and Y opens the
-keyboard at a focused field. **Ctrl+Alt+F10** or tray **Pause** stops desktop
-control; Menu+View switches between desktop control and native gamepad input.
+Xbox-compatible (XInput) controllers work directly. Many DirectInput/HID
+controllers work through the included community mapping database; others need
+a [custom mapping](docs/CONTROLLERS.md).
 
-**Important limits:** automatic game switching is best-effort. Unknown controller
-layouts need an explicit mapping. Browser/custom password fields cannot always
-be recognized, and applications can change their internal text field without
-changing native window identity. Check the target before typing or accepting a
-suggestion; disable suggestions for sensitive use. Never rely on an overlay or
-successful input transport as proof that an application received an action.
+## Good to know
 
-The [usage guide](docs/USAGE.md) documents all controller mappings, one-handed
-typing, voice setup, Settings, and default-off experiments. Start with
-[Troubleshooting](docs/TROUBLESHOOTING.md) for recovery and known OS/app limits;
-read [Privacy](docs/PRIVACY.md) before sharing diagnostics.
+- **Nothing else to install.** No driver, service, startup entry, or external
+  remapper. Settings use a native window with light, dark, and high contrast
+  support.
+- **Stays out of the way.** Overworld does not steal focus, replace clipboard
+  contents, or replay input it isn't sure was delivered.
+- **Runs locally.** Word suggestions use a built-in English word list and
+  never read field text. Voice input is opt-in, push-to-talk, and offline.
+  See [Privacy](docs/PRIVACY.md).
+- **Game switching is best-effort.** Overworld tries to step aside when a game
+  is in front. Use View + Menu or per-app exclusions when it guesses wrong.
+- **Check before you type.** Some apps change fields without Windows noticing,
+  and browser or custom password fields can't always be detected. Turn off
+  word suggestions for sensitive use.
+
+Overworld is not a replacement shell or a guaranteed accessibility tool. See
+[Troubleshooting](docs/TROUBLESHOOTING.md) for known limits and recovery.
 
 ## Build from source
 
-Use Windows, Visual Studio 2022 with the C++ desktop workload and a Windows SDK,
-CMake 3.24+, Git, and PowerShell. Run from the application root:
+Requires Windows, Visual Studio 2022 with the C++ desktop workload and a Windows
+SDK, CMake 3.24+, Git, and PowerShell. From the repository root:
 
 ```powershell
 git clone https://github.com/Kevin-Taha/overworld.git
@@ -65,29 +135,36 @@ ctest --test-dir out\x64 -C Release --output-on-failure
 if ($LASTEXITCODE) { throw 'Deterministic tests failed.' }
 ```
 
-This builds `out\x64\Release\Overworld.exe` without speech dependencies or model
-weights. Configure fetches the hash-pinned public controller mapping database and
-license; [Building](docs/BUILDING.md) documents offline inputs, ARM64 targets,
-voice flavors, pinned release tools, and loose-file packaging.
-Default tests do not launch the live mapper, read controllers, open the
-microphone, install the optional hook, or inject input.
+This produces `out\x64\Release\Overworld.exe` without voice support. Configure
+downloads the hash-pinned controller mapping database. Default tests don't read
+controllers, open the microphone, or inject input. See
+[Building](docs/BUILDING.md) for ARM64, voice builds, offline inputs, and
+packaging.
 
-The separately built [Practice component harness](docs/PRACTICE-HARNESS.md)
-uses shared production models/renderers with an owned scene. It is a development
-tool, not a product mode or release asset; `Overworld.exe --practice` is invalid.
+## Documentation
 
-## Development and contributions
+| Guide | Contents |
+| --- | --- |
+| [Usage](docs/USAGE.md) | All controls, typing modes, voice setup, and Settings |
+| [Controllers](docs/CONTROLLERS.md) | Supported controllers and custom mappings |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Recovery steps and known OS/app limits |
+| [Privacy](docs/PRIVACY.md) | What is and isn't recorded; read before sharing diagnostics |
+| [Building](docs/BUILDING.md) and [Testing](docs/TESTING.md) | Build flavors, ARM64, and test suites |
+| [Architecture](docs/ARCHITECTURE.md) | How the pieces fit together |
+
+## Contributing
 
 Read [Contributing](CONTRIBUTING.md), [Architecture](docs/ARCHITECTURE.md),
-[Testing](docs/TESTING.md), and [agent instructions](AGENTS.md) before changing
-behavior. The [roadmap](docs/PLAN.md) records scope and retired experiment
-decisions, not an automatically scheduled work queue.
+[Testing](docs/TESTING.md), and the [agent instructions](AGENTS.md) before
+changing behavior. The [roadmap](docs/PLAN.md) records scope and retired
+experiments. The [Practice harness](docs/PRACTICE-HARNESS.md) is a separately
+built development tool, not part of the app.
 
-Use [Issues](https://github.com/Kevin-Taha/overworld/issues) for redacted bug reports
-and focused proposals. For sensitive vulnerabilities, follow
-[Security reporting](SECURITY.md) instead of opening a public issue.
-Maintainers should review [Publication readiness](docs/PUBLISHING.md) before
-changing visibility or distributing a release.
+Use [Issues](https://github.com/Kevin-Taha/overworld/issues) for redacted bug
+reports and focused proposals. Report vulnerabilities through
+[Security](SECURITY.md), not public issues. Maintainers should review
+[Publication readiness](docs/PUBLISHING.md) before changing visibility or
+distributing a release.
 
 ## License and third-party material
 
