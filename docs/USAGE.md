@@ -56,6 +56,12 @@ flavor. Source builds are described in [Building](BUILDING.md).
 
 ### Pointer and mode controls
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/controls-dark.png">
+  <img src="images/controls-light.png" width="820"
+    alt="Controller diagram. LB: precision movement. Left stick: move the pointer. D-pad: choose a word suggestion. View plus Menu: switch between desktop and game. A: click, hold to drag. B: Escape. X: right-click. Y: open the keyboard. Right stick: scroll.">
+</picture>
+
 | Input | Action |
 | --- | --- |
 | Left stick | Move the pointer |

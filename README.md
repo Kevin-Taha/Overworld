@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>Use your Windows PC with a game controller.</b><br>
-  Move the pointer, click, scroll, and type on the desktop without reaching for a mouse or keyboard.
+  Pick up a controller and it controls the desktop. Touch the mouse or keyboard and they work as usual.
 </p>
 
 <p align="center">
@@ -21,6 +21,18 @@
   Windows · x64 and ARM64 · early development
 </p>
 
+## How it works
+
+Overworld runs in the background and follows whichever device you're using.
+There is no mode to pick.
+
+- **Pick up the controller.** Move a stick and the pointer follows. Press A to click.
+- **Need to type?** Press Y in a text field and a keyboard appears beside it.
+- **Reach for the mouse.** Move it or press a key and Overworld steps aside right away.
+- **Start a game.** Overworld tries to recognize games and leaves the controller to them.
+
+The [usage guide](docs/USAGE.md) lists every control.
+
 ## Features
 
 <table>
@@ -31,9 +43,8 @@
         <img src="docs/images/pointer-light.png" alt="Overworld's four cursor styles: pointer, ring, precision dot, and open brackets.">
       </picture>
       <h3>Pointer</h3>
-      The left stick moves a custom cursor. A clicks, X right-clicks, and the
-      right stick scrolls. Hold LB for fine movement. Pick from four cursor
-      styles and adjust speed in Settings.
+      Move, click, drag, and scroll anywhere on the desktop. The cursor appears
+      as soon as you use the controller. Choose its style and speed in Settings.
     </td>
     <td width="33%" valign="top">
       <picture>
@@ -41,10 +52,9 @@
         <img src="docs/images/keyboard-light.png" alt="Overworld's round on-screen keyboard with eight letter groups and a button legend.">
       </picture>
       <h3>Keyboard</h3>
-      Press Y in a text field to open a floating keyboard. Point the stick at a
-      group and press the matching face button. Letters go straight into the
-      field without taking focus away. Word suggestions and a one-handed mode are
-      included.
+      Type with the stick and face buttons. The keyboard floats beside the text
+      field without taking focus from it, and suggests words as you go. A
+      one-handed mode is available in Settings.
     </td>
     <td width="33%" valign="top">
       <picture>
@@ -52,38 +62,12 @@
         <img src="docs/images/voice-light.png" alt="The on-screen keyboard showing a microphone and the word Listening in its center.">
       </picture>
       <h3>Voice typing (optional)</h3>
-      In voice-enabled builds, turn on local voice input, then click and hold
-      the right stick, speak, and release. Speech is recognized on your PC with
-      Whisper tiny.en. Nothing is uploaded.
+      In voice-enabled builds, turn on voice input in Settings. Press and hold
+      the right stick, speak, and release. Speech is recognized on your PC and
+      nothing is uploaded.
     </td>
   </tr>
 </table>
-
-## Controls
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/images/controls-dark.png">
-    <img src="docs/images/controls-light.png" width="820"
-      alt="Controller diagram. LB: precision movement. Left stick: move the pointer. D-pad: choose a word suggestion. View plus Menu: switch between desktop and game. A: click, hold to drag. B: Escape. X: right-click. Y: open the keyboard. Right stick: scroll.">
-  </picture>
-</p>
-
-While the keyboard is open:
-
-| Input | Action |
-| --- | --- |
-| Left stick | Choose one of eight letter groups |
-| A / B / X / Y | Type the bottom / right / left / top character |
-| LB / RB | Backspace / Space |
-| Hold LT / RT | Capitals / numbers and symbols |
-| Menu | Enter |
-| View | Close the keyboard |
-
-Moving the physical mouse or typing on the keyboard takes over immediately.
-**Ctrl+Alt+F10** or **Pause** in the tray menu stops controller input. The
-[usage guide](docs/USAGE.md) covers every mapping, one-handed typing, and
-Settings.
 
 ## Get started
 
@@ -103,22 +87,22 @@ a [custom mapping](docs/CONTROLLERS.md).
 ## Good to know
 
 - **Nothing else to install.** No driver, service, startup entry, or external
-  remapper. Settings use a native window with light, dark, and high contrast
-  support.
-- **Stays out of the way.** Overworld does not steal focus, replace clipboard
-  contents, or replay input it isn't sure was delivered.
-- **Runs locally.** Word suggestions use a built-in English word list and
-  never read field text. Voice input is opt-in, push-to-talk, and offline.
-  See [Privacy](docs/PRIVACY.md).
-- **Game switching is best-effort.** Overworld tries to step aside when a game
-  is in front. Use View + Menu or per-app exclusions when it guesses wrong.
+  remapper.
+- **Pause anytime.** Press **Ctrl+Alt+F10** or choose **Pause** from the tray
+  menu. View + Menu switches between desktop control and game input.
+- **Game detection is best-effort.** If Overworld guesses wrong, use View + Menu
+  or add the app to the exclusions list in Settings.
+- **Runs locally.** Word suggestions use a built-in English word list and never
+  read field text. Voice input is opt-in, push-to-talk, and offline. See
+  [Privacy](docs/PRIVACY.md).
 - **Check before you type.** Some apps change fields without Windows noticing,
   and browser or custom password fields can't always be detected. Turn off
   word suggestions for sensitive use.
 
-Overworld is not a replacement shell or a guaranteed accessibility tool. See
-[Troubleshooting](docs/TROUBLESHOOTING.md) for known limits and recovery.
-
+Overworld does not steal focus, replace clipboard contents, or replay input it
+isn't sure was delivered. It is not a replacement shell or a guaranteed
+accessibility tool. See [Troubleshooting](docs/TROUBLESHOOTING.md) for known
+limits and recovery.
 ## Build from source
 
 Requires Windows, Visual Studio 2022 with the C++ desktop workload and a Windows
