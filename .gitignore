@@ -50,6 +50,8 @@ compile_commands.json
 *.log
 *.bmp
 *.png
+# Curated README artwork rendered from synthetic fixtures.
+!/docs/images/*.png
 *.jpg
 *.jpeg
 *.mp4
