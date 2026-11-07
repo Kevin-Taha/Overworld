@@ -1,8 +1,8 @@
 <h1 align="center">Overworld</h1>
 
 <p align="center">
-  <b>Use your Windows PC with a game controller.</b><br>
-  Pick up a controller and it controls the desktop. Touch the mouse or keyboard and they work as usual.
+  <b>Natural, automatic controller support for the Windows desktop</b><br>
+  Move the pointer, click, scroll, and type with a gamepad, and switch back to your mouse or keyboard at any time.
 </p>
 
 <p align="center">
@@ -23,13 +23,13 @@
 
 ## How it works
 
-Overworld runs in the background and follows whichever device you're using.
-There is no mode to pick.
+Overworld runs in the background and responds to whichever device you're using,
+with no mode to pick or setting to change.
 
-- **Pick up the controller.** Move a stick and the pointer follows. Press A to click.
-- **Need to type?** Press Y in a text field and a keyboard appears beside it.
-- **Reach for the mouse.** Move it or press a key and Overworld steps aside right away.
-- **Start a game.** Overworld tries to recognize games and leaves the controller to them.
+- **Controller:** moving a stick moves the pointer, and A clicks.
+- **Typing:** pressing Y in a text field opens a keyboard beside it.
+- **Mouse and keyboard:** using either one takes over from the controller right away.
+- **Games:** Overworld tries to recognize games automatically and leaves the controller to them.
 
 The [usage guide](docs/USAGE.md) lists every control.
 
@@ -86,23 +86,23 @@ a [custom mapping](docs/CONTROLLERS.md).
 
 ## Good to know
 
-- **Nothing else to install.** No driver, service, startup entry, or external
-  remapper.
-- **Pause anytime.** Press **Ctrl+Alt+F10** or choose **Pause** from the tray
-  menu. View + Menu switches between desktop control and game input.
-- **Game detection is best-effort.** If Overworld guesses wrong, use View + Menu
-  or add the app to the exclusions list in Settings.
-- **Runs locally.** Word suggestions use a built-in English word list and never
-  read field text. Voice input is opt-in, push-to-talk, and offline. See
+- **Lightweight:** no driver, service, startup entry, or external remapper.
+- **Pausing:** **Ctrl+Alt+F10** or **Pause** in the tray menu stops controller
+  input, and View + Menu switches between desktop control and game input.
+- **Game detection:** automatic but best-effort. If Overworld guesses wrong, use
+  View + Menu or add the app to the exclusions list in Settings.
+- **Privacy:** word suggestions use a built-in English word list and never read
+  field text. Voice input is opt-in, push-to-talk, and offline. See
   [Privacy](docs/PRIVACY.md).
-- **Check before you type.** Some apps change fields without Windows noticing,
-  and browser or custom password fields can't always be detected. Turn off
-  word suggestions for sensitive use.
+- **Sensitive fields:** some apps change fields without Windows noticing, and
+  browser or custom password fields can't always be detected. Turn off word
+  suggestions for sensitive use.
 
 Overworld does not steal focus, replace clipboard contents, or replay input it
 isn't sure was delivered. It is not a replacement shell or a guaranteed
 accessibility tool. See [Troubleshooting](docs/TROUBLESHOOTING.md) for known
 limits and recovery.
+
 ## Build from source
 
 Requires Windows, Visual Studio 2022 with the C++ desktop workload and a Windows
